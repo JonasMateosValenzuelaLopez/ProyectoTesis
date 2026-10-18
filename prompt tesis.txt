@@ -1,0 +1,4 @@
+1. El software está pensado tanto para condominios, como para villas, como para departamentos.
+2. Las viviendas se identifican como casa/departamento con su número respectivo.
+3. Para lo cobros sí, hay un titular a quien se le hace el cobro de la respectiva familia. Los demás como dices son sub-usuarios vinculados a la casa/departamento.
+4. Si puede existir
