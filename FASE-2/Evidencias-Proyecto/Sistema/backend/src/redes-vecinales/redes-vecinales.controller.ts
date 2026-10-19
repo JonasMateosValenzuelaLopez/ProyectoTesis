@@ -1,0 +1,45 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+} from '@nestjs/common';
+import { RedesVecinalesService } from './redes-vecinales.service';
+import { CreateRedesVecinaleDto } from './dto/create-red-vecinal.dto';
+import { UpdateRedesVecinaleDto } from './dto/update-red-vecinal.dto';
+
+@Controller('redes-vecinales')
+export class RedesVecinalesController {
+  constructor(private readonly redesVecinalesService: RedesVecinalesService) {}
+
+  @Post()
+  create(@Body() createRedesVecinaleDto: CreateRedesVecinaleDto) {
+    return this.redesVecinalesService.create(createRedesVecinaleDto);
+  }
+
+  @Get()
+  findAll() {
+    return this.redesVecinalesService.findAll();
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.redesVecinalesService.findOne(+id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateRedesVecinaleDto: UpdateRedesVecinaleDto,
+  ) {
+    return this.redesVecinalesService.update(+id, updateRedesVecinaleDto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.redesVecinalesService.remove(+id);
+  }
+}
