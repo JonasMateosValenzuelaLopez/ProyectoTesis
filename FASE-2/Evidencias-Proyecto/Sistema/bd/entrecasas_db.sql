@@ -23,6 +23,9 @@ USE `entrecasas_db`;
 CREATE TABLE IF NOT EXISTS `categorias_marketplace` (
   `id_categoria` int(11) NOT NULL AUTO_INCREMENT,
   `nombre_categoria` varchar(50) NOT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_categoria`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
@@ -36,6 +39,9 @@ CREATE TABLE IF NOT EXISTS `espacios_comunes` (
   `descripcion` text DEFAULT NULL,
   `capacidad` int(11) DEFAULT NULL,
   `estado` tinyint(1) DEFAULT 1,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_espacio`),
   KEY `id_red` (`id_red`),
   CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE
@@ -54,6 +60,9 @@ CREATE TABLE IF NOT EXISTS `gastos_comunes` (
   `fecha_vencimiento` date NOT NULL,
   `estado_pago` enum('Pendiente','Pagado','Atrasado') DEFAULT 'Pendiente',
   `descripcion` text DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_gasto`),
   KEY `id_unidad` (`id_unidad`),
   CONSTRAINT `1` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE CASCADE
@@ -73,6 +82,9 @@ CREATE TABLE IF NOT EXISTS `marketplace_publicaciones` (
   `telefono_contacto` varchar(15) DEFAULT NULL,
   `fecha_publicacion` datetime DEFAULT current_timestamp(),
   `estado` tinyint(1) DEFAULT 1,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_producto`),
   KEY `id_usuario` (`id_usuario`),
   KEY `id_categoria` (`id_categoria`),
@@ -82,14 +94,48 @@ CREATE TABLE IF NOT EXISTS `marketplace_publicaciones` (
 
 -- Volcando datos para la tabla entrecasas_db.marketplace_publicaciones: ~0 rows (aproximadamente)
 
+-- Volcando estructura para tabla entrecasas_db.membresias_red
+CREATE TABLE IF NOT EXISTS `membresias_red` (
+  `id_membresia` int(11) NOT NULL AUTO_INCREMENT,
+  `id_usuario` int(11) NOT NULL,
+  `id_red` int(11) NOT NULL,
+  `id_unidad` int(11) DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `fecha_ingreso` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_membresia`),
+  UNIQUE KEY `uq_membresia_usuario_red` (`id_usuario`,`id_red`),
+  KEY `id_red` (`id_red`),
+  KEY `id_unidad` (`id_unidad`),
+  CONSTRAINT `fk_membresia_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `fk_membresia_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `fk_membresia_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- Volcando estructura para tabla entrecasas_db.membresias_roles
+CREATE TABLE IF NOT EXISTS `membresias_roles` (
+  `id_membresia` int(11) NOT NULL,
+  `id_rol` int(11) NOT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id_membresia`,`id_rol`),
+  KEY `id_rol` (`id_rol`),
+  CONSTRAINT `fk_membresia_rol_membresia` FOREIGN KEY (`id_membresia`) REFERENCES `membresias_red` (`id_membresia`) ON DELETE CASCADE,
+  CONSTRAINT `fk_membresia_rol_rol` FOREIGN KEY (`id_rol`) REFERENCES `roles` (`id_rol`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
 -- Volcando estructura para tabla entrecasas_db.muro_publicaciones
 CREATE TABLE IF NOT EXISTS `muro_publicaciones` (
   `id_publicacion` int(11) NOT NULL AUTO_INCREMENT,
   `id_usuario` int(11) NOT NULL,
   `titulo` varchar(150) NOT NULL,
   `contenido` text NOT NULL,
-  `fecha_creacion` datetime DEFAULT current_timestamp(),
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `estado` tinyint(1) DEFAULT 1,
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_publicacion`),
   KEY `id_usuario` (`id_usuario`),
   CONSTRAINT `1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE
@@ -103,9 +149,12 @@ CREATE TABLE IF NOT EXISTS `pagos` (
   `id_gasto` int(11) NOT NULL,
   `monto_pagado` decimal(10,2) NOT NULL,
   `fecha_pago` datetime DEFAULT current_timestamp(),
-  `metodo_pago` enum('Transferencia','MercadoPago','Efectivo') NOT NULL,
+  `metodo_pago` enum('Transferencia','Efectivo') NOT NULL,
   `comprobante_url` varchar(255) DEFAULT NULL,
   `estado_validacion` enum('Pendiente','Validado','Rechazado') DEFAULT 'Pendiente',
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_pago`),
   KEY `id_gasto` (`id_gasto`),
   CONSTRAINT `1` FOREIGN KEY (`id_gasto`) REFERENCES `gastos_comunes` (`id_gasto`) ON DELETE CASCADE
@@ -119,7 +168,10 @@ CREATE TABLE IF NOT EXISTS `redes_vecinales` (
   `nombre` varchar(100) NOT NULL,
   `tipo` enum('Villa','Condominio','Edificio') NOT NULL,
   `direccion` varchar(150) DEFAULT NULL,
-  `fecha_registro` datetime DEFAULT current_timestamp(),
+  `fecha_registro` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_red`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
@@ -133,6 +185,9 @@ CREATE TABLE IF NOT EXISTS `registro_accesos` (
   `fecha_ingreso` datetime DEFAULT current_timestamp(),
   `estado_autorizacion` enum('Aprobado','Rechazado','Pendiente de Confirmación') NOT NULL,
   `codigo_qr_validado` tinyint(1) DEFAULT 0,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_acceso`),
   KEY `id_visitante` (`id_visitante`),
   KEY `id_unidad` (`id_unidad`),
@@ -152,6 +207,9 @@ CREATE TABLE IF NOT EXISTS `reservas` (
   `hora_fin` time NOT NULL,
   `estado_reserva` enum('Pendiente','Aprobada','Rechazada','Cancelada') DEFAULT 'Pendiente',
   `fecha_solicitud` datetime DEFAULT current_timestamp(),
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_reserva`),
   KEY `id_espacio` (`id_espacio`),
   KEY `id_usuario` (`id_usuario`),
@@ -165,6 +223,9 @@ CREATE TABLE IF NOT EXISTS `reservas` (
 CREATE TABLE IF NOT EXISTS `roles` (
   `id_rol` int(11) NOT NULL AUTO_INCREMENT,
   `nombre_rol` varchar(50) NOT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_rol`)
 ) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
@@ -178,13 +239,67 @@ INSERT INTO `roles` (`id_rol`, `nombre_rol`) VALUES
 	(6, 'Residente'),
 	(7, 'Visitante');
 
+-- Volcando estructura para tabla entrecasas_db.solicitudes_acceso
+CREATE TABLE IF NOT EXISTS `solicitudes_acceso` (
+  `id_solicitud` int(11) NOT NULL AUTO_INCREMENT,
+  `id_red` int(11) NOT NULL,
+  `id_unidad` int(11) DEFAULT NULL,
+  `numero_unidad` varchar(20) NOT NULL,
+  `rut` varchar(12) NOT NULL,
+  `nombre` varchar(50) NOT NULL,
+  `apellido_paterno` varchar(50) NOT NULL,
+  `apellido_materno` varchar(50) NOT NULL,
+  `correo` varchar(100) NOT NULL,
+  `telefono` varchar(15) DEFAULT NULL,
+  `estado` enum('Pendiente','Aprobada','Rechazada') NOT NULL DEFAULT 'Pendiente',
+  `motivo_rechazo` varchar(255) DEFAULT NULL,
+  `fecha_solicitud` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_resolucion` datetime DEFAULT NULL,
+  `id_usuario_resolutor` int(11) DEFAULT NULL,
+  `id_usuario_creado` int(11) DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_solicitud`),
+  KEY `idx_solicitud_red_estado` (`id_red`,`estado`),
+  KEY `idx_solicitud_rut` (`rut`),
+  KEY `id_unidad` (`id_unidad`),
+  KEY `id_usuario_resolutor` (`id_usuario_resolutor`),
+  KEY `id_usuario_creado` (`id_usuario_creado`),
+  CONSTRAINT `fk_solicitud_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `fk_solicitud_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL,
+  CONSTRAINT `fk_solicitud_resolutor` FOREIGN KEY (`id_usuario_resolutor`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
+  CONSTRAINT `fk_solicitud_usuario_creado` FOREIGN KEY (`id_usuario_creado`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
+-- Volcando estructura para tabla entrecasas_db.tokens_password
+CREATE TABLE IF NOT EXISTS `tokens_password` (
+  `id_token` int(11) NOT NULL AUTO_INCREMENT,
+  `id_usuario` int(11) NOT NULL,
+  `token_hash` char(64) NOT NULL,
+  `tipo` enum('Recuperacion','Activacion') NOT NULL,
+  `fecha_expiracion` datetime NOT NULL,
+  `fecha_uso` datetime DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_token`),
+  UNIQUE KEY `uq_token_hash` (`token_hash`),
+  KEY `id_usuario` (`id_usuario`),
+  CONSTRAINT `fk_token_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+
 -- Volcando estructura para tabla entrecasas_db.unidades
 CREATE TABLE IF NOT EXISTS `unidades` (
   `id_unidad` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
   `numero_identificador` varchar(20) NOT NULL,
   `calle_pasaje` varchar(100) DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_unidad`),
+  UNIQUE KEY `uq_unidad_red_numero` (`id_red`,`numero_identificador`),
   KEY `id_red` (`id_red`),
   CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
@@ -194,8 +309,6 @@ CREATE TABLE IF NOT EXISTS `unidades` (
 -- Volcando estructura para tabla entrecasas_db.usuarios
 CREATE TABLE IF NOT EXISTS `usuarios` (
   `id_usuario` int(11) NOT NULL AUTO_INCREMENT,
-  `id_rol` int(11) NOT NULL,
-  `id_unidad` int(11) DEFAULT NULL,
   `rut` varchar(12) NOT NULL,
   `nombre` varchar(50) NOT NULL,
   `apellido_paterno` varchar(50) NOT NULL,
@@ -203,14 +316,14 @@ CREATE TABLE IF NOT EXISTS `usuarios` (
   `correo` varchar(100) NOT NULL,
   `telefono` varchar(15) DEFAULT NULL,
   `password_hash` varchar(255) NOT NULL,
-  `estado` tinyint(1) DEFAULT 1,
+  `password_actualizada_en` datetime DEFAULT NULL,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_usuario`),
   UNIQUE KEY `rut` (`rut`),
-  UNIQUE KEY `correo` (`correo`),
-  KEY `id_rol` (`id_rol`),
-  KEY `id_unidad` (`id_unidad`),
-  CONSTRAINT `1` FOREIGN KEY (`id_rol`) REFERENCES `roles` (`id_rol`),
-  CONSTRAINT `2` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL
+  UNIQUE KEY `correo` (`correo`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
 -- Volcando datos para la tabla entrecasas_db.usuarios: ~0 rows (aproximadamente)
@@ -222,6 +335,9 @@ CREATE TABLE IF NOT EXISTS `visitantes` (
   `nombre` varchar(50) NOT NULL,
   `apellido` varchar(50) NOT NULL,
   `tipo` enum('Frecuente','Esporádico') DEFAULT 'Esporádico',
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_visitante`),
   UNIQUE KEY `rut` (`rut`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
