@@ -33,40 +33,34 @@ describe('RolesService', () => {
 
   describe('onModuleInit', () => {
     it('debe arrancar cuando la tabla roles coincide con RolUsuario', async () => {
-      // Arrange
       mockRolesRepository.find.mockResolvedValue(rolesDelVolcado());
 
-      // Act & Assert
       await expect(target.onModuleInit()).resolves.toBeUndefined();
     });
 
     it('debe lanzar un error cuando dos roles tienen los ids intercambiados', async () => {
-      // Arrange
       mockRolesRepository.find.mockResolvedValue(
         rolesDelVolcado().map((rol) =>
-          rol.idRol === RolUsuario.ADMINISTRACION
+          rol.idRol === RolUsuario.ADMINISTRADOR
             ? { ...rol, nombreRol: 'Residente' }
             : rol.idRol === RolUsuario.RESIDENTE
-              ? { ...rol, nombreRol: 'Administración' }
+              ? { ...rol, nombreRol: 'Administrador' }
               : rol,
         ),
       );
 
-      // Act & Assert
       await expect(target.onModuleInit()).rejects.toThrow(
-        'id 1 (ADMINISTRACION): se esperaba "Administración" y la BD tiene "Residente"',
+        'id 1 (ADMINISTRADOR): se esperaba "Administrador" y la BD tiene "Residente"',
       );
     });
 
     it('debe lanzar un error cuando falta un rol en la tabla', async () => {
-      // Arrange
       mockRolesRepository.find.mockResolvedValue(
-        rolesDelVolcado().filter((rol) => rol.idRol !== RolUsuario.VISITANTE),
+        rolesDelVolcado().filter((rol) => rol.idRol !== RolUsuario.CONSERJE),
       );
 
-      // Act & Assert
       await expect(target.onModuleInit()).rejects.toThrow(
-        'id 7 (VISITANTE): se esperaba "Visitante" y la BD tiene "nada"',
+        'id 5 (CONSERJE): se esperaba "Conserje" y la BD tiene "nada"',
       );
     });
   });

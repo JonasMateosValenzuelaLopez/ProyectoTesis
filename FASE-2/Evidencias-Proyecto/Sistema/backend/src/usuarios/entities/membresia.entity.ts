@@ -1,25 +1,19 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
-  JoinTable,
-  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
 } from 'typeorm';
 import { EntidadAuditada } from '../../common/entities/entidad-auditada.entity';
+import { RolUsuario } from '../../common/enums/rol.enum';
 import { RedVecinal } from '../../redes-vecinales/entities/red-vecinal.entity';
 import { Rol } from '../../roles/entities/rol.entity';
-import { Unidad } from '../../unidades/entities/unidad.entity';
 import { Usuario } from './usuario.entity';
 
-// Pertenencia de un usuario a una comunidad (red), con sus roles en ella.
-// El índice único también cuenta las membresías eliminadas (ver
-// SolicitudesAccesoService.aprobar).
-@Entity('membresias_red')
-@Unique('uq_membresia_usuario_red', ['idUsuario', 'idRed'])
+@Entity('membresias')
+@Unique('uq_membresia_usuario_red_rol', ['idUsuario', 'idRed', 'idRol'])
 export class Membresia extends EntidadAuditada {
   @PrimaryGeneratedColumn({ name: 'id_membresia' })
   idMembresia: number;
@@ -40,24 +34,19 @@ export class Membresia extends EntidadAuditada {
   @JoinColumn({ name: 'id_red' })
   red: RedVecinal;
 
-  @Column({ name: 'id_unidad', type: 'int', nullable: true })
-  idUnidad: number | null;
+  @Column({ name: 'id_rol', type: 'int' })
+  idRol: RolUsuario;
 
-  @ManyToOne(() => Unidad, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'id_unidad' })
-  unidad: Unidad | null;
-
-  @ManyToMany(() => Rol)
-  @JoinTable({
-    name: 'membresias_roles',
-    joinColumn: { name: 'id_membresia', referencedColumnName: 'idMembresia' },
-    inverseJoinColumn: { name: 'id_rol', referencedColumnName: 'idRol' },
-  })
-  roles: Rol[];
+  @ManyToOne(() => Rol)
+  @JoinColumn({ name: 'id_rol' })
+  rol: Rol;
 
   @Column({ type: 'boolean', default: true })
-  estado: boolean;
+  activo: boolean;
 
-  @CreateDateColumn({ name: 'fecha_ingreso', type: 'datetime' })
-  fechaIngreso: Date;
+  @Column({ type: 'date' })
+  desde: string;
+
+  @Column({ type: 'date', nullable: true })
+  hasta: string | null;
 }

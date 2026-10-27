@@ -5,19 +5,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcryptjs';
-import { randomBytes } from 'node:crypto';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, IsNull, Not, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
+import { BitacoraService } from '../bitacora/bitacora.service';
+import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
+import { CodigoModulo } from '../common/enums/modulo.enum';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
-import { normalizarRut } from '../common/validators/rut.validator';
+import { condicionVigente, fechaHoy } from '../common/utils/vigencia';
+import { PAIS_POR_DEFECTO } from '../common/validators/identificador.validator';
 import { MailService } from '../mail/mail.service';
-import { RedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
-import { Rol } from '../roles/entities/rol.entity';
+import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
+import {
+  EstadoRedVecinal,
+  RedVecinal,
+} from '../redes-vecinales/entities/red-vecinal.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from '../usuarios/entities/membresia.entity';
+import { Residencia } from '../usuarios/entities/residencia.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
@@ -36,43 +42,69 @@ export class SolicitudesAccesoService {
     private readonly solicitudesRepository: Repository<SolicitudAcceso>,
     @InjectRepository(RedVecinal)
     private readonly redesRepository: Repository<RedVecinal>,
+    @InjectRepository(RedModulo)
+    private readonly redModulosRepository: Repository<RedModulo>,
     @InjectRepository(Unidad)
     private readonly unidadesRepository: Repository<Unidad>,
     @InjectRepository(Membresia)
     private readonly membresiasRepository: Repository<Membresia>,
     private readonly authService: AuthService,
+    private readonly bitacoraService: BitacoraService,
     private readonly mailService: MailService,
     private readonly dataSource: DataSource,
   ) {}
 
-  // Datos mínimos para que el formulario público muestre un selector.
-  listarComunidades() {
-    return this.redesRepository.find({
+  async listarComunidades() {
+    const redes = await this.redesRepository.find({
       select: { idRed: true, nombre: true, tipo: true },
+      where: { estado: EstadoRedVecinal.ACTIVA },
       order: { nombre: 'ASC' },
     });
+    const conAdministrador = new Set(
+      (
+        await this.redModulosRepository.find({
+          where: {
+            codigoModulo: CodigoModulo.ADMINISTRADOR_EXTERNO,
+            activo: true,
+          },
+        })
+      ).map((redModulo) => redModulo.idRed),
+    );
+    return redes.map((red) => ({
+      idRed: red.idRed,
+      nombre: red.nombre,
+      tipo: red.tipo,
+      administracionExterna: conAdministrador.has(red.idRed),
+    }));
   }
 
   async crear(dto: CrearSolicitudAccesoDto) {
-    const red = await this.redesRepository.findOneBy({ idRed: dto.idRed });
+    const red = await this.redesRepository.findOneBy({
+      idRed: dto.idRed,
+      estado: EstadoRedVecinal.ACTIVA,
+    });
     if (!red) {
       throw new NotFoundException('La comunidad no existe');
     }
-    const rut = normalizarRut(dto.rut) as string;
+    const pais = dto.pais ?? PAIS_POR_DEFECTO;
+    const { identificador } = dto;
 
-    // Si ya hay una solicitud pendiente o la persona ya es miembro, no se crea
-    // otra, pero se responde igual para no revelar quién pertenece a la comunidad.
     const yaPendiente = await this.solicitudesRepository.existsBy({
       idRed: red.idRed,
-      rut,
+      pais,
+      identificador,
       estado: EstadoSolicitudAcceso.PENDIENTE,
     });
     const yaMiembro = await this.membresiasRepository.exists({
-      where: { idRed: red.idRed, estado: true, usuario: { rut } },
+      where: {
+        idRed: red.idRed,
+        activo: true,
+        ...condicionVigente(),
+        usuario: { pais, identificador },
+      },
     });
 
     if (!yaPendiente && !yaMiembro) {
-      // La colación de la BD no distingue mayúsculas ni tildes ("a-101" = "A-101").
       const unidad = await this.unidadesRepository.findOneBy({
         idRed: red.idRed,
         numeroIdentificador: dto.numeroUnidad,
@@ -81,7 +113,9 @@ export class SolicitudesAccesoService {
         idRed: red.idRed,
         idUnidad: unidad?.idUnidad ?? null,
         numeroUnidad: dto.numeroUnidad,
-        rut,
+        tipoResidencia: dto.tipoResidencia,
+        identificador,
+        pais,
         nombre: dto.nombre,
         apellidoPaterno: dto.apellidoPaterno,
         apellidoMaterno: dto.apellidoMaterno,
@@ -129,33 +163,25 @@ export class SolicitudesAccesoService {
         );
       }
 
-      // withDeleted: el RUT y el correo son únicos también entre usuarios
-      // eliminados (borrado lógico), así que hay que verlos para no chocar.
-      const porRut = await manager.findOne(Usuario, {
-        where: { rut: solicitud.rut },
+      const porIdentificador = await manager.findOne(Usuario, {
+        where: { pais: solicitud.pais, identificador: solicitud.identificador },
         withDeleted: true,
       });
       const porCorreo = await manager.findOne(Usuario, {
         where: { correo: solicitud.correo },
         withDeleted: true,
       });
-      if (porCorreo && porCorreo.idUsuario !== porRut?.idUsuario) {
+      if (porCorreo && porCorreo.idUsuario !== porIdentificador?.idUsuario) {
         throw new ConflictException(
           'El correo de la solicitud ya está registrado por otra persona',
         );
       }
 
-      // Si la persona ya tiene cuenta (por ejemplo, en otra comunidad), se
-      // reutiliza; si no, se crea con una contraseña aleatoria inutilizable
-      // hasta que la defina con el enlace de activación.
-      // Una cuenta eliminada se restaura al aprobar una nueva solicitud.
-      let usuario = porRut;
+      let usuario = porIdentificador;
       const esNuevo = !usuario;
-      // Aprobar no reactiva una cuenta desactivada: el login la seguiría
-      // rechazando y el correo de aprobación sería falso.
-      if (usuario && !usuario.estado) {
+      if (usuario?.bloqueado) {
         throw new ConflictException(
-          'La cuenta de esta persona está desactivada. Reactívala antes de aprobar la solicitud.',
+          'La cuenta de esta persona está bloqueada. Debe desbloquearla el equipo EntreCasas antes de aprobar.',
         );
       }
       if (usuario?.fechaEliminacion) {
@@ -164,77 +190,68 @@ export class SolicitudesAccesoService {
       if (!usuario) {
         usuario = await manager.save(
           manager.create(Usuario, {
-            rut: solicitud.rut,
+            identificador: solicitud.identificador,
+            pais: solicitud.pais,
             nombre: solicitud.nombre,
             apellidoPaterno: solicitud.apellidoPaterno,
             apellidoMaterno: solicitud.apellidoMaterno,
             correo: solicitud.correo,
             telefono: solicitud.telefono,
-            passwordHash: await bcrypt.hash(
-              randomBytes(32).toString('hex'),
-              10,
-            ),
-            estado: true,
+            passwordHash: null,
           }),
         );
       }
 
-      const rolResidente = await manager.findOneByOrFail(Rol, {
-        idRol: RolUsuario.RESIDENTE,
-      });
-      // (usuario, red) es único también entre membresías eliminadas: si existe
-      // una eliminada, se restaura en vez de crear otra. El borrado lógico no
-      // toca membresias_roles, así que se descartan los roles que tenía: la
-      // membresía restaurada vuelve solo como Residente.
-      const existente = await manager.findOne(Membresia, {
-        where: { idUsuario: usuario.idUsuario, idRed: red.idRed },
-        relations: { roles: true },
-        withDeleted: true,
-      });
-      if (existente?.fechaEliminacion) {
-        await manager.restore(Membresia, {
-          idMembresia: existente.idMembresia,
-        });
-        existente.fechaEliminacion = null;
-        existente.roles = [];
-      }
-      const membresia =
-        existente ??
-        manager.create(Membresia, {
-          idUsuario: usuario.idUsuario,
-          idRed: red.idRed,
-          roles: [],
-        });
-      membresia.estado = true;
-      membresia.idUnidad = idUnidad;
-      if (!membresia.roles.some((rol) => rol.idRol === rolResidente.idRol)) {
-        membresia.roles.push(rolResidente);
-      }
-      await manager.save(membresia);
+      await this.asignarResidente(manager, usuario.idUsuario, red.idRed);
+      const tipoResidencia = dto.tipoResidencia ?? solicitud.tipoResidencia;
+      await this.asignarResidencia(
+        manager,
+        usuario.idUsuario,
+        idUnidad,
+        tipoResidencia,
+      );
 
       solicitud.estado = EstadoSolicitudAcceso.APROBADA;
       solicitud.idUnidad = idUnidad;
+      solicitud.tipoResidencia = tipoResidencia;
       solicitud.fechaResolucion = new Date();
       solicitud.idUsuarioResolutor = idResolutor;
       solicitud.idUsuarioCreado = usuario.idUsuario;
       await manager.save(solicitud);
 
-      const tokenActivacion = esNuevo
+      await this.bitacoraService.registrar(
+        {
+          ambito: AmbitoBitacora.COMUNIDAD,
+          idRed: red.idRed,
+          idUsuario: idResolutor,
+          accion: 'aprobar_solicitud_acceso',
+          entidad: 'solicitudes_acceso',
+          idEntidad: solicitud.idSolicitud,
+          detalle: {
+            idUsuario: usuario.idUsuario,
+            idUnidad,
+            tipoResidencia,
+            cuentaNueva: esNuevo,
+          },
+        },
+        manager,
+      );
+
+      const requiereActivacion =
+        esNuevo || !(await this.tienePassword(manager, usuario.idUsuario));
+      const tokenActivacion = requiereActivacion
         ? await this.authService.emitirTokenPassword(
             usuario.idUsuario,
             TipoTokenPassword.ACTIVACION,
             manager,
           )
         : null;
-      const { nombre: nombreRed } = await manager.findOneByOrFail(RedVecinal, {
-        idRed: red.idRed,
-      });
+      const nombreRed = await this.nombreRed(manager, red.idRed);
       return { solicitud, usuario, tokenActivacion, nombreRed };
     });
 
     const { solicitud, usuario, tokenActivacion, nombreRed } = resultado;
-    // Se espera el envío para que la administración sepa si el vecino recibió
-    // el enlace; si falló, puede usar "¿Olvidaste tu contraseña?".
+    await this.bitacoraService.marcarActividad(red.idRed);
     const correoEnviado = await this.mailService.enviar({
       para: usuario.correo,
       asunto: `Tu acceso a ${nombreRed} fue aprobado`,
@@ -243,7 +260,7 @@ export class SolicitudesAccesoService {
           `La administración de ${nombreRed} aprobó tu solicitud. ` +
           `Para activar tu cuenta, crea tu contraseña en este enlace (válido por 3 días):\n\n` +
           `${this.authService.urlRestablecer(tokenActivacion)}\n\n` +
-          `Luego podrás ingresar con tu RUT.`
+          `Luego podrás ingresar con tu RUT o documento de identidad, o con un código que te enviaremos por correo.`
         : `Hola ${usuario.nombre}:\n\n` +
           `La administración de ${nombreRed} aprobó tu solicitud. ` +
           `Ya puedes acceder a esta comunidad con tu cuenta actual de EntreCasas. ` +
@@ -259,8 +276,6 @@ export class SolicitudesAccesoService {
     idResolutor: number,
     dto: RechazarSolicitudAccesoDto,
   ) {
-    // El nombre de la red se lee dentro de la transacción: si fallara después
-    // del commit, el rechazo quedaría guardado pero el cliente vería un error.
     const { solicitud, nombreRed } = await this.dataSource.transaction(
       async (manager) => {
         const pendiente = await this.buscarPendiente(manager, idSolicitud, red);
@@ -268,14 +283,26 @@ export class SolicitudesAccesoService {
         pendiente.motivoRechazo = dto.motivo || null;
         pendiente.fechaResolucion = new Date();
         pendiente.idUsuarioResolutor = idResolutor;
-        const { nombre } = await manager.findOneByOrFail(RedVecinal, {
-          idRed: red.idRed,
-        });
-        return { solicitud: await manager.save(pendiente), nombreRed: nombre };
+        const guardada = await manager.save(pendiente);
+        await this.bitacoraService.registrar(
+          {
+            ambito: AmbitoBitacora.COMUNIDAD,
+            idRed: red.idRed,
+            idUsuario: idResolutor,
+            accion: 'rechazar_solicitud_acceso',
+            entidad: 'solicitudes_acceso',
+            idEntidad: guardada.idSolicitud,
+            detalle: { motivo: guardada.motivoRechazo },
+          },
+          manager,
+        );
+        const nombreRed = await this.nombreRed(manager, red.idRed);
+        return { solicitud: guardada, nombreRed };
       },
     );
 
-    void this.mailService.enviar({
+    await this.bitacoraService.marcarActividad(red.idRed);
+    const correoEnviado = await this.mailService.enviar({
       para: solicitud.correo,
       asunto: `Tu solicitud de acceso a ${nombreRed}`,
       texto:
@@ -287,12 +314,90 @@ export class SolicitudesAccesoService {
         `\n\nSi crees que es un error, contacta a la administración de tu comunidad.`,
     });
 
-    return solicitud;
+    return { ...solicitud, correoEnviado };
   }
 
-  // Filtra por la red del administrador: una solicitud de otra comunidad
-  // simplemente "no existe" para él. Bloquea la fila para que dos
-  // administradores no la resuelvan a la vez (llamar dentro de una transacción).
+  private async nombreRed(manager: EntityManager, idRed: number) {
+    const red = await manager.findOneBy(RedVecinal, { idRed });
+    if (!red) {
+      throw new NotFoundException('La comunidad no existe');
+    }
+    return red.nombre;
+  }
+
+  private tienePassword(manager: EntityManager, idUsuario: number) {
+    return manager.exists(Usuario, {
+      where: { idUsuario, passwordHash: Not(IsNull()) },
+      withDeleted: true,
+    });
+  }
+
+  private async asignarResidente(
+    manager: EntityManager,
+    idUsuario: number,
+    idRed: number,
+  ) {
+    const existente = await manager.findOne(Membresia, {
+      where: { idUsuario, idRed, idRol: RolUsuario.RESIDENTE },
+      withDeleted: true,
+    });
+    if (existente?.fechaEliminacion) {
+      await manager.restore(Membresia, {
+        idMembresia: existente.idMembresia,
+      });
+    }
+    const hoy = fechaHoy();
+    if (!existente) {
+      await manager.insert(Membresia, {
+        idUsuario,
+        idRed,
+        idRol: RolUsuario.RESIDENTE,
+        activo: true,
+        desde: hoy,
+        hasta: null,
+      });
+      return;
+    }
+    const vencida = existente.hasta !== null && existente.hasta < hoy;
+    await manager.update(
+      Membresia,
+      { idMembresia: existente.idMembresia },
+      {
+        activo: true,
+        hasta: null,
+        ...(vencida || existente.fechaEliminacion ? { desde: hoy } : {}),
+      },
+    );
+  }
+
+  private async asignarResidencia(
+    manager: EntityManager,
+    idUsuario: number,
+    idUnidad: number,
+    tipo: Residencia['tipo'],
+  ) {
+    const vigente = await manager.findOne(Residencia, {
+      where: { idUsuario, idUnidad, ...condicionVigente() },
+    });
+    if (vigente) {
+      if (vigente.tipo !== tipo) {
+        await manager.update(
+          Residencia,
+          { idResidencia: vigente.idResidencia },
+          { tipo },
+        );
+      }
+      return;
+    }
+    await manager.insert(Residencia, {
+      idUsuario,
+      idUnidad,
+      tipo,
+      desde: fechaHoy(),
+      hasta: null,
+    });
+  }
+
   private async buscarPendiente(
     manager: EntityManager,
     idSolicitud: number,

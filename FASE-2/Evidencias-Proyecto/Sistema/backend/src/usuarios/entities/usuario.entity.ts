@@ -1,15 +1,25 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  Unique,
+} from 'typeorm';
 import { EntidadAuditada } from '../../common/entities/entidad-auditada.entity';
 import { Membresia } from './membresia.entity';
+import { Residencia } from './residencia.entity';
 
 @Entity('usuarios')
+@Unique('uq_usuario_identificador', ['pais', 'identificador'])
 export class Usuario extends EntidadAuditada {
   @PrimaryGeneratedColumn({ name: 'id_usuario' })
   idUsuario: number;
 
-  // Formato normalizado: sin puntos, con guion y DV en mayúscula (12345678-K).
-  @Column({ type: 'varchar', length: 12, unique: true })
-  rut: string;
+  @Column({ type: 'varchar', length: 20 })
+  identificador: string;
+
+  @Column({ type: 'char', length: 2, default: 'CL' })
+  pais: string;
 
   @Column({ type: 'varchar', length: 50 })
   nombre: string;
@@ -26,17 +36,15 @@ export class Usuario extends EntidadAuditada {
   @Column({ type: 'varchar', length: 15, nullable: true })
   telefono: string | null;
 
-  // Nunca se selecciona por defecto; usar addSelect cuando se necesite.
-  // Opcional en el tipo porque en un find normal llega undefined.
   @Column({
     name: 'password_hash',
     type: 'varchar',
     length: 255,
+    nullable: true,
     select: false,
   })
-  passwordHash?: string;
+  passwordHash?: string | null;
 
-  // Los JWT emitidos antes de esta fecha dejan de ser válidos.
   @Column({
     name: 'password_actualizada_en',
     type: 'datetime',
@@ -44,9 +52,23 @@ export class Usuario extends EntidadAuditada {
   })
   passwordActualizadaEn: Date | null;
 
-  @Column({ type: 'boolean', default: true })
-  estado: boolean;
+  @Column({ name: 'es_plataforma', type: 'boolean', default: false })
+  esPlataforma: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  bloqueado: boolean;
+
+  @Column({
+    name: 'motivo_bloqueo',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  motivoBloqueo: string | null;
 
   @OneToMany(() => Membresia, (membresia) => membresia.usuario)
   membresias: Membresia[];
+
+  @OneToMany(() => Residencia, (residencia) => residencia.usuario)
+  residencias: Residencia[];
 }

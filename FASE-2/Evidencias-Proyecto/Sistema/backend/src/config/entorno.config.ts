@@ -10,12 +10,8 @@ const OBLIGATORIAS = [
 ] as const;
 const PUERTOS = ['PORT', 'DB_PORT', 'SMTP_PORT'] as const;
 const LARGO_MINIMO_JWT_SECRET = 32;
+const ENTORNOS_LOCALES = ['development', 'test'];
 
-/**
- * Valida las variables de entorno al arrancar (ConfigModule.forRoot). Un
- * valor faltante o mal escrito detiene la app con un mensaje claro, en vez de
- * fallar más tarde en un lugar difícil de relacionar.
- */
 export function validarEntorno(
   entorno: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -35,19 +31,23 @@ export function validarEntorno(
     }
   }
 
-  const produccion = texto('NODE_ENV') === 'production';
+  const estricto = !ENTORNOS_LOCALES.includes(texto('NODE_ENV'));
   const largoSecreto = texto('JWT_SECRET').length;
   if (largoSecreto > 0 && largoSecreto < LARGO_MINIMO_JWT_SECRET) {
     const mensaje = `JWT_SECRET debe tener al menos ${LARGO_MINIMO_JWT_SECRET} caracteres`;
-    if (produccion) {
+    if (estricto) {
       errores.push(mensaje);
     } else {
-      Logger.warn(`${mensaje} (obligatorio en producción).`, 'Entorno');
+      Logger.warn(`${mensaje} (obligatorio fuera de desarrollo).`, 'Entorno');
     }
   }
-  // En producción, sin SMTP ningún correo de activación o recuperación sale.
-  if (produccion && !texto('SMTP_HOST')) {
-    errores.push('SMTP_HOST es obligatoria en producción');
+  if (estricto && !texto('SMTP_HOST')) {
+    errores.push('SMTP_HOST es obligatoria fuera de desarrollo');
+  }
+  if (texto('SMTP_HOST') && !texto('MAIL_FROM')) {
+    errores.push(
+      'MAIL_FROM es obligatoria si hay SMTP_HOST (debe ser un remitente verificado en el proveedor)',
+    );
   }
 
   if (errores.length > 0) {

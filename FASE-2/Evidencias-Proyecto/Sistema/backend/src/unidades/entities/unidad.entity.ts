@@ -1,8 +1,11 @@
 import { Column, Entity, PrimaryGeneratedColumn, Unique } from 'typeorm';
 import { EntidadAuditada } from '../../common/entities/entidad-auditada.entity';
 
-// El número es único por comunidad (migración 003), también entre unidades
-// eliminadas.
+export enum TipoUnidad {
+  CASA = 'Casa',
+  DEPARTAMENTO = 'Departamento',
+}
+
 @Entity('unidades')
 @Unique('uq_unidad_red_numero', ['idRed', 'numeroIdentificador'])
 export class Unidad extends EntidadAuditada {
@@ -15,6 +18,9 @@ export class Unidad extends EntidadAuditada {
   @Column({ name: 'numero_identificador', type: 'varchar', length: 20 })
   numeroIdentificador: string;
 
+  @Column({ type: 'enum', enum: TipoUnidad, default: TipoUnidad.CASA })
+  tipo: TipoUnidad;
+
   @Column({
     name: 'calle_pasaje',
     type: 'varchar',
@@ -22,4 +28,19 @@ export class Unidad extends EntidadAuditada {
     nullable: true,
   })
   callePasaje: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  torre: string | null;
+
+  @Column({ type: 'smallint', nullable: true })
+  piso: number | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  manzana: string | null;
+
+  @Column({ type: 'int', nullable: true })
+  orden: number | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  estacionamiento: string | null;
 }

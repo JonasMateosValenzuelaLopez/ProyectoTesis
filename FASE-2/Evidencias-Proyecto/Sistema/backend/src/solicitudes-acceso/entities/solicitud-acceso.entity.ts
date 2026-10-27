@@ -9,6 +9,7 @@ import {
 import { EntidadAuditada } from '../../common/entities/entidad-auditada.entity';
 import { RedVecinal } from '../../redes-vecinales/entities/red-vecinal.entity';
 import { Unidad } from '../../unidades/entities/unidad.entity';
+import { TipoResidencia } from '../../usuarios/entities/residencia.entity';
 
 export enum EstadoSolicitudAcceso {
   PENDIENTE = 'Pendiente',
@@ -28,8 +29,6 @@ export class SolicitudAcceso extends EntidadAuditada {
   @JoinColumn({ name: 'id_red' })
   red: RedVecinal;
 
-  // Se completa si `numero_unidad` coincide con una unidad de la red;
-  // si no, la administración la elige al aprobar.
   @Column({ name: 'id_unidad', type: 'int', nullable: true })
   idUnidad: number | null;
 
@@ -37,12 +36,22 @@ export class SolicitudAcceso extends EntidadAuditada {
   @JoinColumn({ name: 'id_unidad' })
   unidad: Unidad | null;
 
-  // Lo que escribió la persona en "Número de Casa/Depto".
   @Column({ name: 'numero_unidad', type: 'varchar', length: 20 })
   numeroUnidad: string;
 
-  @Column({ type: 'varchar', length: 12 })
-  rut: string;
+  @Column({
+    name: 'tipo_residencia',
+    type: 'enum',
+    enum: TipoResidencia,
+    default: TipoResidencia.PROPIETARIO,
+  })
+  tipoResidencia: TipoResidencia;
+
+  @Column({ type: 'varchar', length: 20 })
+  identificador: string;
+
+  @Column({ type: 'char', length: 2, default: 'CL' })
+  pais: string;
 
   @Column({ type: 'varchar', length: 50 })
   nombre: string;

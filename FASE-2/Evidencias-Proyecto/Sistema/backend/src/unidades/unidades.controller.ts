@@ -16,10 +16,8 @@ import { UnidadesService } from './unidades.service';
 import { CreateUnidadeDto } from './dto/create-unidad.dto';
 import { UpdateUnidadeDto } from './dto/update-unidad.dto';
 
-// Plantilla sin implementar: protegida por defecto hasta definir sus permisos.
-// Al implementarla, filtrar cada consulta por la comunidad de @RedActual().
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RolUsuario.ADMINISTRACION)
+@Roles(RolUsuario.ADMINISTRADOR)
 @Controller('unidades')
 export class UnidadesController {
   constructor(private readonly unidadesService: UnidadesService) {}

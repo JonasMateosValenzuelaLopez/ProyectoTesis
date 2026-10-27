@@ -62,7 +62,6 @@ describe('MailService', () => {
     ])(
       'debe lanzar un error cuando FRONTEND_URL está %s',
       (_caso, frontendUrl) => {
-        // Act & Assert
         expect(() => crearTarget({ FRONTEND_URL: frontendUrl })).toThrow(
           'FRONTEND_URL no está configurada (ver .env.example).',
         );
@@ -70,24 +69,19 @@ describe('MailService', () => {
     );
 
     it('no debe crear el transporte cuando falta SMTP_HOST', () => {
-      // Act
       crearTarget(sinSmtp);
 
-      // Assert
       expect(mockCreateTransport).not.toHaveBeenCalled();
     });
   });
 
   describe('onModuleInit', () => {
     it('debe registrar un error sin lanzar cuando el SMTP no responde', async () => {
-      // Arrange
       mockVerify.mockRejectedValue(new Error('ECONNREFUSED'));
       const target = crearTarget(conSmtp);
 
-      // Act
       await target.onModuleInit();
 
-      // Assert
       expect(espiaError).toHaveBeenCalledWith(
         'No se pudo conectar al servidor SMTP; los correos no se enviarán.',
         expect.any(String),
@@ -95,10 +89,8 @@ describe('MailService', () => {
     });
 
     it('no debe verificar nada cuando no hay SMTP configurado', async () => {
-      // Act
       await crearTarget(sinSmtp).onModuleInit();
 
-      // Assert
       expect(mockVerify).not.toHaveBeenCalled();
       expect(espiaError).not.toHaveBeenCalled();
     });
@@ -109,33 +101,26 @@ describe('MailService', () => {
       ['ana@correo.cl', 'a***@correo.cl'],
       ['sin-arroba', '***'],
     ])('debe convertir "%s" en "%s"', (correo, esperado) => {
-      // Act & Assert
       expect(enmascararCorreo(correo)).toBe(esperado);
     });
   });
 
   describe('urlFrontend', () => {
     it('debe unir la ruta sin duplicar la barra final de FRONTEND_URL', () => {
-      // Arrange
       const target = crearTarget({ FRONTEND_URL: 'https://panel.cl/' });
 
-      // Act
       const resultado = target.urlFrontend('/restablecer-password?token=abc');
 
-      // Assert
       expect(resultado).toBe('https://panel.cl/restablecer-password?token=abc');
     });
   });
 
   describe('enviar', () => {
     it('debe devolver true cuando el servidor SMTP acepta el correo', async () => {
-      // Arrange
       const target = crearTarget(conSmtp);
 
-      // Act
       const resultado = await target.enviar(CORREO);
 
-      // Assert
       expect(resultado).toBe(true);
       expect(mockSendMail).toHaveBeenCalledWith({
         from: 'EntreCasas <no-responder@entrecasas.cl>',
@@ -146,14 +131,11 @@ describe('MailService', () => {
     });
 
     it('debe devolver false sin lanzar cuando el envío SMTP falla', async () => {
-      // Arrange
       mockSendMail.mockRejectedValue(new Error('535 credenciales inválidas'));
       const target = crearTarget(conSmtp);
 
-      // Act
       const resultado = await target.enviar(CORREO);
 
-      // Assert
       expect(resultado).toBe(false);
       expect(espiaError).toHaveBeenCalledWith(
         'No se pudo enviar el correo "Recupera tu contraseña de EntreCasas" a a***@correo.cl',
@@ -168,7 +150,6 @@ describe('MailService', () => {
     ])(
       'no debe imprimir el contenido del correo sin SMTP cuando NODE_ENV es %s',
       async (_caso, nodeEnv) => {
-        // Arrange
         if (nodeEnv === undefined) {
           delete process.env.NODE_ENV;
         } else {
@@ -176,10 +157,8 @@ describe('MailService', () => {
         }
         const target = crearTarget(sinSmtp);
 
-        // Act
         const resultado = await target.enviar(CORREO);
 
-        // Assert
         expect(resultado).toBe(false);
         expect(espiaWarn).not.toHaveBeenCalled();
         const registrado = espiaError.mock.calls.flat().join(' ');
@@ -189,14 +168,11 @@ describe('MailService', () => {
     );
 
     it('debe imprimir el correo en consola sin SMTP cuando NODE_ENV es development', async () => {
-      // Arrange
       process.env.NODE_ENV = 'development';
       const target = crearTarget(sinSmtp);
 
-      // Act
       const resultado = await target.enviar(CORREO);
 
-      // Assert
       expect(resultado).toBe(false);
       expect(espiaWarn).toHaveBeenCalledWith(
         expect.stringContaining('token=secreto'),

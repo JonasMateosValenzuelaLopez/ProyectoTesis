@@ -8,8 +8,6 @@ export interface CorreoSaliente {
   texto: string;
 }
 
-// Para los logs: deja ver a quién era el correo sin guardar el dato completo
-// ("ana@correo.cl" -> "a***@correo.cl").
 export function enmascararCorreo(correo: string): string {
   const [usuario, dominio] = correo.split('@');
   return dominio ? `${usuario.slice(0, 1)}***@${dominio}` : '***';
@@ -23,7 +21,6 @@ export class MailService implements OnModuleInit {
   private readonly frontendUrl: string;
 
   constructor(configService: ConfigService) {
-    // Sin FRONTEND_URL todos los enlaces de los correos quedarían rotos.
     const frontendUrl = configService.get<string>('FRONTEND_URL')?.trim();
     if (!frontendUrl) {
       throw new Error('FRONTEND_URL no está configurada (ver .env.example).');
@@ -48,9 +45,6 @@ export class MailService implements OnModuleInit {
       : null;
   }
 
-  // Detecta al arrancar credenciales o host SMTP malos, que de otro modo solo
-  // aparecerían al fallar el primer correo. No detiene la app: un SMTP caído
-  // un momento no debe impedir el login.
   async onModuleInit() {
     if (!this.transporter) {
       return;
@@ -69,12 +63,8 @@ export class MailService implements OnModuleInit {
     return `${this.frontendUrl}${ruta}`;
   }
 
-  // Nunca lanza: un fallo de correo no debe romper la operación que lo origina.
-  // Devuelve true solo si el correo se entregó al servidor SMTP.
   async enviar(correo: CorreoSaliente): Promise<boolean> {
     if (!this.transporter) {
-      // El contenido puede traer enlaces para cambiar contraseñas: solo se
-      // imprime si NODE_ENV=development está declarado explícitamente.
       if (process.env.NODE_ENV !== 'development') {
         this.logger.error(
           `SMTP_HOST no configurado; no se envió "${correo.asunto}".`,

@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,6 +13,7 @@ import {
   UsuarioAutenticado,
 } from '../../common/interfaces/jwt-payload.interface';
 import { Usuario } from '../../usuarios/entities/usuario.entity';
+import { MENSAJE_CUENTA_BLOQUEADA } from '../auth.constantes';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -24,11 +29,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  // Se relee el usuario en cada request para que una desactivación o un
-  // cambio de contraseña invaliden las sesiones abiertas de inmediato.
   async validate(payload: JwtPayload): Promise<UsuarioAutenticado> {
-    // Con `sub` undefined, findOneBy ignora la condición y devolvería el
-    // primer usuario de la tabla.
     if (!Number.isInteger(payload.sub) || payload.sub <= 0) {
       throw new UnauthorizedException('Sesión inválida');
     }
@@ -36,8 +37,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       idUsuario: payload.sub,
     });
 
-    if (!usuario || !usuario.estado) {
+    if (!usuario) {
       throw new UnauthorizedException('Sesión inválida');
+    }
+    if (usuario.bloqueado) {
+      throw new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA);
     }
     if (
       usuario.passwordActualizadaEn &&
@@ -49,6 +53,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       );
     }
 
-    return { idUsuario: usuario.idUsuario };
+    return { idUsuario: usuario.idUsuario, esPlataforma: usuario.esPlataforma };
   }
 }

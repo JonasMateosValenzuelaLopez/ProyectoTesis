@@ -11,12 +11,6 @@ import {
 import { Response } from 'express';
 import { QueryFailedError } from 'typeorm';
 
-/**
- * Traduce los errores de la BD que son culpa de los datos (no del servidor)
- * a respuestas HTTP útiles. El caso típico es una carrera: dos peticiones
- * pasan la validación a la vez y la segunda choca con un índice único.
- * El resto se registra y responde 500 sin exponer el SQL.
- */
 @Catch(QueryFailedError)
 export class ErroresBdFilter implements ExceptionFilter {
   private readonly logger = new Logger(ErroresBdFilter.name);
@@ -35,6 +29,11 @@ export class ErroresBdFilter implements ExceptionFilter {
         );
       case 'ER_NO_REFERENCED_ROW_2':
         return new BadRequestException('Uno de los datos indicados no existe.');
+      case 'ER_LOCK_DEADLOCK':
+      case 'ER_LOCK_WAIT_TIMEOUT':
+        return new ConflictException(
+          'Otra persona estaba modificando estos datos. Intenta de nuevo.',
+        );
       default:
         this.logger.error(
           `Error de BD no controlado (${error.code ?? 'sin código'})`,

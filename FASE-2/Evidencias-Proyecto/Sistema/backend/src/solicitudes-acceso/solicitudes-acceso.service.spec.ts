@@ -5,16 +5,28 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull, Not } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
+import { BitacoraService } from '../bitacora/bitacora.service';
+import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
+import { CodigoModulo } from '../common/enums/modulo.enum';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
+import { condicionVigente } from '../common/utils/vigencia';
 import { MailService } from '../mail/mail.service';
-import { RedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
-import { Rol } from '../roles/entities/rol.entity';
+import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
+import {
+  EstadoRedVecinal,
+  RedVecinal,
+  TipoRedVecinal,
+} from '../redes-vecinales/entities/red-vecinal.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from '../usuarios/entities/membresia.entity';
+import {
+  Residencia,
+  TipoResidencia,
+} from '../usuarios/entities/residencia.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
@@ -23,26 +35,19 @@ import {
 } from './entities/solicitud-acceso.entity';
 import { SolicitudesAccesoService } from './solicitudes-acceso.service';
 
-// bcrypt real tarda ~100 ms por hash; aquí solo importa que se genere uno.
-// hashSync lo usa AuthService al importarse (HASH_FALSO).
-jest.mock('bcryptjs', () => ({
-  hashSync: jest.fn(() => 'hash-falso'),
-  hash: jest.fn().mockResolvedValue('hash-aleatorio'),
-}));
+jest.mock('bcryptjs', () => ({ hashSync: jest.fn(() => 'hash-falso') }));
+
+const AHORA = new Date(2026, 9, 26, 12, 0, 0);
+const HOY = '2026-10-26';
 
 const RED: ContextoRed = {
   idRed: 3,
-  idMembresia: 30,
-  idUnidad: 12,
-  roles: [RolUsuario.ADMINISTRACION],
+  roles: [RolUsuario.ADMINISTRADOR],
+  modulos: [CodigoModulo.MURO],
+  idsUnidades: [],
 };
 const ID_RESOLUTOR = 1;
 const ID_USUARIO_NUEVO = 50;
-const ROL_RESIDENTE = { idRol: RolUsuario.RESIDENTE, nombreRol: 'Residente' };
-const ROL_ADMINISTRACION = {
-  idRol: RolUsuario.ADMINISTRACION,
-  nombreRol: 'Administración',
-};
 
 const MENSAJE_SOLICITUD_RECIBIDA =
   'Recibimos tu solicitud. La administración validará tus datos y te avisará por correo.';
@@ -50,9 +55,12 @@ const MENSAJE_SOLICITUD_RECIBIDA =
 type Escenario = {
   solicitud?: Partial<SolicitudAcceso> | null;
   unidad?: Partial<Unidad> | null;
-  porRut?: Partial<Usuario> | null;
+  porIdentificador?: Partial<Usuario> | null;
   porCorreo?: Partial<Usuario> | null;
-  membresia?: Partial<Membresia> | null;
+  residente?: Partial<Membresia> | null;
+  residencia?: Partial<Residencia> | null;
+  red?: Partial<RedVecinal> | null;
+  conPassword?: boolean;
 };
 
 describe('SolicitudesAccesoService', () => {
@@ -63,20 +71,25 @@ describe('SolicitudesAccesoService', () => {
     find: jest.Mock;
   };
   let mockRedesRepository: { find: jest.Mock; findOneBy: jest.Mock };
+  let mockRedModulosRepository: { find: jest.Mock };
   let mockUnidadesRepository: { findOneBy: jest.Mock };
   let mockMembresiasRepository: { exists: jest.Mock };
   let mockAuthService: {
     emitirTokenPassword: jest.Mock;
     urlRestablecer: jest.Mock;
   };
+  let mockBitacoraService: { registrar: jest.Mock; marcarActividad: jest.Mock };
   let mockMailService: { enviar: jest.Mock };
+  let usuariosCreados: WeakSet<object>;
   let mockManager: {
     findOne: jest.Mock;
     findOneBy: jest.Mock;
-    findOneByOrFail: jest.Mock;
+    exists: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
     restore: jest.Mock;
+    insert: jest.Mock;
+    update: jest.Mock;
   };
 
   const crearSolicitud = (cambios: Partial<SolicitudAcceso> = {}) =>
@@ -85,7 +98,9 @@ describe('SolicitudesAccesoService', () => {
       idRed: RED.idRed,
       idUnidad: 12,
       numeroUnidad: 'A-101',
-      rut: '12345678-5',
+      tipoResidencia: TipoResidencia.PROPIETARIO,
+      identificador: '12345678-5',
+      pais: 'CL',
       nombre: 'Ana',
       apellidoPaterno: 'Pérez',
       apellidoMaterno: 'Soto',
@@ -98,44 +113,52 @@ describe('SolicitudesAccesoService', () => {
   const crearUsuarioExistente = (cambios: Partial<Usuario> = {}) =>
     ({
       idUsuario: 7,
-      rut: '12345678-5',
+      identificador: '12345678-5',
+      pais: 'CL',
       nombre: 'Ana',
       correo: 'ana@correo.cl',
-      estado: true,
+      bloqueado: false,
       fechaEliminacion: null,
       ...cambios,
     }) as Usuario;
 
-  // El manager responde según la entidad consultada, igual que TypeORM.
   const configurarManager = (escenario: Escenario = {}) => {
     const {
       solicitud = crearSolicitud(),
       unidad = { idUnidad: 12, idRed: RED.idRed },
-      porRut = null,
+      porIdentificador = null,
       porCorreo = null,
-      membresia = null,
+      residente = null,
+      residencia = null,
+      red = { idRed: RED.idRed, nombre: 'Villa Los Aromos' },
+      conPassword = true,
     } = escenario;
+    mockManager.exists.mockResolvedValue(conPassword);
     mockManager.findOne.mockImplementation(
       (entidad: unknown, opciones: { where: Record<string, unknown> }) => {
         if (entidad === SolicitudAcceso) return Promise.resolve(solicitud);
-        if (entidad === Membresia) return Promise.resolve(membresia);
+        if (entidad === Membresia) return Promise.resolve(residente);
+        if (entidad === Residencia) return Promise.resolve(residencia);
         if (entidad === Usuario) {
-          return Promise.resolve('rut' in opciones.where ? porRut : porCorreo);
+          return Promise.resolve(
+            'identificador' in opciones.where ? porIdentificador : porCorreo,
+          );
         }
         return Promise.resolve(null);
       },
     );
-    mockManager.findOneBy.mockImplementation((entidad: unknown) =>
-      Promise.resolve(entidad === Unidad ? unidad : null),
-    );
+    mockManager.findOneBy.mockImplementation((entidad: unknown) => {
+      if (entidad === Unidad) return Promise.resolve(unidad);
+      if (entidad === RedVecinal) return Promise.resolve(red);
+      return Promise.resolve(null);
+    });
   };
 
-  const membresiaGuardada = () =>
-    mockManager.save.mock.calls
-      .map(([entidad]) => entidad as Membresia)
-      .find((entidad) => 'roles' in entidad);
+  const insertado = (entidad: unknown) =>
+    mockManager.insert.mock.calls.find(([clase]) => clase === entidad)?.[1];
 
   beforeEach(async () => {
+    jest.useFakeTimers({ now: AHORA });
     mockSolicitudesRepository = {
       existsBy: jest.fn().mockResolvedValue(false),
       insert: jest.fn(),
@@ -143,9 +166,13 @@ describe('SolicitudesAccesoService', () => {
     };
     mockRedesRepository = {
       find: jest.fn(),
-      findOneBy: jest.fn().mockResolvedValue({ idRed: RED.idRed }),
+      findOneBy: jest.fn().mockResolvedValue({
+        idRed: RED.idRed,
+        estado: EstadoRedVecinal.ACTIVA,
+      }),
     };
-    mockUnidadesRepository = { findOneBy: jest.fn().mockResolvedValue(null) };
+    mockRedModulosRepository = { find: jest.fn().mockResolvedValue([]) };
+    mockUnidadesRepository = { findOneBy: jest.fn() };
     mockMembresiasRepository = { exists: jest.fn().mockResolvedValue(false) };
     mockAuthService = {
       emitirTokenPassword: jest.fn().mockResolvedValue('token-activacion'),
@@ -154,24 +181,30 @@ describe('SolicitudesAccesoService', () => {
           `http://localhost:5173/restablecer-password?token=${token}`,
       ),
     };
+    mockBitacoraService = { registrar: jest.fn(), marcarActividad: jest.fn() };
     mockMailService = { enviar: jest.fn().mockResolvedValue(true) };
+    usuariosCreados = new WeakSet();
     mockManager = {
       findOne: jest.fn(),
       findOneBy: jest.fn(),
-      findOneByOrFail: jest.fn((entidad: unknown) =>
+      exists: jest.fn(),
+      create: jest.fn((entidad: unknown, datos: object) => {
+        const creado = { ...datos };
+        if (entidad === Usuario) {
+          usuariosCreados.add(creado);
+        }
+        return creado;
+      }),
+      save: jest.fn((entidad: object) =>
         Promise.resolve(
-          entidad === Rol ? ROL_RESIDENTE : { nombre: 'Villa Los Aromos' },
-        ),
-      ),
-      create: jest.fn((_entidad: unknown, datos: object) => ({ ...datos })),
-      save: jest.fn((entidad: Record<string, unknown>) =>
-        Promise.resolve(
-          'passwordHash' in entidad
-            ? { ...entidad, idUsuario: ID_USUARIO_NUEVO }
+          usuariosCreados.has(entidad)
+            ? { idUsuario: ID_USUARIO_NUEVO, ...entidad }
             : entidad,
         ),
       ),
       restore: jest.fn(),
+      insert: jest.fn(),
+      update: jest.fn(),
     };
     configurarManager();
 
@@ -187,6 +220,10 @@ describe('SolicitudesAccesoService', () => {
           useValue: mockRedesRepository,
         },
         {
+          provide: getRepositoryToken(RedModulo),
+          useValue: mockRedModulosRepository,
+        },
+        {
           provide: getRepositoryToken(Unidad),
           useValue: mockUnidadesRepository,
         },
@@ -195,6 +232,7 @@ describe('SolicitudesAccesoService', () => {
           useValue: mockMembresiasRepository,
         },
         { provide: AuthService, useValue: mockAuthService },
+        { provide: BitacoraService, useValue: mockBitacoraService },
         { provide: MailService, useValue: mockMailService },
         {
           provide: DataSource,
@@ -211,34 +249,79 @@ describe('SolicitudesAccesoService', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.clearAllMocks();
   });
 
+  describe('listarComunidades', () => {
+    it('debe listar solo comunidades activas e indicar si tienen administración externa', async () => {
+      mockRedesRepository.find.mockResolvedValue([
+        { idRed: 3, nombre: 'Edificio Andes', tipo: TipoRedVecinal.EDIFICIO },
+        { idRed: 5, nombre: 'Villa Copihues', tipo: TipoRedVecinal.VILLA },
+      ]);
+      mockRedModulosRepository.find.mockResolvedValue([{ idRed: 3 }]);
+
+      const resultado = await target.listarComunidades();
+
+      expect(resultado).toEqual([
+        {
+          idRed: 3,
+          nombre: 'Edificio Andes',
+          tipo: TipoRedVecinal.EDIFICIO,
+          administracionExterna: true,
+        },
+        {
+          idRed: 5,
+          nombre: 'Villa Copihues',
+          tipo: TipoRedVecinal.VILLA,
+          administracionExterna: false,
+        },
+      ]);
+      expect(mockRedesRepository.find).toHaveBeenCalledWith({
+        select: { idRed: true, nombre: true, tipo: true },
+        where: { estado: EstadoRedVecinal.ACTIVA },
+        order: { nombre: 'ASC' },
+      });
+      expect(mockRedModulosRepository.find).toHaveBeenCalledWith({
+        where: {
+          codigoModulo: CodigoModulo.ADMINISTRADOR_EXTERNO,
+          activo: true,
+        },
+      });
+    });
+  });
+
   describe('crear', () => {
-    const dto: CrearSolicitudAccesoDto = {
+    const dto = {
       idRed: RED.idRed,
-      numeroUnidad: 'A-101',
-      rut: '12.345.678-5',
+      identificador: '12345678-5',
       nombre: 'Ana',
       apellidoPaterno: 'Pérez',
       apellidoMaterno: 'Soto',
       correo: 'ana@correo.cl',
+      numeroUnidad: 'A-101',
     } as CrearSolicitudAccesoDto;
 
-    it('debe guardar la solicitud con el RUT normalizado y la unidad encontrada', async () => {
-      // Arrange
+    it('debe guardar la solicitud con país por defecto y la unidad encontrada', async () => {
       mockUnidadesRepository.findOneBy.mockResolvedValue({ idUnidad: 12 });
 
-      // Act
-      const resultado = await target.crear(dto);
+      const resultado = await target.crear({
+        ...dto,
+        tipoResidencia: TipoResidencia.ARRENDATARIO,
+      });
 
-      // Assert
       expect(resultado).toEqual({ mensaje: MENSAJE_SOLICITUD_RECIBIDA });
+      expect(mockRedesRepository.findOneBy).toHaveBeenCalledWith({
+        idRed: RED.idRed,
+        estado: EstadoRedVecinal.ACTIVA,
+      });
       expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith({
         idRed: RED.idRed,
         idUnidad: 12,
         numeroUnidad: 'A-101',
-        rut: '12345678-5',
+        tipoResidencia: TipoResidencia.ARRENDATARIO,
+        identificador: '12345678-5',
+        pais: 'CL',
         nombre: 'Ana',
         apellidoPaterno: 'Pérez',
         apellidoMaterno: 'Soto',
@@ -248,58 +331,53 @@ describe('SolicitudesAccesoService', () => {
     });
 
     it('debe guardar idUnidad null cuando el número de unidad no coincide', async () => {
-      // Act
+      mockUnidadesRepository.findOneBy.mockResolvedValue(null);
+
       await target.crear(dto);
 
-      // Assert
       expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith(
         expect.objectContaining({ idUnidad: null }),
       );
     });
 
     it.each([
-      ['ya tiene una solicitud pendiente', true, false],
-      ['ya es miembro de la comunidad', false, true],
+      ['ya hay una solicitud pendiente', true, false],
+      ['la persona ya es miembro', false, true],
     ])(
-      'debe responder lo mismo sin guardar cuando la persona %s',
-      async (_caso, yaPendiente, yaMiembro) => {
-        // Arrange
-        mockSolicitudesRepository.existsBy.mockResolvedValue(yaPendiente);
-        mockMembresiasRepository.exists.mockResolvedValue(yaMiembro);
+      'debe responder lo mismo sin crear otra cuando %s',
+      async (_caso, pendiente, miembro) => {
+        mockSolicitudesRepository.existsBy.mockResolvedValue(pendiente);
+        mockMembresiasRepository.exists.mockResolvedValue(miembro);
 
-        // Act
         const resultado = await target.crear(dto);
 
-        // Assert
         expect(resultado).toEqual({ mensaje: MENSAJE_SOLICITUD_RECIBIDA });
         expect(mockSolicitudesRepository.insert).not.toHaveBeenCalled();
       },
     );
 
-    it('debe buscar pendientes y miembros con el RUT normalizado', async () => {
-      // Act
-      await target.crear(dto);
+    it('debe buscar pendientes y miembros vigentes por país e identificador', async () => {
+      await target.crear({ ...dto, identificador: '30123456', pais: 'AR' });
 
-      // Assert
       expect(mockSolicitudesRepository.existsBy).toHaveBeenCalledWith({
         idRed: RED.idRed,
-        rut: '12345678-5',
+        pais: 'AR',
+        identificador: '30123456',
         estado: EstadoSolicitudAcceso.PENDIENTE,
       });
       expect(mockMembresiasRepository.exists).toHaveBeenCalledWith({
         where: {
           idRed: RED.idRed,
-          estado: true,
-          usuario: { rut: '12345678-5' },
+          activo: true,
+          ...condicionVigente(HOY),
+          usuario: { pais: 'AR', identificador: '30123456' },
         },
       });
     });
 
-    it('debe lanzar NotFoundException cuando la comunidad no existe', async () => {
-      // Arrange
+    it('debe lanzar NotFoundException cuando la comunidad no existe o está suspendida', async () => {
       mockRedesRepository.findOneBy.mockResolvedValue(null);
 
-      // Act & Assert
       await expect(target.crear(dto)).rejects.toThrow(
         new NotFoundException('La comunidad no existe'),
       );
@@ -309,22 +387,18 @@ describe('SolicitudesAccesoService', () => {
 
   describe('listar', () => {
     it('debe filtrar siempre por la comunidad del administrador', async () => {
-      // Act
       await target.listar(RED, EstadoSolicitudAcceso.PENDIENTE);
 
-      // Assert
-      expect(mockSolicitudesRepository.find).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { idRed: RED.idRed, estado: EstadoSolicitudAcceso.PENDIENTE },
-        }),
-      );
+      expect(mockSolicitudesRepository.find).toHaveBeenCalledWith({
+        where: { idRed: RED.idRed, estado: EstadoSolicitudAcceso.PENDIENTE },
+        relations: { unidad: true },
+        order: { fechaSolicitud: 'DESC' },
+      });
     });
 
     it('no debe filtrar por estado cuando no se indica', async () => {
-      // Act
       await target.listar(RED);
 
-      // Assert
       expect(mockSolicitudesRepository.find).toHaveBeenCalledWith(
         expect.objectContaining({ where: { idRed: RED.idRed } }),
       );
@@ -332,216 +406,340 @@ describe('SolicitudesAccesoService', () => {
   });
 
   describe('aprobar', () => {
-    it('debe crear la cuenta, la membresía de Residente y enviar el enlace de activación', async () => {
-      // Act
+    it('debe crear la cuenta sin contraseña, el cargo Residente, la residencia, la bitácora y el enlace de activación', async () => {
       const resultado = await target.aprobar(80, RED, ID_RESOLUTOR, {});
 
-      // Assert
-      expect(mockManager.create).toHaveBeenCalledWith(
-        Usuario,
-        expect.objectContaining({
-          rut: '12345678-5',
-          correo: 'ana@correo.cl',
-          passwordHash: 'hash-aleatorio',
-          estado: true,
-        }),
-      );
-      expect(membresiaGuardada()).toEqual(
-        expect.objectContaining({
-          idUsuario: ID_USUARIO_NUEVO,
+      expect(mockManager.create).toHaveBeenCalledWith(Usuario, {
+        identificador: '12345678-5',
+        pais: 'CL',
+        nombre: 'Ana',
+        apellidoPaterno: 'Pérez',
+        apellidoMaterno: 'Soto',
+        correo: 'ana@correo.cl',
+        telefono: null,
+        passwordHash: null,
+      });
+      expect(insertado(Membresia)).toEqual({
+        idUsuario: ID_USUARIO_NUEVO,
+        idRed: RED.idRed,
+        idRol: RolUsuario.RESIDENTE,
+        activo: true,
+        desde: HOY,
+        hasta: null,
+      });
+      expect(insertado(Residencia)).toEqual({
+        idUsuario: ID_USUARIO_NUEVO,
+        idUnidad: 12,
+        tipo: TipoResidencia.PROPIETARIO,
+        desde: HOY,
+        hasta: null,
+      });
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        {
+          ambito: AmbitoBitacora.COMUNIDAD,
           idRed: RED.idRed,
-          idUnidad: 12,
-          estado: true,
-          roles: [ROL_RESIDENTE],
-        }),
+          idUsuario: ID_RESOLUTOR,
+          accion: 'aprobar_solicitud_acceso',
+          entidad: 'solicitudes_acceso',
+          idEntidad: 80,
+          detalle: {
+            idUsuario: ID_USUARIO_NUEVO,
+            idUnidad: 12,
+            tipoResidencia: TipoResidencia.PROPIETARIO,
+            cuentaNueva: true,
+          },
+        },
+        mockManager,
       );
       expect(mockAuthService.emitirTokenPassword).toHaveBeenCalledWith(
         ID_USUARIO_NUEVO,
         TipoTokenPassword.ACTIVACION,
         mockManager,
       );
-      expect(mockMailService.enviar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          para: 'ana@correo.cl',
-          texto: expect.stringContaining('token=token-activacion'),
-        }),
+      const [correo] = mockMailService.enviar.mock.calls[0];
+      expect(correo.texto).toContain(
+        'http://localhost:5173/restablecer-password?token=token-activacion',
       );
-      expect(resultado).toEqual(
-        expect.objectContaining({
-          estado: EstadoSolicitudAcceso.APROBADA,
-          idUnidad: 12,
-          idUsuarioResolutor: ID_RESOLUTOR,
-          idUsuarioCreado: ID_USUARIO_NUEVO,
-          fechaResolucion: expect.any(Date),
-          correoEnviado: true,
-        }),
-      );
+      expect(resultado).toMatchObject({
+        estado: EstadoSolicitudAcceso.APROBADA,
+        idUsuarioResolutor: ID_RESOLUTOR,
+        idUsuarioCreado: ID_USUARIO_NUEVO,
+        correoEnviado: true,
+      });
+    });
+
+    it('debe usar el tipo de residencia corregido por la administración', async () => {
+      const resultado = await target.aprobar(80, RED, ID_RESOLUTOR, {
+        tipoResidencia: TipoResidencia.ARRENDATARIO,
+      });
+
+      expect(insertado(Residencia)).toMatchObject({
+        tipo: TipoResidencia.ARRENDATARIO,
+      });
+      expect(resultado.tipoResidencia).toBe(TipoResidencia.ARRENDATARIO);
     });
 
     it('debe informar correoEnviado false cuando el correo de activación no sale', async () => {
-      // Arrange
       mockMailService.enviar.mockResolvedValue(false);
 
-      // Act
       const resultado = await target.aprobar(80, RED, ID_RESOLUTOR, {});
 
-      // Assert
-      expect(resultado).toEqual(
-        expect.objectContaining({
-          estado: EstadoSolicitudAcceso.APROBADA,
-          correoEnviado: false,
-        }),
-      );
+      expect(resultado.correoEnviado).toBe(false);
     });
 
     it('debe reutilizar la cuenta existente sin emitir token de activación', async () => {
-      // Arrange
-      const usuario = crearUsuarioExistente();
-      configurarManager({ porRut: usuario, porCorreo: usuario });
+      const existente = crearUsuarioExistente();
+      configurarManager({ porIdentificador: existente, porCorreo: existente });
 
-      // Act
-      const resultado = await target.aprobar(80, RED, ID_RESOLUTOR, {});
+      await target.aprobar(80, RED, ID_RESOLUTOR, {});
 
-      // Assert
       expect(mockManager.create).not.toHaveBeenCalledWith(
         Usuario,
         expect.anything(),
       );
+      expect(insertado(Membresia)).toMatchObject({ idUsuario: 7 });
+      expect(mockManager.exists).toHaveBeenCalledWith(Usuario, {
+        where: { idUsuario: 7, passwordHash: Not(IsNull()) },
+        withDeleted: true,
+      });
       expect(mockAuthService.emitirTokenPassword).not.toHaveBeenCalled();
-      expect(mockMailService.enviar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          texto: expect.stringContaining('con tu cuenta actual'),
-        }),
+      const [correo] = mockMailService.enviar.mock.calls[0];
+      expect(correo.texto).toContain('con tu cuenta actual');
+    });
+
+    it('debe enviar el enlace de activación a una cuenta existente que nunca definió contraseña', async () => {
+      const sinPassword = crearUsuarioExistente({ fechaEliminacion: AHORA });
+      configurarManager({
+        porIdentificador: sinPassword,
+        porCorreo: sinPassword,
+        conPassword: false,
+      });
+
+      await target.aprobar(80, RED, ID_RESOLUTOR, {});
+
+      expect(mockAuthService.emitirTokenPassword).toHaveBeenCalledWith(
+        7,
+        TipoTokenPassword.ACTIVACION,
+        mockManager,
       );
-      expect(resultado.idUsuarioCreado).toBe(7);
+      const [correo] = mockMailService.enviar.mock.calls[0];
+      expect(correo.texto).toContain('token=token-activacion');
+      expect(correo.texto).not.toContain('con tu cuenta actual');
+    });
+
+    it('debe marcar la actividad de la comunidad después de la transacción', async () => {
+      await target.aprobar(80, RED, ID_RESOLUTOR, {});
+
+      expect(mockBitacoraService.marcarActividad).toHaveBeenCalledWith(
+        RED.idRed,
+      );
+      const ordenRegistro =
+        mockBitacoraService.registrar.mock.invocationCallOrder[0];
+      const ordenActividad =
+        mockBitacoraService.marcarActividad.mock.invocationCallOrder[0];
+      expect(ordenActividad).toBeGreaterThan(ordenRegistro);
+    });
+
+    it('debe lanzar NotFoundException sin enviar correo cuando la comunidad ya no existe', async () => {
+      configurarManager({ red: null });
+
+      await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
+        new NotFoundException('La comunidad no existe'),
+      );
+      expect(mockMailService.enviar).not.toHaveBeenCalled();
+      expect(mockBitacoraService.marcarActividad).not.toHaveBeenCalled();
     });
 
     it('debe restaurar una cuenta con borrado lógico', async () => {
-      // Arrange
-      const usuario = crearUsuarioExistente({ fechaEliminacion: new Date() });
-      configurarManager({ porRut: usuario, porCorreo: usuario });
+      const eliminada = crearUsuarioExistente({ fechaEliminacion: AHORA });
+      configurarManager({ porIdentificador: eliminada, porCorreo: eliminada });
 
-      // Act
       await target.aprobar(80, RED, ID_RESOLUTOR, {});
 
-      // Assert
       expect(mockManager.restore).toHaveBeenCalledWith(Usuario, {
         idUsuario: 7,
       });
     });
 
-    it('debe lanzar ConflictException sin modificar nada cuando la cuenta está desactivada', async () => {
-      // Arrange
-      const usuario = crearUsuarioExistente({ estado: false });
-      configurarManager({ porRut: usuario, porCorreo: usuario });
+    it('debe lanzar ConflictException sin modificar nada cuando la cuenta está bloqueada', async () => {
+      const bloqueada = crearUsuarioExistente({ bloqueado: true });
+      configurarManager({ porIdentificador: bloqueada, porCorreo: bloqueada });
 
-      // Act & Assert
       await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
-        new ConflictException(
-          'La cuenta de esta persona está desactivada. Reactívala antes de aprobar la solicitud.',
-        ),
+        ConflictException,
       );
-      expect(mockManager.restore).not.toHaveBeenCalled();
-      expect(mockManager.save).not.toHaveBeenCalled();
-      expect(mockMailService.enviar).not.toHaveBeenCalled();
+      expect(mockManager.insert).not.toHaveBeenCalled();
+      expect(mockBitacoraService.registrar).not.toHaveBeenCalled();
     });
 
-    it('debe restaurar la membresía eliminada solo con el rol Residente', async () => {
-      // Arrange: el borrado lógico no toca membresias_roles, así que la
-      // membresía eliminada todavía trae su rol de Administración.
-      const usuario = crearUsuarioExistente();
+    it('debe restaurar el cargo Residente eliminado y reabrir su periodo desde hoy', async () => {
+      const existente = crearUsuarioExistente();
       configurarManager({
-        porRut: usuario,
-        porCorreo: usuario,
-        membresia: {
-          idMembresia: 30,
-          idUsuario: 7,
-          idRed: RED.idRed,
-          estado: false,
-          fechaEliminacion: new Date(),
-          roles: [ROL_ADMINISTRACION] as Rol[],
+        porIdentificador: existente,
+        porCorreo: existente,
+        residente: {
+          idMembresia: 40,
+          desde: '2024-01-01',
+          hasta: '2024-12-31',
+          fechaEliminacion: AHORA,
         },
       });
 
-      // Act
       await target.aprobar(80, RED, ID_RESOLUTOR, {});
 
-      // Assert
+      expect(mockManager.findOne).toHaveBeenCalledWith(Membresia, {
+        where: { idUsuario: 7, idRed: RED.idRed, idRol: RolUsuario.RESIDENTE },
+        withDeleted: true,
+      });
       expect(mockManager.restore).toHaveBeenCalledWith(Membresia, {
-        idMembresia: 30,
+        idMembresia: 40,
       });
-      expect(membresiaGuardada()).toEqual(
-        expect.objectContaining({
-          idMembresia: 30,
-          estado: true,
-          fechaEliminacion: null,
-          roles: [ROL_RESIDENTE],
-        }),
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Membresia,
+        { idMembresia: 40 },
+        { activo: true, hasta: null, desde: HOY },
       );
+      expect(insertado(Membresia)).toBeUndefined();
     });
 
-    it('no debe duplicar el rol Residente en una membresía vigente que ya lo tiene', async () => {
-      // Arrange
-      const usuario = crearUsuarioExistente();
+    it('debe reactivar un cargo Residente vigente sin cambiar su fecha de inicio', async () => {
+      const existente = crearUsuarioExistente();
       configurarManager({
-        porRut: usuario,
-        porCorreo: usuario,
-        membresia: {
-          idMembresia: 30,
-          estado: true,
+        porIdentificador: existente,
+        porCorreo: existente,
+        residente: {
+          idMembresia: 40,
+          desde: '2024-01-01',
+          hasta: null,
           fechaEliminacion: null,
-          roles: [ROL_ADMINISTRACION, ROL_RESIDENTE] as Rol[],
         },
       });
 
-      // Act
       await target.aprobar(80, RED, ID_RESOLUTOR, {});
 
-      // Assert
-      expect(mockManager.restore).not.toHaveBeenCalled();
-      expect(membresiaGuardada()?.roles).toEqual([
-        ROL_ADMINISTRACION,
-        ROL_RESIDENTE,
-      ]);
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Membresia,
+        { idMembresia: 40 },
+        { activo: true, hasta: null },
+      );
+    });
+
+    it.each([
+      ['eliminado aunque no vencido', null, AHORA],
+      ['vencido aunque no eliminado', '2025-12-31', null],
+    ])(
+      'debe reabrir desde hoy un cargo Residente %s',
+      async (_caso, hasta, fechaEliminacion) => {
+        const existente = crearUsuarioExistente();
+        configurarManager({
+          porIdentificador: existente,
+          porCorreo: existente,
+          residente: {
+            idMembresia: 40,
+            desde: '2024-01-01',
+            hasta,
+            fechaEliminacion,
+          },
+        });
+
+        await target.aprobar(80, RED, ID_RESOLUTOR, {});
+
+        expect(mockManager.update).toHaveBeenCalledWith(
+          Membresia,
+          { idMembresia: 40 },
+          { activo: true, hasta: null, desde: HOY },
+        );
+      },
+    );
+
+    it('no debe duplicar la residencia cuando la persona ya vive en la unidad', async () => {
+      const existente = crearUsuarioExistente();
+      configurarManager({
+        porIdentificador: existente,
+        porCorreo: existente,
+        residencia: {
+          idResidencia: 60,
+          tipo: TipoResidencia.PROPIETARIO,
+          hasta: '2027-03-31',
+        },
+      });
+
+      await target.aprobar(80, RED, ID_RESOLUTOR, {
+        tipoResidencia: TipoResidencia.ARRENDATARIO,
+      });
+
+      expect(mockManager.findOne).toHaveBeenCalledWith(Residencia, {
+        where: {
+          idUsuario: 7,
+          idUnidad: 12,
+          ...condicionVigente(HOY),
+        },
+      });
+      expect(insertado(Residencia)).toBeUndefined();
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Residencia,
+        { idResidencia: 60 },
+        { tipo: TipoResidencia.ARRENDATARIO },
+      );
+    });
+
+    it('no debe tocar la residencia vigente cuando el tipo no cambia', async () => {
+      const existente = crearUsuarioExistente();
+      configurarManager({
+        porIdentificador: existente,
+        porCorreo: existente,
+        residencia: { idResidencia: 60, tipo: TipoResidencia.PROPIETARIO },
+      });
+
+      await target.aprobar(80, RED, ID_RESOLUTOR, {});
+
+      expect(insertado(Residencia)).toBeUndefined();
+      expect(mockManager.update).not.toHaveBeenCalledWith(
+        Residencia,
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it('debe lanzar ConflictException cuando el correo pertenece a otra persona', async () => {
-      // Arrange
       configurarManager({
-        porRut: null,
-        porCorreo: crearUsuarioExistente({ idUsuario: 99, rut: '11111111-1' }),
+        porCorreo: crearUsuarioExistente({ idUsuario: 9 }),
       });
 
-      // Act & Assert
       await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
         new ConflictException(
           'El correo de la solicitud ya está registrado por otra persona',
         ),
       );
-      expect(mockManager.save).not.toHaveBeenCalled();
+      expect(mockManager.insert).not.toHaveBeenCalled();
+    });
+
+    it('debe buscar al usuario por país e identificador incluyendo eliminados', async () => {
+      await target.aprobar(80, RED, ID_RESOLUTOR, {});
+
+      expect(mockManager.findOne).toHaveBeenCalledWith(Usuario, {
+        where: { pais: 'CL', identificador: '12345678-5' },
+        withDeleted: true,
+      });
     });
 
     it('debe lanzar BadRequestException cuando la unidad es de otra comunidad', async () => {
-      // Arrange
       configurarManager({ unidad: null });
 
-      // Act & Assert
       await expect(
-        target.aprobar(80, RED, ID_RESOLUTOR, { idUnidad: 999 }),
+        target.aprobar(80, RED, ID_RESOLUTOR, { idUnidad: 99 }),
       ).rejects.toThrow(
         new BadRequestException('La unidad no pertenece a esta comunidad'),
       );
       expect(mockManager.findOneBy).toHaveBeenCalledWith(Unidad, {
-        idUnidad: 999,
+        idUnidad: 99,
         idRed: RED.idRed,
       });
     });
 
     it('debe lanzar BadRequestException cuando no hay unidad detectada ni indicada', async () => {
-      // Arrange
       configurarManager({ solicitud: crearSolicitud({ idUnidad: null }) });
 
-      // Act & Assert
       await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
         new BadRequestException(
           'No existe la unidad "A-101" en esta comunidad. Indica idUnidad para aprobar.',
@@ -549,112 +747,103 @@ describe('SolicitudesAccesoService', () => {
       );
     });
 
-    it('debe usar la unidad indicada por la administración en vez de la detectada', async () => {
-      // Arrange
-      configurarManager({ unidad: { idUnidad: 15, idRed: RED.idRed } });
-
-      // Act
-      const resultado = await target.aprobar(80, RED, ID_RESOLUTOR, {
-        idUnidad: 15,
-      });
-
-      // Assert
-      expect(resultado.idUnidad).toBe(15);
-      expect(membresiaGuardada()?.idUnidad).toBe(15);
-    });
-
     it('debe buscar la solicitud solo en la comunidad del administrador y bloquearla', async () => {
-      // Arrange
-      configurarManager({ solicitud: null });
+      await target.aprobar(80, RED, ID_RESOLUTOR, {});
 
-      // Act & Assert
-      await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
-        new NotFoundException('Solicitud no encontrada'),
-      );
       expect(mockManager.findOne).toHaveBeenCalledWith(SolicitudAcceso, {
         where: { idSolicitud: 80, idRed: RED.idRed },
         lock: { mode: 'pessimistic_write' },
       });
     });
 
-    it('debe lanzar ConflictException cuando la solicitud ya fue resuelta', async () => {
-      // Arrange
-      configurarManager({
-        solicitud: crearSolicitud({ estado: EstadoSolicitudAcceso.RECHAZADA }),
-      });
+    it('debe lanzar NotFoundException cuando la solicitud no existe en la comunidad', async () => {
+      configurarManager({ solicitud: null });
 
-      // Act & Assert
       await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
-        new ConflictException('Esta solicitud ya fue resuelta'),
+        new NotFoundException('Solicitud no encontrada'),
       );
-      expect(mockManager.save).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('rechazar', () => {
-    it('debe marcar la solicitud como rechazada y enviar el motivo por correo', async () => {
-      // Act
-      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {
-        motivo: 'La unidad no corresponde',
-      });
-
-      // Assert
-      expect(resultado).toEqual(
-        expect.objectContaining({
-          estado: EstadoSolicitudAcceso.RECHAZADA,
-          motivoRechazo: 'La unidad no corresponde',
-          idUsuarioResolutor: ID_RESOLUTOR,
-          fechaResolucion: expect.any(Date),
-        }),
-      );
-      expect(mockMailService.enviar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          para: 'ana@correo.cl',
-          asunto: 'Tu solicitud de acceso a Villa Los Aromos',
-          texto: expect.stringContaining('Motivo: La unidad no corresponde'),
-        }),
-      );
-    });
-
-    it('debe guardar motivo null y omitirlo en el correo cuando viene vacío', async () => {
-      // Act
-      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {
-        motivo: '',
-      });
-
-      // Assert
-      expect(resultado.motivoRechazo).toBeNull();
-      expect(mockMailService.enviar).toHaveBeenCalledWith(
-        expect.objectContaining({
-          texto: expect.not.stringContaining('Motivo:'),
-        }),
-      );
-    });
-
-    it('debe fallar sin enviar correo cuando no encuentra la comunidad dentro de la transacción', async () => {
-      // Arrange
-      mockManager.findOneByOrFail.mockRejectedValue(
-        new Error('EntityNotFoundError'),
-      );
-
-      // Act & Assert
-      await expect(
-        target.rechazar(80, RED, ID_RESOLUTOR, { motivo: 'x' }),
-      ).rejects.toThrow('EntityNotFoundError');
-      expect(mockMailService.enviar).not.toHaveBeenCalled();
     });
 
     it('debe lanzar ConflictException cuando la solicitud ya fue resuelta', async () => {
-      // Arrange
       configurarManager({
         solicitud: crearSolicitud({ estado: EstadoSolicitudAcceso.APROBADA }),
       });
 
-      // Act & Assert
+      await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
+        new ConflictException('Esta solicitud ya fue resuelta'),
+      );
+    });
+  });
+
+  describe('rechazar', () => {
+    it('debe marcar la solicitud como rechazada, registrarla en la bitácora y enviar el motivo', async () => {
+      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {
+        motivo: 'No figura en el registro',
+      });
+
+      expect(resultado).toMatchObject({
+        estado: EstadoSolicitudAcceso.RECHAZADA,
+        motivoRechazo: 'No figura en el registro',
+        fechaResolucion: AHORA,
+        idUsuarioResolutor: ID_RESOLUTOR,
+      });
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        {
+          ambito: AmbitoBitacora.COMUNIDAD,
+          idRed: RED.idRed,
+          idUsuario: ID_RESOLUTOR,
+          accion: 'rechazar_solicitud_acceso',
+          entidad: 'solicitudes_acceso',
+          idEntidad: 80,
+          detalle: { motivo: 'No figura en el registro' },
+        },
+        mockManager,
+      );
+      const [correo] = mockMailService.enviar.mock.calls[0];
+      expect(correo.texto).toContain('Motivo: No figura en el registro');
+      expect(resultado.correoEnviado).toBe(true);
+      expect(resultado).not.toHaveProperty('idUsuario');
+      expect(mockBitacoraService.marcarActividad).toHaveBeenCalledWith(
+        RED.idRed,
+      );
+    });
+
+    it('debe informar correoEnviado false cuando el correo de rechazo no sale', async () => {
+      mockMailService.enviar.mockResolvedValue(false);
+
+      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {});
+
+      expect(resultado.correoEnviado).toBe(false);
+    });
+
+    it('debe guardar motivo null y omitirlo en el correo cuando viene vacío', async () => {
+      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {
+        motivo: '',
+      });
+
+      expect(resultado.motivoRechazo).toBeNull();
+      const [correo] = mockMailService.enviar.mock.calls[0];
+      expect(correo.texto).not.toContain('Motivo:');
+    });
+
+    it('debe lanzar NotFoundException sin enviar correo cuando no encuentra la comunidad dentro de la transacción', async () => {
+      configurarManager({ red: null });
+
+      await expect(target.rechazar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
+        new NotFoundException('La comunidad no existe'),
+      );
+      expect(mockMailService.enviar).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar ConflictException cuando la solicitud ya fue resuelta', async () => {
+      configurarManager({
+        solicitud: crearSolicitud({ estado: EstadoSolicitudAcceso.RECHAZADA }),
+      });
+
       await expect(target.rechazar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
         new ConflictException('Esta solicitud ya fue resuelta'),
       );
-      expect(mockMailService.enviar).not.toHaveBeenCalled();
+      expect(mockBitacoraService.registrar).not.toHaveBeenCalled();
     });
   });
 });

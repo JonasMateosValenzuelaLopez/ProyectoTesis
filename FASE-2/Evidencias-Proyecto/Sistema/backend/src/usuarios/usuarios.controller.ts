@@ -16,10 +16,8 @@ import { UsuariosService } from './usuarios.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 
-// Plantilla sin implementar: protegida por defecto hasta definir sus permisos.
-// Al implementarla, filtrar cada consulta por la comunidad de @RedActual().
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RolUsuario.ADMINISTRACION)
+@Roles(RolUsuario.ADMINISTRADOR)
 @Controller('usuarios')
 export class UsuariosController {
   constructor(private readonly usuariosService: UsuariosService) {}

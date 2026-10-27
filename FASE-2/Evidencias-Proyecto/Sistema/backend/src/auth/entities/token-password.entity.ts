@@ -13,8 +13,6 @@ export enum TipoTokenPassword {
   ACTIVACION = 'Activacion',
 }
 
-// Token de un solo uso para recuperar contraseña o activar una cuenta.
-// Solo se guarda el hash SHA-256; el token en claro viaja únicamente por correo.
 @Entity('tokens_password')
 export class TokenPassword extends EntidadAuditada {
   @PrimaryGeneratedColumn({ name: 'id_token' })

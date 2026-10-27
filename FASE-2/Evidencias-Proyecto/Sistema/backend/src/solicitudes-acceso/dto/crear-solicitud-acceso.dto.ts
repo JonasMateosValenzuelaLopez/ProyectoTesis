@@ -1,6 +1,7 @@
 import { Transform } from 'class-transformer';
 import {
   IsEmail,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -9,7 +10,12 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
-import { EsRut, NormalizarRut } from '../../common/validators/rut.validator';
+import {
+  EsIdentificador,
+  NormalizarIdentificador,
+  NormalizarPais,
+} from '../../common/validators/identificador.validator';
+import { TipoResidencia } from '../../usuarios/entities/residencia.entity';
 
 const recortar = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -19,10 +25,15 @@ export class CrearSolicitudAccesoDto {
   @IsPositive({ message: 'Debes seleccionar tu comunidad' })
   idRed: number;
 
-  @NormalizarRut()
-  @IsString()
-  @EsRut()
-  rut: string;
+  @NormalizarIdentificador()
+  @IsString({ message: 'El RUT o documento de identidad es obligatorio' })
+  @EsIdentificador()
+  identificador: string;
+
+  @IsOptional()
+  @NormalizarPais()
+  @Matches(/^[A-Z]{2}$/, { message: 'El país no es válido' })
+  pais?: string;
 
   @Transform(recortar)
   @IsString()
@@ -49,7 +60,6 @@ export class CrearSolicitudAccesoDto {
   @MaxLength(100)
   correo: string;
 
-  // Un campo vacío del formulario ("") se trata como no informado.
   @IsOptional()
   @Transform(({ value }) => {
     const recortado = recortar({ value });
@@ -58,10 +68,15 @@ export class CrearSolicitudAccesoDto {
   @Matches(/^\+?\d{8,14}$/, { message: 'El teléfono no es válido' })
   telefono?: string;
 
-  // Lo que la persona escribe en "Número de Casa/Depto".
   @Transform(recortar)
   @IsString()
   @IsNotEmpty({ message: 'El número de casa o depto es obligatorio' })
   @MaxLength(20)
   numeroUnidad: string;
+
+  @IsOptional()
+  @IsEnum(TipoResidencia, {
+    message: 'El tipo de residencia debe ser Propietario o Arrendatario',
+  })
+  tipoResidencia?: TipoResidencia;
 }

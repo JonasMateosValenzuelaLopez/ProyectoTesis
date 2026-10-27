@@ -5,24 +5,41 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
-import { createHash } from 'node:crypto';
-import { DataSource, IsNull } from 'typeorm';
-import { TipoRedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
+import { createHash, createHmac } from 'node:crypto';
+import { DataSource, In, IsNull, LessThan, MoreThan } from 'typeorm';
+import { CodigoModulo } from '../common/enums/modulo.enum';
+import { RolUsuario } from '../common/enums/rol.enum';
+import { condicionVigente } from '../common/utils/vigencia';
 import { MailService } from '../mail/mail.service';
+import {
+  EstadoRedVecinal,
+  RedVecinal,
+  TipoRedVecinal,
+} from '../redes-vecinales/entities/red-vecinal.entity';
+import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
+import { TipoUnidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from '../usuarios/entities/membresia.entity';
+import {
+  Residencia,
+  TipoResidencia,
+} from '../usuarios/entities/residencia.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
+import {
+  MENSAJE_CODIGO_INVALIDO,
+  MENSAJE_CUENTA_BLOQUEADA,
+} from './auth.constantes';
 import { AuthService } from './auth.service';
+import { CodigoOtp } from './entities/codigo-otp.entity';
 import {
   TipoTokenPassword,
   TokenPassword,
 } from './entities/token-password.entity';
 
-// bcrypt real tarda ~100 ms por hash; se simula para controlar el resultado
-// de compare y para poder verificar el uso de HASH_FALSO.
 jest.mock('bcryptjs', () => ({
   hashSync: jest.fn(() => 'hash-falso'),
   hash: jest.fn(),
@@ -34,7 +51,12 @@ const mockBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 const sha256 = (valor: string) =>
   createHash('sha256').update(valor).digest('hex');
 
-const AHORA = new Date('2026-10-26T12:00:00.000Z');
+const SECRETO = 'secreto-de-prueba';
+const hmacCodigo = (idUsuario: number, codigo: string) =>
+  createHmac('sha256', SECRETO).update(`${idUsuario}:${codigo}`).digest('hex');
+
+const AHORA = new Date(2026, 9, 26, 12, 0, 0);
+const HOY = '2026-10-26';
 const UNA_HORA_MS = 60 * 60 * 1000;
 
 describe('AuthService', () => {
@@ -49,6 +71,13 @@ describe('AuthService', () => {
     findOneBy: jest.Mock;
   };
   let mockMembresiasRepository: { find: jest.Mock };
+  let mockResidenciasRepository: { find: jest.Mock };
+  let mockRedModulosRepository: { find: jest.Mock };
+  let mockCodigosOtpRepository: {
+    findOne: jest.Mock;
+    update: jest.Mock;
+    count: jest.Mock;
+  };
   let mockJwtService: { signAsync: jest.Mock };
   let mockMailService: { enviar: jest.Mock; urlFrontend: jest.Mock };
   let mockManager: {
@@ -62,7 +91,8 @@ describe('AuthService', () => {
   const crearUsuario = (cambios: Partial<Usuario> = {}): Usuario =>
     ({
       idUsuario: 7,
-      rut: '12345678-5',
+      identificador: '12345678-5',
+      pais: 'CL',
       nombre: 'Ana',
       apellidoPaterno: 'Pérez',
       apellidoMaterno: 'Soto',
@@ -70,42 +100,91 @@ describe('AuthService', () => {
       telefono: '+56911112222',
       passwordHash: 'hash-real',
       passwordActualizadaEn: null,
-      estado: true,
-      membresias: [],
+      esPlataforma: false,
+      bloqueado: false,
+      motivoBloqueo: null,
       ...cambios,
     }) as Usuario;
 
   const usuarioSerializado = {
     idUsuario: 7,
-    rut: '12345678-5',
+    identificador: '12345678-5',
+    pais: 'CL',
     nombre: 'Ana',
     apellidoPaterno: 'Pérez',
     apellidoMaterno: 'Soto',
     correo: 'ana@correo.cl',
     telefono: '+56911112222',
+    esPlataforma: false,
   };
 
-  const membresiaConUnidad = {
-    idRed: 3,
-    red: { nombre: 'Villa Los Aromos', tipo: TipoRedVecinal.VILLA },
-    unidad: {
-      idUnidad: 12,
-      numeroIdentificador: 'A-101',
-      callePasaje: 'Los Olmos',
-    },
-    roles: [{ idRol: 6, nombreRol: 'Residente' }],
-  };
+  const villa = (cambios: Partial<RedVecinal> = {}) =>
+    ({
+      idRed: 3,
+      nombre: 'Villa Los Aromos',
+      tipo: TipoRedVecinal.VILLA,
+      estado: EstadoRedVecinal.ACTIVA,
+      motivoSuspension: null,
+      ...cambios,
+    }) as RedVecinal;
 
-  const comunidadConUnidad = {
+  const cargo = (
+    idRol: RolUsuario,
+    nombreRol: string,
+    red: RedVecinal | null = villa(),
+  ) =>
+    ({
+      idRed: red?.idRed ?? 3,
+      idRol,
+      red,
+      rol: { idRol, nombreRol },
+    }) as Membresia;
+
+  const residenciaEn = (idRed: number, idUnidad: number) =>
+    ({
+      idUnidad,
+      tipo: TipoResidencia.ARRENDATARIO,
+      unidad: {
+        idUnidad,
+        idRed,
+        numeroIdentificador: 'A-101',
+        tipo: TipoUnidad.CASA,
+      },
+    }) as Residencia;
+
+  const comunidadVilla = {
     idRed: 3,
     nombre: 'Villa Los Aromos',
     tipo: TipoRedVecinal.VILLA,
-    unidad: {
-      idUnidad: 12,
-      numeroIdentificador: 'A-101',
-      callePasaje: 'Los Olmos',
-    },
-    roles: [{ idRol: 6, nombre: 'Residente' }],
+    roles: [
+      { idRol: RolUsuario.PRESIDENTE, nombre: 'Presidente' },
+      { idRol: RolUsuario.RESIDENTE, nombre: 'Residente' },
+    ],
+    presidenteAdministra: true,
+    modulos: [CodigoModulo.MURO, CodigoModulo.COBROS],
+    unidades: [
+      {
+        idUnidad: 12,
+        numeroIdentificador: 'A-101',
+        tipoUnidad: TipoUnidad.CASA,
+        tipoResidencia: TipoResidencia.ARRENDATARIO,
+      },
+    ],
+  };
+
+  const prepararComunidadVilla = () => {
+    mockMembresiasRepository.find.mockResolvedValue([
+      cargo(RolUsuario.PRESIDENTE, 'Presidente'),
+      cargo(RolUsuario.RESIDENTE, 'Residente'),
+    ]);
+    mockRedModulosRepository.find.mockResolvedValue([
+      { idRed: 3, codigoModulo: CodigoModulo.MURO } as RedModulo,
+      { idRed: 3, codigoModulo: CodigoModulo.COBROS } as RedModulo,
+    ]);
+    mockResidenciasRepository.find.mockResolvedValue([
+      residenciaEn(3, 12),
+      residenciaEn(5, 40),
+    ]);
   };
 
   beforeEach(async () => {
@@ -121,7 +200,14 @@ describe('AuthService', () => {
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       findOneBy: jest.fn(),
     };
-    mockMembresiasRepository = { find: jest.fn() };
+    mockMembresiasRepository = { find: jest.fn().mockResolvedValue([]) };
+    mockResidenciasRepository = { find: jest.fn().mockResolvedValue([]) };
+    mockRedModulosRepository = { find: jest.fn().mockResolvedValue([]) };
+    mockCodigosOtpRepository = {
+      findOne: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn().mockResolvedValue(0),
+    };
     mockJwtService = { signAsync: jest.fn() };
     mockMailService = {
       enviar: jest.fn().mockResolvedValue(undefined),
@@ -151,8 +237,21 @@ describe('AuthService', () => {
           provide: getRepositoryToken(Membresia),
           useValue: mockMembresiasRepository,
         },
+        {
+          provide: getRepositoryToken(Residencia),
+          useValue: mockResidenciasRepository,
+        },
+        {
+          provide: getRepositoryToken(RedModulo),
+          useValue: mockRedModulosRepository,
+        },
+        {
+          provide: getRepositoryToken(CodigoOtp),
+          useValue: mockCodigosOtpRepository,
+        },
         { provide: JwtService, useValue: mockJwtService },
         { provide: MailService, useValue: mockMailService },
+        { provide: ConfigService, useValue: { getOrThrow: () => SECRETO } },
         { provide: DataSource, useValue: mockDataSource },
       ],
     }).compile();
@@ -166,87 +265,104 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('debe devolver el token y las comunidades cuando las credenciales son correctas', async () => {
-      // Arrange
+    it('debe devolver el token y las comunidades con cargos, módulos y unidades', async () => {
+      jest.useFakeTimers({ now: AHORA });
       mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
       mockBcrypt.compare.mockResolvedValue(true as never);
-      mockMembresiasRepository.find.mockResolvedValue([membresiaConUnidad]);
+      prepararComunidadVilla();
       mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
 
-      // Act
       const resultado = await target.login({
-        rut: '12.345.678-5',
+        identificador: '12345678-5',
         password: 'clave1234',
       });
 
-      // Assert
       expect(resultado).toEqual({
         accessToken: 'jwt-firmado',
         tokenType: 'Bearer',
-        usuario: { ...usuarioSerializado, comunidades: [comunidadConUnidad] },
+        usuario: { ...usuarioSerializado, comunidades: [comunidadVilla] },
       });
       expect(mockQueryBuilder.addSelect).toHaveBeenCalledWith(
         'usuario.passwordHash',
       );
       expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        'usuario.rut = :rut',
-        {
-          rut: '12345678-5',
-        },
+        'usuario.pais = :pais AND usuario.identificador = :identificador',
+        { pais: 'CL', identificador: '12345678-5' },
       );
       expect(mockBcrypt.compare).toHaveBeenCalledWith('clave1234', 'hash-real');
       expect(mockJwtService.signAsync).toHaveBeenCalledWith({ sub: 7 });
       expect(mockMembresiasRepository.find).toHaveBeenCalledWith({
-        where: { idUsuario: 7, estado: true },
-        relations: { red: true, unidad: true, roles: true },
-        order: { idRed: 'ASC' },
+        where: { idUsuario: 7, activo: true, ...condicionVigente(HOY) },
+        relations: { red: true, rol: true },
+        order: { idRed: 'ASC', idRol: 'ASC' },
+      });
+      expect(mockRedModulosRepository.find).toHaveBeenCalledWith({
+        where: { idRed: In([3]), activo: true },
+      });
+      expect(mockResidenciasRepository.find).toHaveBeenCalledWith({
+        where: { idUsuario: 7, ...condicionVigente(HOY) },
+        relations: { unidad: true },
       });
     });
 
-    it('debe buscar por correo cuando no viene RUT', async () => {
-      // Arrange
+    it('no debe dar administración al Presidente cuando hay administrador externo', async () => {
       mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
       mockBcrypt.compare.mockResolvedValue(true as never);
-      mockMembresiasRepository.find.mockResolvedValue([membresiaConUnidad]);
+      mockMembresiasRepository.find.mockResolvedValue([
+        cargo(RolUsuario.PRESIDENTE, 'Presidente'),
+      ]);
+      mockRedModulosRepository.find.mockResolvedValue([
+        {
+          idRed: 3,
+          codigoModulo: CodigoModulo.ADMINISTRADOR_EXTERNO,
+        } as RedModulo,
+      ]);
 
-      // Act
+      const resultado = await target.login({
+        identificador: '12345678-5',
+        password: 'clave1234',
+      });
+
+      expect(resultado.usuario.comunidades[0].presidenteAdministra).toBe(false);
+    });
+
+    it('debe buscar por correo y país por defecto cuando no viene identificador', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      prepararComunidadVilla();
+
       await target.login({ correo: 'ana@correo.cl', password: 'clave1234' });
 
-      // Assert
       expect(mockQueryBuilder.where).toHaveBeenCalledWith(
         'usuario.correo = :correo',
         { correo: 'ana@correo.cl' },
       );
     });
 
-    it('debe devolver unidad null en la comunidad cuando la membresía no tiene unidad', async () => {
-      // Arrange
-      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
-      mockBcrypt.compare.mockResolvedValue(true as never);
-      mockMembresiasRepository.find.mockResolvedValue([
-        { ...membresiaConUnidad, unidad: null },
-      ]);
-
-      // Act
-      const resultado = await target.login({
-        rut: '12345678-5',
-        password: 'clave1234',
-      });
-
-      // Assert
-      expect(resultado.usuario.comunidades).toEqual([
-        { ...comunidadConUnidad, unidad: null },
-      ]);
-    });
-
-    it('debe comparar contra HASH_FALSO y lanzar UnauthorizedException cuando el usuario no existe', async () => {
-      // Arrange
+    it('debe buscar con el país indicado', async () => {
       mockQueryBuilder.getOne.mockResolvedValue(null);
       mockBcrypt.compare.mockResolvedValue(false as never);
 
-      // Act & Assert
       await expect(
-        target.login({ rut: '12345678-5', password: 'clave1234' }),
+        target.login({
+          identificador: '30123456',
+          pais: 'AR',
+          password: 'clave1234',
+        }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'usuario.pais = :pais AND usuario.identificador = :identificador',
+        { pais: 'AR', identificador: '30123456' },
+      );
+    });
+
+    it('debe comparar contra HASH_FALSO y lanzar UnauthorizedException cuando el usuario no existe', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(null);
+      mockBcrypt.compare.mockResolvedValue(false as never);
+
+      await expect(
+        target.login({ identificador: '12345678-5', password: 'clave1234' }),
       ).rejects.toThrow(new UnauthorizedException('Credenciales inválidas'));
       expect(mockBcrypt.compare).toHaveBeenCalledWith(
         'clave1234',
@@ -255,93 +371,433 @@ describe('AuthService', () => {
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     });
 
-    it('debe lanzar UnauthorizedException cuando la contraseña es incorrecta', async () => {
-      // Arrange
-      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
-      mockBcrypt.compare.mockResolvedValue(false as never);
-
-      // Act & Assert
-      await expect(
-        target.login({ rut: '12345678-5', password: 'otra-clave1' }),
-      ).rejects.toThrow(new UnauthorizedException('Credenciales inválidas'));
-      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
-    });
-
-    it('debe lanzar ForbiddenException cuando la cuenta está desactivada', async () => {
-      // Arrange
+    it('debe lanzar UnauthorizedException cuando la cuenta aún no tiene contraseña', async () => {
       mockQueryBuilder.getOne.mockResolvedValue(
-        crearUsuario({ estado: false }),
+        crearUsuario({ passwordHash: null }),
       );
       mockBcrypt.compare.mockResolvedValue(true as never);
 
-      // Act & Assert
       await expect(
-        target.login({ rut: '12345678-5', password: 'clave1234' }),
-      ).rejects.toThrow(
-        new ForbiddenException(
-          'Tu cuenta está desactivada. Contacta a la administración.',
-        ),
+        target.login({ identificador: '12345678-5', password: 'clave1234' }),
+      ).rejects.toThrow(new UnauthorizedException('Credenciales inválidas'));
+      expect(mockBcrypt.compare).toHaveBeenCalledWith(
+        'clave1234',
+        'hash-falso',
       );
+    });
+
+    it('debe lanzar UnauthorizedException cuando la contraseña es incorrecta', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockBcrypt.compare.mockResolvedValue(false as never);
+
+      await expect(
+        target.login({ identificador: '12345678-5', password: 'mala1234' }),
+      ).rejects.toThrow(new UnauthorizedException('Credenciales inválidas'));
+    });
+
+    it('debe lanzar ForbiddenException antes de revisar comunidades cuando la cuenta está bloqueada', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(
+        crearUsuario({ bloqueado: true }),
+      );
+      mockBcrypt.compare.mockResolvedValue(true as never);
+
+      await expect(
+        target.login({ identificador: '12345678-5', password: 'clave1234' }),
+      ).rejects.toThrow(new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA));
+      expect(mockMembresiasRepository.find).not.toHaveBeenCalled();
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     });
 
-    it('debe lanzar ForbiddenException cuando el usuario no tiene comunidades activas', async () => {
-      // Arrange
+    it('debe dejar entrar al equipo de plataforma sin comunidades', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(
+        crearUsuario({ esPlataforma: true }),
+      );
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
+
+      const resultado = await target.login({
+        correo: 'equipo@entrecasas.cl',
+        password: 'clave1234',
+      });
+
+      expect(resultado.usuario).toEqual({
+        ...usuarioSerializado,
+        esPlataforma: true,
+        comunidades: [],
+      });
+    });
+
+    it('debe explicar la suspensión cuando la única comunidad está suspendida', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      mockMembresiasRepository.find.mockResolvedValue([
+        cargo(
+          RolUsuario.RESIDENTE,
+          'Residente',
+          villa({
+            estado: EstadoRedVecinal.SUSPENDIDA,
+            motivoSuspension: 'Deuda con la plataforma',
+          }),
+        ),
+      ]);
+
+      await expect(
+        target.login({ identificador: '12345678-5', password: 'clave1234' }),
+      ).rejects.toThrow(
+        new ForbiddenException(
+          'Tu comunidad Villa Los Aromos está suspendida: Deuda con la plataforma',
+        ),
+      );
+    });
+
+    it('debe dejar entrar con las comunidades activas aunque otra esté suspendida', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      mockMembresiasRepository.find.mockResolvedValue([
+        cargo(RolUsuario.RESIDENTE, 'Residente'),
+        cargo(
+          RolUsuario.RESIDENTE,
+          'Residente',
+          villa({ idRed: 8, estado: EstadoRedVecinal.SUSPENDIDA }),
+        ),
+      ]);
+
+      const resultado = await target.login({
+        identificador: '12345678-5',
+        password: 'clave1234',
+      });
+
+      expect(resultado.usuario.comunidades.map((c) => c.idRed)).toEqual([3]);
+    });
+
+    it('debe lanzar ForbiddenException cuando no tiene comunidades vigentes', async () => {
       mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
       mockBcrypt.compare.mockResolvedValue(true as never);
       mockMembresiasRepository.find.mockResolvedValue([]);
 
-      // Act & Assert
       await expect(
-        target.login({ rut: '12345678-5', password: 'clave1234' }),
+        target.login({ identificador: '12345678-5', password: 'clave1234' }),
       ).rejects.toThrow(
         new ForbiddenException(
           'Tu cuenta no está asociada a ninguna comunidad activa.',
         ),
       );
+    });
+
+    it('debe omitir las comunidades con borrado lógico', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      mockMembresiasRepository.find.mockResolvedValue([
+        cargo(RolUsuario.RESIDENTE, 'Residente', null),
+      ]);
+
+      await expect(
+        target.login({ identificador: '12345678-5', password: 'clave1234' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('debe omitir sin fallar los cargos cuyo rol tiene borrado lógico', async () => {
+      prepararComunidadVilla();
+      mockMembresiasRepository.find.mockResolvedValue([
+        cargo(RolUsuario.PRESIDENTE, 'Presidente'),
+        { ...cargo(RolUsuario.RESIDENTE, 'Residente'), rol: null },
+      ]);
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
+
+      const resultado = await target.login({
+        identificador: '12345678-5',
+        password: 'clave1234',
+      });
+
+      expect(resultado.usuario.comunidades[0].roles).toEqual([
+        { idRol: RolUsuario.PRESIDENTE, nombre: 'Presidente' },
+      ]);
+    });
+  });
+
+  describe('solicitarCodigo', () => {
+    const mensajeGenerico = {
+      mensaje:
+        'Si los datos corresponden a una cuenta activa, te enviaremos un código por correo.',
+    };
+
+    it('debe anular los códigos previos, guardar solo el HMAC y enviar el código por correo', async () => {
+      jest.useFakeTimers({ now: AHORA });
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+
+      const resultado = await target.solicitarCodigo({
+        identificador: '12345678-5',
+      });
+
+      expect(resultado).toEqual(mensajeGenerico);
+      expect(mockQueryBuilder.addSelect).not.toHaveBeenCalled();
+      expect(mockManager.update).toHaveBeenCalledWith(
+        CodigoOtp,
+        { idUsuario: 7, usado: false },
+        { usado: true },
+      );
+      const [, fila] = mockManager.insert.mock.calls[0];
+      expect(fila.expira).toEqual(new Date(AHORA.getTime() + 10 * 60 * 1000));
+
+      const [correo] = mockMailService.enviar.mock.calls[0];
+      expect(correo.para).toBe('ana@correo.cl');
+      expect(correo.asunto).toBe('Tu código para entrar a EntreCasas');
+      const codigo = /(\d{6})/.exec(correo.texto)?.[1] as string;
+      expect(fila.codigoHash).toBe(hmacCodigo(7, codigo));
+    });
+
+    it('debe contar los códigos emitidos a la cuenta en los últimos 15 minutos', async () => {
+      jest.useFakeTimers({ now: AHORA });
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+
+      await target.solicitarCodigo({ identificador: '12345678-5' });
+
+      expect(mockCodigosOtpRepository.count).toHaveBeenCalledWith({
+        where: {
+          idUsuario: 7,
+          expira: MoreThan(new Date(AHORA.getTime() - 5 * 60 * 1000)),
+        },
+      });
+    });
+
+    it('debe responder lo mismo sin anular el código vigente cuando la cuenta alcanzó el límite', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockCodigosOtpRepository.count.mockResolvedValue(3);
+      const espiaWarn = jest
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => undefined);
+
+      const resultado = await target.solicitarCodigo({
+        identificador: '12345678-5',
+      });
+
+      expect(resultado).toEqual(mensajeGenerico);
+      expect(mockDataSource.transaction).not.toHaveBeenCalled();
+      expect(mockManager.update).not.toHaveBeenCalled();
+      expect(mockMailService.enviar).not.toHaveBeenCalled();
+      expect(espiaWarn).toHaveBeenCalledWith(
+        'Límite de códigos de acceso alcanzado para el usuario 7',
+      );
+      espiaWarn.mockRestore();
+    });
+
+    it.each([
+      ['no existe', null],
+      ['está bloqueada', crearUsuario({ bloqueado: true })],
+    ])(
+      'debe responder lo mismo sin enviar nada cuando la cuenta %s',
+      async (_caso, usuario) => {
+        mockQueryBuilder.getOne.mockResolvedValue(usuario);
+
+        const resultado = await target.solicitarCodigo({
+          identificador: '12345678-5',
+        });
+
+        expect(resultado).toEqual(mensajeGenerico);
+        expect(mockManager.insert).not.toHaveBeenCalled();
+        expect(mockMailService.enviar).not.toHaveBeenCalled();
+      },
+    );
+
+    it('debe responder lo mismo sin enviar correo cuando falla la BD', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockManager.insert.mockRejectedValue(new Error('BD caída'));
+      const espiaError = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => undefined);
+
+      const resultado = await target.solicitarCodigo({
+        identificador: '12345678-5',
+      });
+
+      expect(resultado).toEqual(mensajeGenerico);
+      expect(mockMailService.enviar).not.toHaveBeenCalled();
+      expect(espiaError).toHaveBeenCalledWith(
+        'No se pudo emitir el código de acceso del usuario 7',
+        expect.any(String),
+      );
+      espiaError.mockRestore();
+    });
+  });
+
+  describe('verificarCodigo', () => {
+    const registro = {
+      idCodigo: 90,
+      idUsuario: 7,
+      codigoHash: hmacCodigo(7, '123456'),
+      usado: false,
+      intentos: 0,
+    } as CodigoOtp;
+
+    beforeEach(() => {
+      jest.useFakeTimers({ now: AHORA });
+      mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
+      mockCodigosOtpRepository.findOne.mockResolvedValue(registro);
+      mockCodigosOtpRepository.update.mockResolvedValue({ affected: 1 });
+    });
+
+    it('debe descontar el intento, consumir el código y emitir la sesión', async () => {
+      prepararComunidadVilla();
+      mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
+
+      const resultado = await target.verificarCodigo({
+        identificador: '12345678-5',
+        codigo: '123456',
+      });
+
+      expect(resultado.accessToken).toBe('jwt-firmado');
+      expect(mockCodigosOtpRepository.findOne).toHaveBeenCalledWith({
+        where: { idUsuario: 7, usado: false, expira: MoreThan(AHORA) },
+        order: { idCodigo: 'DESC' },
+      });
+      expect(mockCodigosOtpRepository.update).toHaveBeenNthCalledWith(
+        1,
+        { idCodigo: 90, usado: false, intentos: LessThan(5) },
+        { intentos: expect.any(Function) },
+      );
+      const [, { intentos }] = mockCodigosOtpRepository.update.mock.calls[0];
+      expect(intentos()).toBe('intentos + 1');
+      expect(mockCodigosOtpRepository.update).toHaveBeenNthCalledWith(
+        2,
+        { idCodigo: 90, usado: false },
+        { usado: true },
+      );
+    });
+
+    it('debe rechazar el código correcto de otra cuenta porque el HMAC incluye al usuario', async () => {
+      mockCodigosOtpRepository.findOne.mockResolvedValue({
+        ...registro,
+        codigoHash: hmacCodigo(8, '123456'),
+      });
+
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '123456',
+        }),
+      ).rejects.toThrow(
+        new UnauthorizedException('El código no es válido o ya expiró'),
+      );
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('debe rechazar sin lanzar RangeError cuando el hash guardado tiene otro largo', async () => {
+      mockCodigosOtpRepository.findOne.mockResolvedValue({
+        ...registro,
+        codigoHash: 'abcd',
+      });
+
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '123456',
+        }),
+      ).rejects.toThrow(
+        new UnauthorizedException('El código no es válido o ya expiró'),
+      );
+    });
+
+    it('debe lanzar UnauthorizedException sin consumir el código cuando es incorrecto', async () => {
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '654321',
+        }),
+      ).rejects.toThrow(new UnauthorizedException(MENSAJE_CODIGO_INVALIDO));
+      expect(mockCodigosOtpRepository.update).toHaveBeenCalledTimes(1);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('debe anular el código cuando se agotaron los intentos, aunque el código sea correcto', async () => {
+      mockCodigosOtpRepository.update
+        .mockResolvedValueOnce({ affected: 0 })
+        .mockResolvedValueOnce({ affected: 1 });
+
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '123456',
+        }),
+      ).rejects.toThrow(new UnauthorizedException(MENSAJE_CODIGO_INVALIDO));
+      expect(mockCodigosOtpRepository.update).toHaveBeenLastCalledWith(
+        { idCodigo: 90 },
+        { usado: true },
+      );
+    });
+
+    it('debe rechazar cuando otra petición consumió el código primero', async () => {
+      mockCodigosOtpRepository.update
+        .mockResolvedValueOnce({ affected: 1 })
+        .mockResolvedValueOnce({ affected: 0 });
+
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '123456',
+        }),
+      ).rejects.toThrow(new UnauthorizedException(MENSAJE_CODIGO_INVALIDO));
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar UnauthorizedException cuando no hay código vigente', async () => {
+      mockCodigosOtpRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '123456',
+        }),
+      ).rejects.toThrow(new UnauthorizedException(MENSAJE_CODIGO_INVALIDO));
+      expect(mockCodigosOtpRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar UnauthorizedException cuando el usuario no existe', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(null);
+
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '123456',
+        }),
+      ).rejects.toThrow(new UnauthorizedException(MENSAJE_CODIGO_INVALIDO));
+      expect(mockCodigosOtpRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('debe aplicar las reglas del login: cuenta bloqueada', async () => {
+      mockQueryBuilder.getOne.mockResolvedValue(
+        crearUsuario({ bloqueado: true }),
+      );
+
+      await expect(
+        target.verificarCodigo({
+          identificador: '12345678-5',
+          codigo: '123456',
+        }),
+      ).rejects.toThrow(new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA));
     });
   });
 
   describe('perfil', () => {
     it('debe devolver los datos del usuario con sus comunidades', async () => {
-      // Arrange
       mockUsuariosRepository.findOneBy.mockResolvedValue(crearUsuario());
-      mockMembresiasRepository.find.mockResolvedValue([membresiaConUnidad]);
+      prepararComunidadVilla();
 
-      // Act
       const resultado = await target.perfil(7);
 
-      // Assert
       expect(resultado).toEqual({
         ...usuarioSerializado,
-        comunidades: [comunidadConUnidad],
+        comunidades: [comunidadVilla],
       });
       expect(mockUsuariosRepository.findOneBy).toHaveBeenCalledWith({
         idUsuario: 7,
       });
     });
 
-    it('debe omitir las comunidades con borrado lógico', async () => {
-      // Arrange
-      mockUsuariosRepository.findOneBy.mockResolvedValue(crearUsuario());
-      mockMembresiasRepository.find.mockResolvedValue([
-        { ...membresiaConUnidad, idRed: 5, red: null },
-        membresiaConUnidad,
-      ]);
-
-      // Act
-      const resultado = await target.perfil(7);
-
-      // Assert
-      expect(resultado.comunidades).toEqual([comunidadConUnidad]);
-    });
-
     it('debe lanzar NotFoundException cuando el usuario no existe', async () => {
-      // Arrange
       mockUsuariosRepository.findOneBy.mockResolvedValue(null);
 
-      // Act & Assert
       await expect(target.perfil(99)).rejects.toThrow(
         new NotFoundException('Usuario no encontrado'),
       );
@@ -355,16 +811,13 @@ describe('AuthService', () => {
     };
 
     it('debe emitir un token de recuperación y enviar el correo cuando la cuenta está activa', async () => {
-      // Arrange
       jest.useFakeTimers({ now: AHORA });
       mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
 
-      // Act
       const resultado = await target.solicitarRecuperacion({
         correo: 'ana@correo.cl',
       });
 
-      // Assert
       expect(resultado).toEqual(mensajeGenerico);
       expect(mockQueryBuilder.addSelect).not.toHaveBeenCalled();
       expect(mockManager.softDelete).toHaveBeenCalledWith(TokenPassword, {
@@ -381,68 +834,55 @@ describe('AuthService', () => {
       const [correo] = mockMailService.enviar.mock.calls[0];
       expect(correo.para).toBe('ana@correo.cl');
       expect(correo.asunto).toBe('Recupera tu contraseña de EntreCasas');
-      // El enlace del correo lleva el token en claro, cuyo hash es el guardado.
       const tokenEnCorreo = /token=([\w-]+)/.exec(correo.texto)?.[1] as string;
       expect(sha256(tokenEnCorreo)).toBe(filaInsertada.tokenHash);
     });
 
     it('debe responder lo mismo sin enviar correo cuando el usuario no existe', async () => {
-      // Arrange
       mockQueryBuilder.getOne.mockResolvedValue(null);
 
-      // Act
       const resultado = await target.solicitarRecuperacion({
-        rut: '12345678-5',
+        identificador: '12345678-5',
       });
 
-      // Assert
       expect(resultado).toEqual(mensajeGenerico);
       expect(mockManager.insert).not.toHaveBeenCalled();
       expect(mockMailService.enviar).not.toHaveBeenCalled();
     });
 
-    it('debe responder lo mismo sin enviar correo cuando la cuenta está desactivada', async () => {
-      // Arrange
+    it('debe responder lo mismo sin enviar correo cuando la cuenta está bloqueada', async () => {
       mockQueryBuilder.getOne.mockResolvedValue(
-        crearUsuario({ estado: false }),
+        crearUsuario({ bloqueado: true }),
       );
 
-      // Act
       const resultado = await target.solicitarRecuperacion({
-        rut: '12345678-5',
+        identificador: '12345678-5',
       });
 
-      // Assert
       expect(resultado).toEqual(mensajeGenerico);
       expect(mockManager.insert).not.toHaveBeenCalled();
       expect(mockMailService.enviar).not.toHaveBeenCalled();
     });
 
     it('debe emitir el token dentro de una transacción propia', async () => {
-      // Arrange
       mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
 
-      // Act
       await target.solicitarRecuperacion({ correo: 'ana@correo.cl' });
 
-      // Assert
       expect(mockDataSource.transaction).toHaveBeenCalledTimes(1);
     });
 
     it('debe responder lo mismo sin enviar correo cuando falla la emisión del token', async () => {
-      // Arrange: un 500 solo para cuentas existentes revelaría cuáles existen.
       mockQueryBuilder.getOne.mockResolvedValue(crearUsuario());
       mockManager.insert.mockRejectedValue(new Error('BD caída'));
       const espiaError = jest
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => undefined);
 
-      // Act
       const resultado = await target.solicitarRecuperacion({
         correo: 'ana@correo.cl',
       });
 
-      // Assert
       expect(resultado).toEqual(mensajeGenerico);
       expect(mockMailService.enviar).not.toHaveBeenCalled();
       expect(espiaError).toHaveBeenCalledWith(
@@ -471,14 +911,11 @@ describe('AuthService', () => {
     });
 
     it('debe marcar el token como usado, actualizar la contraseña y borrar los demás tokens pendientes', async () => {
-      // Arrange
       mockManager.findOneBy.mockResolvedValue(tokenGuardado);
       mockManager.update.mockResolvedValue({ affected: 1 });
 
-      // Act
       const resultado = await target.restablecerPassword(dto);
 
-      // Assert
       expect(resultado).toEqual({
         mensaje: 'Contraseña actualizada. Ya puedes iniciar sesión.',
       });
@@ -496,7 +933,7 @@ describe('AuthService', () => {
       expect(mockManager.update).toHaveBeenNthCalledWith(
         2,
         Usuario,
-        { idUsuario: 7 },
+        { idUsuario: 7, fechaEliminacion: IsNull() },
         { passwordHash: 'hash-nuevo', passwordActualizadaEn: AHORA },
       );
       expect(mockManager.softDelete).toHaveBeenCalledWith(TokenPassword, {
@@ -505,11 +942,21 @@ describe('AuthService', () => {
       });
     });
 
+    it('debe tratar como enlace inválido el token de una cuenta eliminada', async () => {
+      mockManager.findOneBy.mockResolvedValue(tokenGuardado);
+      mockManager.update
+        .mockResolvedValueOnce({ affected: 1 })
+        .mockResolvedValueOnce({ affected: 0 });
+
+      await expect(target.restablecerPassword(dto)).rejects.toThrow(
+        new BadRequestException('El enlace no es válido o ya expiró'),
+      );
+      expect(mockManager.softDelete).not.toHaveBeenCalled();
+    });
+
     it('debe lanzar BadRequestException cuando el token no existe o ya se usó', async () => {
-      // Arrange
       mockManager.findOneBy.mockResolvedValue(null);
 
-      // Act & Assert
       await expect(target.restablecerPassword(dto)).rejects.toThrow(
         new BadRequestException('El enlace no es válido o ya expiró'),
       );
@@ -517,13 +964,11 @@ describe('AuthService', () => {
     });
 
     it('debe lanzar BadRequestException cuando el token expiró', async () => {
-      // Arrange
       mockManager.findOneBy.mockResolvedValue({
         ...tokenGuardado,
         fechaExpiracion: new Date(AHORA.getTime() - 1),
       });
 
-      // Act & Assert
       await expect(target.restablecerPassword(dto)).rejects.toThrow(
         new BadRequestException('El enlace no es válido o ya expiró'),
       );
@@ -531,11 +976,9 @@ describe('AuthService', () => {
     });
 
     it('debe lanzar BadRequestException sin cambiar la contraseña cuando otra petición usó el token primero', async () => {
-      // Arrange
       mockManager.findOneBy.mockResolvedValue(tokenGuardado);
       mockManager.update.mockResolvedValue({ affected: 0 });
 
-      // Act & Assert
       await expect(target.restablecerPassword(dto)).rejects.toThrow(
         new BadRequestException('El enlace no es válido o ya expiró'),
       );
@@ -546,18 +989,15 @@ describe('AuthService', () => {
 
   describe('emitirTokenPassword', () => {
     it('debe reemplazar tokens previos y guardar solo el hash con vigencia de 3 días para activación', async () => {
-      // Arrange
       jest.useFakeTimers({ now: AHORA });
       const mockManagerExterno = { softDelete: jest.fn(), insert: jest.fn() };
 
-      // Act
       const token = await target.emitirTokenPassword(
         7,
         TipoTokenPassword.ACTIVACION,
         mockManagerExterno as never,
       );
 
-      // Assert
       expect(token).toMatch(/^[\w-]{43}$/);
       expect(mockManagerExterno.softDelete).toHaveBeenCalledWith(
         TokenPassword,
@@ -577,7 +1017,6 @@ describe('AuthService', () => {
     });
 
     it('debe generar un token distinto en cada llamada', async () => {
-      // Act
       const primero = await target.emitirTokenPassword(
         7,
         TipoTokenPassword.RECUPERACION,
@@ -587,17 +1026,14 @@ describe('AuthService', () => {
         TipoTokenPassword.RECUPERACION,
       );
 
-      // Assert
       expect(primero).not.toBe(segundo);
     });
   });
 
   describe('urlRestablecer', () => {
     it('debe armar el enlace del frontend con el token', () => {
-      // Act
       const url = target.urlRestablecer('abc123');
 
-      // Assert
       expect(url).toBe(
         'http://localhost:5173/restablecer-password?token=abc123',
       );

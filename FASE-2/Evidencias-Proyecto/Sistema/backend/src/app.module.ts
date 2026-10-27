@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
+import { BitacoraModule } from './bitacora/bitacora.module';
 import { ErroresBdFilter } from './common/filters/errores-bd.filter';
 import { obtenerConfiguracionBaseDatos } from './config/database.config';
 import { validarEntorno } from './config/entorno.config';
@@ -21,13 +22,6 @@ import { UsuariosModule } from './usuarios/usuarios.module';
       inject: [ConfigService],
       useFactory: obtenerConfiguracionBaseDatos,
     }),
-    // Límite de peticiones por IP y por ruta: cada endpoint tiene su propio
-    // contador (ThrottlerGuard global, ver providers). Dos ventanas: "rafaga"
-    // frena ráfagas por segundo y "default" el volumen por minuto. Las rutas
-    // sensibles (login, recuperar y restablecer contraseña, crear solicitud)
-    // lo bajan con @Throttle({ default: ... }).
-    // Una comunidad detrás de un mismo WiFi comparte IP: no bajar mucho estos
-    // valores. Si se excede, responde 429.
     ThrottlerModule.forRoot({
       throttlers: [
         { name: 'rafaga', ttl: 1_000, limit: 20 },
@@ -37,6 +31,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
         'Demasiadas solicitudes. Espera un momento e intenta de nuevo.',
     }),
     MailModule,
+    BitacoraModule,
     AuthModule,
     RedesVecinalesModule,
     RolesModule,
