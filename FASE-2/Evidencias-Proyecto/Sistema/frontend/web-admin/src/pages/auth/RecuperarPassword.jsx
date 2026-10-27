@@ -10,11 +10,11 @@ export default function RecuperarPassword() {
     <Grid container component="main" sx={{ height: '100vh', overflow: 'hidden' }}>
       
       {/* Lado Izquierdo: Branding */}
-      <Grid item xs={false} sm={4} md={7} sx={{
+      <Grid size={{ sm: 4, md: 7 }} sx={{
           backgroundImage: 'url(https://images.unsplash.com/photo-1554118811-1e0d58224f24?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80)',
           backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative',
-          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'primary.contrastText', p: 4,
-          '&::before': { content: '""', position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(42, 157, 143, 0.85)', zIndex: 1 }
+          display: { xs: 'none', sm: 'flex' }, flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: 'primary.contrastText', p: 4,
+          '&::before': { content: '""', position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(23, 39, 42, 0.88)', zIndex: 1 }
         }}>
         <Fade in={true} timeout={1500}>
           <Box sx={{ zIndex: 2, textAlign: 'center', maxWidth: '80%' }}>
@@ -29,7 +29,7 @@ export default function RecuperarPassword() {
       </Grid>
 
       {/* Lado Derecho: Formulario */}
-      <Grid item xs={12} sm={8} md={5} component={Paper} elevation={10} square sx={{ display: 'flex', alignItems: 'center' }}>
+      <Grid size={{ xs: 12, sm: 8, md: 5 }} component={Paper} elevation={10} square sx={{ display: 'flex', alignItems: 'center' }}>
         <Slide direction="up" in={true} mountOnEnter unmountOnExit timeout={800}>
           <Box sx={{ my: 8, mx: { xs: 4, md: 8 }, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
             

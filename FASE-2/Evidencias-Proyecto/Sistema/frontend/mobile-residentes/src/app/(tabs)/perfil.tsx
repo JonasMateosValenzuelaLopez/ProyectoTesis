@@ -1,100 +1,78 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useApp } from '@/context/App';
+import { useTema } from '@/constants/tema';
+import { COMUNIDADES, UNIDADES } from '@/data/demo';
+import { roles } from '@/constants/tokens';
+import { nombreUnidad } from '@/utils/formato';
+import Pantalla from '@/components/ec/Pantalla';
+import Texto from '@/components/ec/Texto';
+import Tarjeta from '@/components/ec/Tarjeta';
+import Boton from '@/components/ec/Boton';
+import Fila from '@/components/ec/Fila';
+import Chip from '@/components/ec/Chip';
+import PlacaUnidad from '@/components/ec/PlacaUnidad';
+import SelloCargo from '@/components/ec/SelloCargo';
 
-export default function PerfilScreen() {
-  const [editando, setEditando] = useState(false);
-  const [usuario, setUsuario] = useState({
-    nombre: 'Juan Pérez',
-    rut: '19.876.543-2',
-    correo: 'juan.perez@correo.cl',
-    telefono: '+56 9 1234 5678',
-    unidad: 'Casa 15',
-    condominio: 'Condominio Las Palmas'
-  });
+const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
 
-  const handleGuardar = () => {
-    setEditando(false);
-    Alert.alert('Éxito', 'Tus datos han sido actualizados correctamente.');
-  };
+// Perfil: datos de la cuenta, viviendas (una persona puede vivir o tener más de una) y salida.
+export default function Perfil() {
+  const t = useTema();
+  const { cuenta, unidad, comunidad, cargo, relacion, tiene, acciones } = useApp();
+  if (!cuenta || !unidad || !comunidad) return null;
+  const icono = (n: keyof typeof Ionicons.glyphMap) => <Ionicons name={n} size={22} color={t.cobalt} />;
 
   return (
-    <ScrollView style={styles.container}>
-      {/* Cabecera del Perfil */}
-      <View style={styles.headerCard}>
-        <View style={styles.avatarContainer}>
-          <Ionicons name="person" size={50} color="#2A9D8F" />
+    <Pantalla titulo="Perfil">
+      <Tarjeta>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+          <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Texto v="subtitulo">{cuenta.nombre} {cuenta.apellido}</Texto>
+            <Texto v="suave">{relacion ? RELACION[relacion] : ''} · {comunidad.nombre}</Texto>
+          </View>
         </View>
-        <Text style={styles.nombre}>{usuario.nombre}</Text>
-        <Text style={styles.unidadBadge}>{usuario.unidad} • {usuario.condominio}</Text>
-      </View>
-
-      {/* Formulario de Datos / Edición */}
-      <View style={styles.formCard}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Información Personal</Text>
-          <TouchableOpacity onPress={() => setEditando(!editando)}>
-            <Ionicons name={editando ? "close-outline" : "create-outline"} size={22} color="#2A9D8F" />
-          </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+          <SelloCargo cargo="residente" conTexto />
+          {cargo && <View style={{ marginLeft: 8 }}><SelloCargo cargo={cargo} conTexto /></View>}
         </View>
+        {cargo && <Texto v="chico">Como {roles[cargo].label.toLowerCase()} usas el panel web para tus tareas de cargo. En la app eres un vecino más.</Texto>}
+      </Tarjeta>
 
-        <Text style={styles.label}>Nombre Completo</Text>
-        <TextInput 
-          style={[styles.input, !editando && styles.inputDisabled]} 
-          value={usuario.nombre} 
-          editable={editando}
-          onChangeText={(text) => setUsuario({ ...usuario, nombre: text })}
-        />
+      {cuenta.residencias.length > 1 && (
+        <Tarjeta style={{ gap: 0 }}>
+          <Texto v="subtitulo" style={{ marginBottom: 6 }}>Mis viviendas</Texto>
+          {cuenta.residencias.map((r, n) => {
+            const u = UNIDADES[r.idUnidad];
+            const red = COMUNIDADES.find((c) => c.id === u.idRed)!;
+            const activa = r.idUnidad === unidad.id;
+            return (
+              <Fila
+                key={r.idUnidad} borde={n > 0} izquierda={<PlacaUnidad tipo="" numero={u.numero} size="sm" />}
+                titulo={`${nombreUnidad(u)} · ${red.nombre}`} detalle={RELACION[r.relacion]}
+                derecha={activa ? <Chip texto="Viendo" tono="cobalto" /> : undefined}
+                onPress={activa ? undefined : () => { acciones.cambiarUnidad(r.idUnidad); router.navigate('/(tabs)'); }}
+              />
+            );
+          })}
+        </Tarjeta>
+      )}
 
-        <Text style={styles.label}>RUT</Text>
-        <TextInput style={[styles.input, styles.inputDisabled]} value={usuario.rut} editable={false} />
+      <Tarjeta style={{ gap: 0 }}>
+        {tiene('cobros') && <Fila borde={false} izquierda={icono('receipt-outline')} titulo="Mis pagos" detalle="Gastos comunes y quién marcó cada pago" onPress={() => router.push('/pagos')} />}
+        {tiene('invitaciones_qr') && <Fila izquierda={icono('qr-code-outline')} titulo="Mis invitaciones" detalle="Códigos QR vigentes y anteriores" onPress={() => router.push('/invitaciones')} />}
+        <Fila borde={tiene('cobros') || tiene('invitaciones_qr')} izquierda={icono('call-outline')} titulo="Contactos de la comunidad" detalle="Administración, conserjería y emergencias" onPress={() => router.push('/contactos')} />
+      </Tarjeta>
 
-        <Text style={styles.label}>Correo Electrónico</Text>
-        <TextInput 
-          style={[styles.input, !editando && styles.inputDisabled]} 
-          value={usuario.correo} 
-          editable={editando}
-          onChangeText={(text) => setUsuario({ ...usuario, correo: text })}
-        />
+      <Tarjeta style={{ gap: 0 }}>
+        <Fila borde={false} titulo="RUT" detalle={cuenta.rut} />
+        <Fila titulo="Correo" detalle={cuenta.correo} />
+        <Fila titulo="Teléfono" detalle={cuenta.telefono} />
+      </Tarjeta>
 
-        <Text style={styles.label}>Teléfono de Contacto</Text>
-        <TextInput 
-          style={[styles.input, !editando && styles.inputDisabled]} 
-          value={usuario.telefono} 
-          editable={editando}
-          onChangeText={(text) => setUsuario({ ...usuario, telefono: text })}
-        />
-
-        {editando && (
-          <TouchableOpacity style={styles.saveButton} onPress={handleGuardar}>
-            <Text style={styles.saveButtonText}>Guardar Cambios</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Botón de Cerrar Sesión */}
-      <TouchableOpacity style={styles.logoutButton} onPress={() => Alert.alert('Sesión Cerrada')}>
-        <Ionicons name="log-out-outline" size={20} color="#E63946" />
-        <Text style={styles.logoutText}>Cerrar Sesión</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      <Boton tipo="peligro" texto="Cerrar sesión" icono="log-out-outline" onPress={() => { acciones.cerrarSesion(); router.replace('/login'); }} />
+    </Pantalla>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F6F8', padding: 15 },
-  headerCard: { backgroundColor: '#fff', borderRadius: 16, padding: 25, alignItems: 'center', marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-  avatarContainer: { width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(42, 157, 143, 0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  nombre: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 4 },
-  unidadBadge: { fontSize: 14, color: '#2A9D8F', fontWeight: '600' },
-  formCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  label: { fontSize: 12, fontWeight: 'bold', color: '#666', marginBottom: 5, marginTop: 10 },
-  input: { backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 10, padding: 12, fontSize: 15, color: '#333' },
-  inputDisabled: { backgroundColor: '#F1F3F5', color: '#555' },
-  saveButton: { backgroundColor: '#2A9D8F', borderRadius: 12, height: 50, justifyContent: 'center', alignItems: 'center', marginTop: 20 },
-  saveButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  logoutButton: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, backgroundColor: '#fff', borderRadius: 12, height: 55, borderWidth: 1, borderColor: 'rgba(230, 57, 70, 0.3)', marginBottom: 40 },
-  logoutText: { color: '#E63946', fontSize: 16, fontWeight: 'bold' },
-});

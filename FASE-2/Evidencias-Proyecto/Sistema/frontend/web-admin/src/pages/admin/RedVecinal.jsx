@@ -1,101 +1,92 @@
-import React, { useState } from 'react';
-import { 
-  Box, Typography, Button, Paper, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, IconButton, Dialog, 
-  DialogTitle, DialogContent, DialogActions, TextField, MenuItem 
-} from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { useState } from 'react';
+import { Box, Button, Chip, IconButton, InputAdornment, Paper, TextField, Typography } from '@mui/material';
+import { Add as AddIcon } from '@mui/icons-material';
+import { useSesion } from '../../context/SesionContext';
+import { useAdmin } from '../../context/AdminContext';
+import Encabezado from '../../components/ui/Encabezado';
+import Tarjeta from '../../components/ui/Tarjeta';
 
+const desde = (c) => ({
+  nombre: c.nombre, direccion: c.direccion ?? '', calle: c.calle ?? '',
+  calles: (c.calles ?? []).join('\n'), espaciosComunes: c.espaciosComunes ?? [],
+});
+
+// Datos generales de la comunidad: los ve el residente en la app y se usan en el plano.
 export default function RedVecinal() {
-  const [openModal, setOpenModal] = useState(false);
-  const [nuevoCondominio, setNuevoCondominio] = useState({ nombre: '', tipo: '', direccion: '' });
+  const { comunidad } = useSesion();
+  const { acciones } = useAdmin();
+  const [form, setForm] = useState(() => desde(comunidad));
+  const [espacio, setEspacio] = useState('');
+  const original = desde(comunidad);
+  const cambios = JSON.stringify(form) !== JSON.stringify(original);
+  const valido = form.nombre.trim() && form.direccion.trim();
 
-  // Datos simulados (Mock) mientras Camila termina la API REST en Node.js
-  const [condominios, setCondominios] = useState([
-    { id: 1, nombre: 'Condominio Las Palmas', tipo: 'Condominio', direccion: 'Av. Siempre Viva 123', fecha: '2026-10-18' }
-  ]);
-
-  const handleOpen = () => setOpenModal(true);
-  const handleClose = () => setOpenModal(false);
-
-  const handleChange = (e) => {
-    setNuevoCondominio({ ...nuevoCondominio, [e.target.name]: e.target.value });
+  const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const agregarEspacio = () => {
+    const nombre = espacio.trim();
+    if (nombre && !form.espaciosComunes.some((x) => x.toLowerCase() === nombre.toLowerCase())) {
+      setForm({ ...form, espaciosComunes: [...form.espaciosComunes, nombre] });
+    }
+    setEspacio('');
   };
-
-  const handleSubmit = (e) => {
+  const guardar = (e) => {
     e.preventDefault();
-    // Aquí se enviará el POST al backend
-    const nuevo = {
-      ...nuevoCondominio,
-      id: condominios.length + 1,
-      fecha: new Date().toISOString().split('T')[0]
-    };
-    setCondominios([...condominios, nuevo]);
-    handleClose();
-    setNuevoCondominio({ nombre: '', tipo: '', direccion: '' });
+    if (!valido) return;
+    const datos = { nombre: form.nombre.trim(), direccion: form.direccion.trim(), espaciosComunes: form.espaciosComunes };
+    if (comunidad.tipo === 'Condominio') datos.calle = form.calle.trim();
+    if (comunidad.tipo === 'Villa') datos.calles = form.calles.split('\n').map((x) => x.trim()).filter(Boolean);
+    acciones.guardarComunidad(datos);
   };
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary" fontWeight="bold">
-          Gestión de Red Vecinal
-        </Typography>
-        <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleOpen}>
-          Registrar Red
-        </Button>
-      </Box>
+    <Box component="form" onSubmit={guardar} sx={{ maxWidth: 820 }}>
+      <Encabezado
+        contexto={comunidad.nombre}
+        titulo="Datos de la comunidad"
+        descripcion="Los residentes ven estos datos en la app. Los nombres de calles y espacios también aparecen en el plano."
+      />
 
-      {/* Tabla de Datos */}
-      <TableContainer component={Paper} elevation={2}>
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead sx={{ bgcolor: 'rgba(42, 157, 143, 0.1)' }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Nombre</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Tipo</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Dirección</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Fecha Registro</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {condominios.map((row) => (
-              <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }}>
-                <TableCell>{row.id}</TableCell>
-                <TableCell>{row.nombre}</TableCell>
-                <TableCell>{row.tipo}</TableCell>
-                <TableCell>{row.direccion}</TableCell>
-                <TableCell>{row.fecha}</TableCell>
-                <TableCell align="center">
-                  <IconButton color="primary" size="small"><EditIcon /></IconButton>
-                  <IconButton color="error" size="small"><DeleteIcon /></IconButton>
-                </TableCell>
-              </TableRow>
+      <Box sx={{ display: 'grid', gap: 2.5 }}>
+        <Tarjeta titulo="General">
+          <TextField required label="Nombre" name="nombre" value={form.nombre} onChange={cambiar} />
+          <TextField required label="Dirección" name="direccion" value={form.direccion} onChange={cambiar} />
+          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: 'background.default' }}>
+            <Typography variant="body2" color="text.secondary">Tipo de comunidad</Typography>
+            <Typography sx={{ fontWeight: 700 }}>{comunidad.tipo} · {comunidad.unidades.length} unidades</Typography>
+            <Typography variant="body2" color="text.secondary">El tipo define el plano y los módulos sugeridos. Solo el equipo de EntreCasas puede cambiarlo.</Typography>
+          </Paper>
+        </Tarjeta>
+
+        {comunidad.tipo === 'Condominio' && (
+          <Tarjeta titulo="Plano">
+            <TextField label="Nombre del pasaje o calle interior" name="calle" value={form.calle} onChange={cambiar} />
+          </Tarjeta>
+        )}
+        {comunidad.tipo === 'Villa' && (
+          <Tarjeta titulo="Plano">
+            <TextField label="Calles entre manzanas" name="calles" value={form.calles} onChange={cambiar} multiline minRows={3} helperText="Una por línea, en orden: la primera separa las manzanas A y B." />
+          </Tarjeta>
+        )}
+
+        <Tarjeta titulo="Espacios comunes" extra="Se pueden reservar si el módulo de reservas está activo">
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {form.espaciosComunes.length === 0 && <Typography color="text.secondary">Sin espacios comunes.</Typography>}
+            {form.espaciosComunes.map((x) => (
+              <Chip key={x} label={x} onDelete={() => setForm({ ...form, espaciosComunes: form.espaciosComunes.filter((y) => y !== x) })} />
             ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Modal para Crear Nueva Red Vecinal */}
-      <Dialog open={openModal} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>Registrar Nueva Red Vecinal</DialogTitle>
-        <DialogContent dividers>
-          <Box component="form" id="form-condominio" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField label="Nombre del Recinto" name="nombre" required fullWidth value={nuevoCondominio.nombre} onChange={handleChange} />
-            <TextField select label="Tipo de Red" name="tipo" required fullWidth value={nuevoCondominio.tipo} onChange={handleChange}>
-              <MenuItem value="Condominio">Condominio</MenuItem>
-              <MenuItem value="Villa">Villa</MenuItem>
-              <MenuItem value="Edificio">Edificio</MenuItem>
-            </TextField>
-            <TextField label="Dirección Completa" name="direccion" required fullWidth value={nuevoCondominio.direccion} onChange={handleChange} />
           </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} color="inherit">Cancelar</Button>
-          <Button type="submit" form="form-condominio" variant="contained" color="primary">Guardar</Button>
-        </DialogActions>
-      </Dialog>
+          <TextField
+            size="small" label="Agregar espacio" value={espacio} onChange={(e) => setEspacio(e.target.value)} placeholder="Ej: Sala de eventos"
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarEspacio(); } }} sx={{ maxWidth: 360 }}
+            slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton aria-label="Agregar espacio" edge="end" onClick={agregarEspacio} disabled={!espacio.trim()}><AddIcon /></IconButton></InputAdornment> } }}
+          />
+        </Tarjeta>
+
+        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', position: 'sticky', bottom: 16 }}>
+          {cambios && <Button onClick={() => setForm(original)} sx={{ bgcolor: 'background.paper' }}>Descartar cambios</Button>}
+          <Button type="submit" variant="contained" disabled={!cambios || !valido}>Guardar cambios</Button>
+        </Box>
+      </Box>
     </Box>
   );
 }
