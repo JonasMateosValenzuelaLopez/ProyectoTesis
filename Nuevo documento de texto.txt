@@ -1,0 +1,74 @@
+RELEVANCIA DEL PROYECTO APT
+
+Hoy en día es muy común que toda la comunicación vecinal, ya sea en departamentos, villas o condominios sea en su mayoría por Whatsapp debido a la naturaleza de la misma. Es por esto que, debido a su formato, mucha información queda perdida por la gran cantidad de datos compartidos en estos grupos, sin contar a aquellos miembros de la comunidad que omiten su participación en la red por lo tedioso de hilar toda la información ya existente.
+
+Teniendo presente el problema existente y sabiendo que a día de hoy muchas empresas buscan no sólo digitalizar información o procesos ya existentes, sino que también buscan unir diferentes tareas y procesos para facilitar el desarrollo de los mismos, es que abordamos este problema con el fin de acercarnos a una problemática real existente en el mundo hacia el cual estamos ingresando. 
+
+La situación planteada inicialmente se aborda en un contexto nacional, debido a que las estructuras vecinales a día de hoy siguen patrones los cuales pueden ser abordados en su mayoría por el diseño del software que desarrollaremos. Las características principales abordan a un grupo vecinal diverso y abundante el cual presenta cierta jerarquía dentro del mismo.
+Los principales afectados por esta situación y aquellos a los cuales va dirigida la solución es tanto a vecinos de una red comunitaria, como a la parte administrativa de la misma y empleados los cuales aportan a la comunidad.
+
+El aporte de valor que nosotros queremos entregar es no solamente acercar a los vecinos procesos claves de la red vecinal, sino que buscamos que toda la comunidad pueda participar dentro del espacio al cual pertenecen. 
+
+===========================================================================================
+
+DESCRIPCION DEL PROYECTO APT
+
+El objetivo principal del proyecto es lograr que todos los actores presentes en la red vecinal puedan participar de forma activa, asi democratizando la participación en la comunidad.
+Abordaremos el problema generando una solución tanto web como móvil para que los integrantes de la red vecinal puedan acceder a diferentes herramientas las cuales acerquen los procesos y tareas generadas dentro de la comunidad pertinente.
+
+============================================================================================
+
+Despliegue de soluciones ante problemas complejos: El perfil exige resolver necesidades organizacionales mediante transformación digital. La administración de comunidades es un entorno complejo (gestión financiera, control de accesos, comunicación fragmentada). El proyecto automatiza e integra estos procesos en una única plataforma orquestada.
+
+Dominio del Campo Ocupacional (FullStack): Al requerir una arquitectura que involucra un panel web para administración, una API robusta y una aplicación móvil para residentes, el proyecto te sitúa exactamente en los roles descritos en el perfil (Desarrollo Front End, Back End y Bases de Datos), demostrando un dominio integral del ecosistema de software.
+
+Visión ética, centrada en las personas y el bien común: Este es el diferenciador institucional clave de Duoc UC. El proyecto no es solo un software de cobranza; al integrar un "Marketplace vecinal" y un "Muro de noticias", fomenta la economía circular, la cohesión social y la transparencia financiera (evitando fraudes o desconfianza en los gastos comunes). Aporta directamente a mejorar la calidad de vida de una comunidad.
+
+============================================================================================
+
+OBJETIVOS GENERALES
+
+Desarrollar e implementar una plataforma SaaS integral, compuesta por un panel de administración web y una aplicación móvil, para optimizar la gestión operativa, la transparencia financiera y la cohesión social en condominios, mediante una arquitectura escalable orientada a microservicios.
+
+OBJETIVOS ESPECÍFICOS
+
+- Levantar y documentar los requerimientos funcionales y no funcionales del sistema mediante metodologías ágiles, mapeando con exactitud las reglas de negocio para la jerarquía de propiedades, el control de accesos, el cobro de gastos comunes y el entorno colaborativo vecinal.
+
+- Diseñar el modelo de datos relacional utilizando PostgreSQL, asegurando la normalización y la integridad transaccional (ACID) estrictamente necesaria para procesar pagos, gestionar morosidades y evitar cruces en la reserva de recursos físicos.
+
+- Desarrollar el backend y la lógica de negocio construyendo una API RESTful robusta en Node.js, encargada de orquestar la autenticación jerárquica de usuarios, la integración con pasarelas de pago y la generación de códigos QR para visitas.
+
+- Construir las interfaces de usuario desarrollando un panel web administrativo (SPA) para conserjería y comités, y una aplicación móvil intuitiva para los residentes, garantizando la accesibilidad a los módulos de pagos, reservas, muro de noticias y marketplace vecinal.
+
+- Desplegar la solución y validar su calidad empaquetando el entorno con Docker y gestionando el ciclo de vida del código mediante Git, para ejecutar pruebas de integración, asegurar el rendimiento del sistema y simular su puesta en marcha en un entorno de producción (como Vercel u otro servicio cloud).
+
+============================================================================================
+
+METODOLOGÍA
+
+- Sprint 0 (Stack tecnológico y Arquitectura): Diseño de la base de datos, configuración del entorno Docker, creación de repositorios Git y esqueletos del proyecto (Node.js, React/Angular, App móvil).
+
+- Sprint 1 (Identidad y Seguridad): Desarrollo del CRUD de Condominios, Unidades y Residentes. Autenticación de usuarios y asignación de roles.
+
+- Sprint 2 (Convivencia y Comunidad): Desarrollo del Muro de Noticias y el Marketplace. Lógica de categorías y subida de imágenes.
+
+- Sprint 3 (Gestión de Recursos físicos): Desarrollo del calendario de reservas (Quinchos, salas) y el sistema de control de visitas con generación de código QR.
+
+- Sprint 4 (Motor Financiero): Integración del servicio de pagos, registro de gastos comunes, estados de morosidad y generación de comprobantes.
+
+============================================================================================
+
+Desarrollo FullStack (Front End y Back End):
+Esta es el área de desempeño principal del proyecto. Abarca la construcción completa de la solución, desde el levantamiento de la API RESTful (Back End) utilizando Node.js para orquestar la lógica de negocio, hasta la implementación de las interfaces de usuario (Front End) utilizando React para el panel de administración web y React Native para la aplicación móvil de los residentes.
+
+Bases de Datos:
+El sistema requiere un alto grado de integridad referencial para manejar módulos transaccionales (como el registro de deudas y pagos) y jerárquicos (condominio, unidades y residentes). Esta área se abordará mediante el diseño, modelamiento e implementación de un motor relacional robusto (PostgreSQL), garantizando la persistencia, seguridad y escalabilidad de los datos.
+
+Ingeniería de Requisitos:
+Previo a la construcción del software, el proyecto abordará esta área mediante el levantamiento, análisis y especificación de las reglas de negocio del entorno inmobiliario. Se traducirán las necesidades de administradores y vecinos en Historias de Usuario claras y requerimientos funcionales, asegurando que la solución resuelva problemas reales de la comunidad.
+
+Project Manager / Scrum Master:
+El proyecto no solo involucra la escritura de código, sino la gestión del ciclo de vida del software. Esta área se abordará implementando el marco de trabajo ágil Scrum. Se evidenciará a través de la planificación por Sprints, la gestión del Product Backlog y el cumplimiento de la Carta Gantt trazada para las 18 semanas de desarrollo.
+
+Calidad de Software:
+El proyecto abordará esta área mediante la implementación de entornos controlados y estandarizados. Se utilizará la contenerización (Docker) para asegurar la consistencia del despliegue y se realizarán pruebas de integración (especialmente en el módulo financiero de pagos y en el control de accesos con códigos QR) para validar que el sistema cumple con los estándares exigidos antes de su salida a un entorno de producción.
