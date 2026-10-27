@@ -1,14 +1,5 @@
--- --------------------------------------------------------
--- Migración 001: roles por comunidad, solicitudes de acceso,
--- recuperación de contraseña y eliminación de MercadoPago.
--- Compatible con MariaDB 10.11+.
--- Ejecutar una sola vez sobre entrecasas_db (el volcado
--- entrecasas_db.sql ya incluye estos cambios para instalaciones nuevas).
--- --------------------------------------------------------
 USE `entrecasas_db`;
 
--- 1. Membresías: un usuario puede pertenecer a varias comunidades (redes)
---    y tener uno o más roles en cada una.
 CREATE TABLE IF NOT EXISTS `membresias_red` (
   `id_membresia` int(11) NOT NULL AUTO_INCREMENT,
   `id_usuario` int(11) NOT NULL,
@@ -34,11 +25,6 @@ CREATE TABLE IF NOT EXISTS `membresias_roles` (
   CONSTRAINT `fk_membresia_rol_rol` FOREIGN KEY (`id_rol`) REFERENCES `roles` (`id_rol`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
--- Traspasa los usuarios existentes que tienen unidad (y por lo tanto red).
--- Los usuarios sin unidad no tienen comunidad conocida y deben asignarse a mano.
--- ANTES DE EJECUTAR, anotar el id_rol de esos usuarios: más abajo se eliminan
--- las columnas id_rol e id_unidad de `usuarios` y ese dato se pierde.
---   SELECT id_usuario, rut, id_rol FROM usuarios WHERE id_unidad IS NULL;
 INSERT IGNORE INTO `membresias_red` (`id_usuario`, `id_red`, `id_unidad`, `estado`)
 SELECT u.`id_usuario`, un.`id_red`, u.`id_unidad`, 1
 FROM `usuarios` u
@@ -49,7 +35,6 @@ SELECT m.`id_membresia`, u.`id_rol`
 FROM `membresias_red` m
 JOIN `usuarios` u ON u.`id_usuario` = m.`id_usuario`;
 
--- El rol y la unidad ahora viven en la membresía.
 ALTER TABLE `usuarios`
   DROP FOREIGN KEY IF EXISTS `1`,
   DROP FOREIGN KEY IF EXISTS `2`;
@@ -58,10 +43,8 @@ ALTER TABLE `usuarios`
   DROP INDEX IF EXISTS `id_unidad`,
   DROP COLUMN IF EXISTS `id_rol`,
   DROP COLUMN IF EXISTS `id_unidad`,
-  -- Permite invalidar sesiones (JWT) emitidas antes de un cambio de contraseña.
   ADD COLUMN IF NOT EXISTS `password_actualizada_en` datetime DEFAULT NULL AFTER `password_hash`;
 
--- 2. Solicitudes de acceso enviadas desde "¿Eres nuevo? Solicita acceso".
 CREATE TABLE IF NOT EXISTS `solicitudes_acceso` (
   `id_solicitud` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
@@ -91,8 +74,6 @@ CREATE TABLE IF NOT EXISTS `solicitudes_acceso` (
   CONSTRAINT `fk_solicitud_usuario_creado` FOREIGN KEY (`id_usuario_creado`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
--- 3. Tokens de un solo uso para recuperar contraseña o activar una cuenta
---    aprobada. Solo se guarda el hash SHA-256 del token, nunca el token.
 CREATE TABLE IF NOT EXISTS `tokens_password` (
   `id_token` int(11) NOT NULL AUTO_INCREMENT,
   `id_usuario` int(11) NOT NULL,
@@ -107,8 +88,6 @@ CREATE TABLE IF NOT EXISTS `tokens_password` (
   CONSTRAINT `fk_token_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 
--- 4. La plataforma no procesa pagos: se elimina MercadoPago.
---    Los pagos registrados con MercadoPago (si existieran) pasan a Transferencia.
 UPDATE `pagos` SET `metodo_pago` = 'Transferencia' WHERE `metodo_pago` = 'MercadoPago';
 ALTER TABLE `pagos`
   MODIFY `metodo_pago` enum('Transferencia','Efectivo') NOT NULL;

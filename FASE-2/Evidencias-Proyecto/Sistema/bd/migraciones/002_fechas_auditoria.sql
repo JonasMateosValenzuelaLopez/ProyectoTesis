@@ -1,20 +1,5 @@
--- --------------------------------------------------------
--- Migración 002: fechas de auditoría en todas las tablas.
---   fecha_creacion      -> cuándo se creó la fila (automática)
---   fecha_actualizacion -> último cambio (automática, ON UPDATE)
---   fecha_eliminacion   -> borrado lógico: NULL = vigente; con fecha = eliminada.
---                          Las filas no se borran físicamente.
--- Requiere la migración 001. Compatible con MariaDB 10.11+.
--- Se puede ejecutar más de una vez (usa IF NOT EXISTS).
---
--- Excepción: membresias_roles no lleva fecha_eliminacion. Es la tabla
--- intermedia de una relación ManyToMany y TypeORM no filtra filas con borrado
--- lógico en ellas: un rol "eliminado" seguiría otorgando permisos. Quitar un
--- rol borra la fila; la membresía completa sí tiene borrado lógico.
--- --------------------------------------------------------
 USE `entrecasas_db`;
 
--- Tablas que ya tenían fecha_creacion (nullable): se normaliza a NOT NULL.
 UPDATE `muro_publicaciones` SET `fecha_creacion` = current_timestamp() WHERE `fecha_creacion` IS NULL;
 ALTER TABLE `muro_publicaciones`
   MODIFY `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp();
