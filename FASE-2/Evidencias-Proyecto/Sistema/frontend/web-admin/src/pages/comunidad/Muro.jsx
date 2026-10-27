@@ -5,24 +5,23 @@ import {
 } from '@mui/material';
 import { EditNoteOutlined as RedactarIcon, FlagOutlined as ReporteIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
-import { useFinanzas } from '../../context/FinanzasContext';
 import { useAdmin } from '../../context/AdminContext';
-import { residentes } from '../../data/finanzasMock';
+import { useMuro } from '../../context/MuroContext';
 import { cargosEfectivos } from '../../config/navegacion';
-import { fecha, fechaHora } from '../../utils/formato';
+import { clp, fecha, fechaHora } from '../../utils/formato';
 import Encabezado from '../../components/ui/Encabezado';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
 
 function DialogoRedactar({ onClose }) {
   const { cargo } = useSesion();
-  const { acciones } = useFinanzas();
-  const [form, setForm] = useState({ tipo: 'Comunicado', titulo: '', texto: '' });
+  const { acciones } = useMuro();
+  const [form, setForm] = useState({ tipo: 'Comunicado', titulo: '', contenido: '' });
   const directo = cargo === 'presidente';
-  const valido = form.titulo.trim() && form.texto.trim().length >= 20;
+  const valido = form.titulo.trim() && form.contenido.trim().length >= 20;
   const enviar = (e) => {
     e.preventDefault();
     if (!valido) return;
-    acciones.enviarPublicacion({ tipo: form.tipo, titulo: form.titulo.trim(), texto: form.texto.trim() });
+    acciones.enviarPublicacion({ tipo: form.tipo, titulo: form.titulo.trim(), contenido: form.contenido.trim() });
     onClose();
   };
   return (
@@ -35,13 +34,13 @@ function DialogoRedactar({ onClose }) {
         </ToggleButtonGroup>
         <TextField required label="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
         <TextField
-          required label="Texto" value={form.texto} onChange={(e) => setForm({ ...form, texto: e.target.value })} multiline minRows={5}
-          helperText={form.texto.trim().length < 20 ? 'Escribe al menos 20 caracteres.' : `${form.texto.trim().length} caracteres`}
+          required label="Texto" value={form.contenido} onChange={(e) => setForm({ ...form, contenido: e.target.value })} multiline minRows={5}
+          helperText={form.contenido.trim().length < 20 ? 'Escribe al menos 20 caracteres.' : `${form.contenido.trim().length} caracteres`}
         />
         <Alert severity="info" variant="outlined">
           {directo
-            ? 'Como Presidente, se publica de inmediato y se avisa a todos los residentes.'
-            : 'Se envía al Presidente. Cuando lo apruebe, se publica y se avisa a todos los residentes.'}
+            ? 'Desde la Presidencia se publica de inmediato y se avisa a todos los residentes.'
+            : 'Se envía a la Presidencia. Cuando se apruebe, se publica y se avisa a todos los residentes.'}
         </Alert>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -53,36 +52,47 @@ function DialogoRedactar({ onClose }) {
 }
 
 function Publicacion({ pub, unidad, moderar, onModerar }) {
-  const oculta = pub.estado === 'oculta';
+  const { nombreUsuario, viviendaDe } = useMuro();
+  const { fila, reportes } = pub;
+  const oculta = fila.estado === 0;
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, display: 'grid', gap: 1.5, opacity: oculta ? 0.75 : 1, borderColor: pub.reportes.length && !oculta ? 'warning.main' : 'divider' }}>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, display: 'grid', gap: 1.5, opacity: oculta ? 0.75 : 1, borderColor: reportes.length && !oculta ? 'warning.main' : 'divider' }}>
       <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-        {unidad && <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="sm" />}
+        {unidad && <PlacaUnidad unidad={unidad} size="sm" />}
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontWeight: 700 }}>{residentes[pub.idUnidad] ?? 'Vecino'}</Typography>
-          <Typography variant="body2" color="text.secondary">{pub.lugar === 'marketplace' ? 'Marketplace' : 'Muro'} · {fechaHora(pub.fecha)}</Typography>
+          <Typography sx={{ fontWeight: 700 }}>{nombreUsuario(fila.id_usuario)}</Typography>
+          <Typography variant="body2" color="text.secondary">{pub.lugar === 'marketplace' ? `Marketplace · ${pub.categoria}` : 'Muro'} · {fechaHora(pub.fecha)}</Typography>
         </Box>
         {oculta && <Chip size="small" variant="outlined" label="Oculta" />}
       </Box>
-      <Typography sx={{ textDecoration: oculta ? 'line-through' : 'none', textDecorationColor: 'currentColor' }}>{pub.texto}</Typography>
-      {pub.reportes.length > 0 && (
+      <Box sx={{ textDecoration: oculta ? 'line-through' : 'none', textDecorationColor: 'currentColor' }}>
+        {pub.titulo && (
+          <Typography sx={{ fontWeight: 700 }}>
+            {pub.titulo}{pub.precio != null && <Box component="span" sx={{ fontWeight: 400, color: 'text.secondary' }}> · {clp(pub.precio)}</Box>}
+          </Typography>
+        )}
+        {pub.contenido && <Typography>{pub.contenido}</Typography>}
+      </Box>
+      {reportes.length > 0 && (
         <Box sx={{ display: 'grid', gap: 0.5, p: 1.25, borderRadius: 1, bgcolor: 'warning.light' }}>
-          {pub.reportes.map((r, i) => (
-            <Typography key={i} variant="body2" sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
-              <ReporteIcon sx={{ fontSize: 16 }} /> <b>{r.motivo}</b> · reportado por {r.por}
+          {reportes.map((r) => (
+            <Typography key={r.id_reporte} variant="body2" sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
+              <ReporteIcon sx={{ fontSize: 16 }} /> <b>{r.motivo}</b> · reportado por {nombreUsuario(r.id_usuario)}{viviendaDe(r.id_usuario) ? ` (${viviendaDe(r.id_usuario)})` : ''}
             </Typography>
           ))}
         </Box>
       )}
-      {oculta && pub.moderadaPor && <Typography variant="body2" color="text.secondary">Oculta por {pub.moderadaPor}.</Typography>}
+      {oculta && fila.id_moderador && (
+        <Typography variant="body2" color="text.secondary">Oculta por {nombreUsuario(fila.id_moderador)} · {fechaHora(fila.fecha_moderacion)}.</Typography>
+      )}
       {moderar && (
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           {oculta ? (
             <Button variant="outlined" onClick={() => onModerar(pub, 'restaurar')}>Restaurar</Button>
           ) : (
             <>
-              <Button variant={pub.reportes.length ? 'contained' : 'outlined'} color="error" onClick={() => onModerar(pub, 'ocultar')}>Ocultar</Button>
-              {pub.reportes.length > 0 && <Button color="inherit" onClick={() => onModerar(pub, 'descartar')}>Descartar reportes</Button>}
+              <Button variant={reportes.length ? 'contained' : 'outlined'} color="error" onClick={() => onModerar(pub, 'ocultar')}>Ocultar</Button>
+              {reportes.length > 0 && <Button color="inherit" onClick={() => onModerar(pub, 'descartar')}>Descartar reportes</Button>}
             </>
           )}
         </Box>
@@ -91,21 +101,20 @@ function Publicacion({ pub, unidad, moderar, onModerar }) {
   );
 }
 
-const ESTADO_OFICIAL = { pendiente: 'Esperando aprobación', rechazada: 'Devuelto' };
+const ESTADO_OFICIAL = { Pendiente: 'Esperando aprobación', Rechazada: 'Devuelto' };
 
 // Muro de la comunidad. Administración modera; la directiva redacta comunicados y normas.
 // Con lugar="marketplace" muestra solo las publicaciones del marketplace.
 export default function Muro({ lugar }) {
   const { comunidad, cargo } = useSesion();
-  const { datos } = useFinanzas();
-  const { publicaciones, unidadPorId, acciones } = useAdmin();
+  const { unidadPorId } = useAdmin();
+  const { vecinos, reportadas: todas, oficiales, conCargo, acciones } = useMuro();
   const modera = cargosEfectivos(cargo, comunidad).includes('administrador');
   const soloMarket = lugar === 'marketplace';
-  const propias = publicaciones.filter((p) => !soloMarket || p.lugar === 'marketplace');
-  const reportadas = propias.filter((p) => p.estado === 'visible' && p.reportes.length);
+  const propias = vecinos.filter((p) => !soloMarket || p.lugar === 'marketplace');
+  const reportadas = todas.filter((p) => !soloMarket || p.lugar === 'marketplace');
   const [pestana, setPestana] = useState(() => (modera && reportadas.length ? 'reportadas' : soloMarket ? 'vecinos' : 'oficiales'));
   const [redactar, setRedactar] = useState(false);
-  const oficiales = datos.porAprobar;
 
   const lista = pestana === 'reportadas' ? reportadas : propias;
 
@@ -131,17 +140,23 @@ export default function Muro({ lugar }) {
       {pestana === 'oficiales' ? (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
           {oficiales.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">Todavía no hay publicaciones oficiales.</Typography></Paper>}
-          {oficiales.map((x) => (
-            <Paper key={x.id} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 1, borderWidth: x.estado === 'aprobada' ? 1.5 : 1, borderColor: x.estado === 'aprobada' ? 'info.main' : 'divider' }}>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Chip size="small" label={x.tipo} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
-                <Typography variant="body2" color="text.secondary">{x.autor} · {fecha(x.fecha)}</Typography>
-                {x.estado !== 'aprobada' && <Chip size="small" variant="outlined" color={x.estado === 'pendiente' ? 'warning' : 'error'} label={ESTADO_OFICIAL[x.estado]} />}
-              </Box>
-              <Typography variant="h6" component="h2">{x.titulo}</Typography>
-              <Typography color="text.secondary" sx={{ maxWidth: '68ch' }}>{x.texto}</Typography>
-            </Paper>
-          ))}
+          {oficiales.map((x) => {
+            const publicada = x.estado_aprobacion === 'Aprobada';
+            return (
+              <Paper key={x.id_publicacion} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 1, borderWidth: publicada ? 1.5 : 1, borderColor: publicada ? 'info.main' : 'divider' }}>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Chip size="small" label={x.tipo} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
+                  <Typography variant="body2" color="text.secondary">{conCargo(x.id_usuario)} · {fecha(x.fecha_creacion)}</Typography>
+                  {!publicada && <Chip size="small" variant="outlined" color={x.estado_aprobacion === 'Pendiente' ? 'warning' : 'error'} label={ESTADO_OFICIAL[x.estado_aprobacion]} />}
+                </Box>
+                <Typography variant="h6" component="h2">{x.titulo}</Typography>
+                <Typography color="text.secondary" sx={{ maxWidth: '68ch' }}>{x.contenido}</Typography>
+                {publicada && x.id_aprobador && x.id_aprobador !== x.id_usuario && (
+                  <Typography variant="body2" color="text.secondary">Aprobado por {conCargo(x.id_aprobador)} · {fecha(x.fecha_aprobacion)}</Typography>
+                )}
+              </Paper>
+            );
+          })}
         </Box>
       ) : (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
@@ -150,7 +165,7 @@ export default function Muro({ lugar }) {
               <Typography color="text.secondary">{pestana === 'reportadas' ? 'No hay publicaciones reportadas. Todo en orden.' : 'Todavía no hay publicaciones.'}</Typography>
             </Paper>
           )}
-          {lista.map((p) => <Publicacion key={p.id} pub={p} unidad={unidadPorId[p.idUnidad]} moderar={modera} onModerar={acciones.moderar} />)}
+          {lista.map((p) => <Publicacion key={`${p.lugar}-${p.id}`} pub={p} unidad={unidadPorId[p.fila.id_unidad]} moderar={modera} onModerar={acciones.moderar} />)}
         </Box>
       )}
 

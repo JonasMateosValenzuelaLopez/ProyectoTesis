@@ -4,14 +4,16 @@ import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Link as MuiLink, MenuItem, Switch, TextField, Typography,
 } from '@mui/material';
 import { usePlataforma } from '../../context/PlataformaContext';
-import { MODULOS } from '../../config/modulos';
-import { fecha, fechaHora } from '../../utils/formato';
+import { MODULOS, modulosActivos, tieneModulo } from '../../config/modulos';
+import { fecha, fechaHora, nombreCompleto } from '../../utils/formato';
 import { roles } from '../../tokens';
 import Encabezado from '../../components/ui/Encabezado';
 import Tarjeta from '../../components/ui/Tarjeta';
 import PlanoComunidad from '../../components/marca/PlanoComunidad';
 import SelloCargo from '../../components/marca/SelloCargo';
 import EstadoComunidad from '../../components/plataforma/EstadoComunidad';
+import { espaciosActivos } from '../../utils/espacios';
+import { cargosDe } from '../../config/roles';
 
 const TIPOS = ['Edificio', 'Condominio', 'Villa'];
 
@@ -72,19 +74,19 @@ export default function FichaComunidad() {
   const anotada = useRef(null);
 
   useEffect(() => {
-    if (red && anotada.current !== red.id) {
-      anotada.current = red.id;
+    if (red && anotada.current !== red.id_red) {
+      anotada.current = red.id_red;
       acciones.abrirFicha(red);
     }
   }, [red, acciones]);
 
   if (!red) return <Navigate to="/plataforma" replace />;
 
-  const usuarios = usuariosDe(red).filter((u) => u.estado !== 'desactivado');
-  const conCargo = usuarios.filter((u) => u.cargos.length > 0);
+  const usuarios = usuariosDe(red).filter((u) => u.estado !== 'Desactivado');
+  const conCargo = usuarios.map((u) => ({ u, cargos: cargosDe(u, red.id_red) })).filter((x) => x.cargos.length > 0);
   const responsable = responsableDe(red);
   const personaResp = responsable && personas.find((p) => p.rut === responsable.rut);
-  const suspendida = red.estado === 'suspendida';
+  const suspendida = red.estado === 'Suspendida';
 
   return (
     <Box sx={{ maxWidth: 1300 }}>
@@ -96,7 +98,7 @@ export default function FichaComunidad() {
           ? <Button variant="contained" onClick={() => acciones.reactivar(red)}>Reactivar comunidad</Button>
           : <Button color="error" variant="outlined" onClick={() => setDialogo('suspender')}>Suspender</Button>}
       />
-      {suspendida && <Alert severity="error" sx={{ mb: 2 }}>Suspendida. Motivo: {red.motivoSuspension}</Alert>}
+      {suspendida && <Alert severity="error" sx={{ mb: 2 }}>Suspendida. Motivo: {red.motivo_suspension}</Alert>}
       <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
         Modo soporte: ves la comunidad tal como está, pero los cobros, actas y datos de vecinos solo los cambia su directiva. Abrir esta ficha queda en la bitácora.
       </Alert>
@@ -108,14 +110,14 @@ export default function FichaComunidad() {
           </Tarjeta>
           <Tarjeta titulo="Directiva y personal" extra={`${usuarios.length} ${usuarios.length === 1 ? 'persona registrada' : 'personas registradas'}`}>
             {conCargo.length === 0 && <Typography color="text.secondary">Todavía no hay cargos asignados.</Typography>}
-            {conCargo.map((u) => (
-              <Box key={u.id} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                <SelloCargo cargo={u.cargos[0].cargo} />
+            {conCargo.map(({ u, cargos }) => (
+              <Box key={u.id_usuario} sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                <SelloCargo cargo={cargos[0]} />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontWeight: 700 }}>{u.nombre}</Typography>
-                  <Typography variant="body2" color="text.secondary">{u.cargos.map((c) => roles[c.cargo].label).join(', ')} · {u.correo}</Typography>
+                  <Typography sx={{ fontWeight: 700 }}>{nombreCompleto(u)}</Typography>
+                  <Typography variant="body2" color="text.secondary">{cargos.map((c) => roles[c].label).join(', ')} · {u.correo}</Typography>
                 </Box>
-                {u.estado === 'invitado' && <Chip size="small" variant="outlined" label="Invitación pendiente" />}
+                {u.estado === 'Invitado' && <Chip size="small" variant="outlined" label="Invitación pendiente" />}
               </Box>
             ))}
           </Tarjeta>
@@ -131,9 +133,9 @@ export default function FichaComunidad() {
                   <MuiLink component="button" type="button" onClick={() => setDialogo('tipo')} sx={{ fontWeight: 700 }}>Cambiar</MuiLink>
                 </Box>
               </Dato>
-              <Dato etiqueta="En EntreCasas desde"><Typography>{fecha(red.creadaEn)}</Typography></Dato>
-              <Dato etiqueta="Última actividad"><Typography>{fechaHora(red.ultimaActividad)}</Typography></Dato>
-              <Dato etiqueta="Espacios comunes"><Typography>{red.espaciosComunes?.length ? red.espaciosComunes.join(', ') : 'Ninguno'}</Typography></Dato>
+              <Dato etiqueta="En EntreCasas desde"><Typography>{fecha(red.fecha_registro)}</Typography></Dato>
+              <Dato etiqueta="Última actividad"><Typography>{fechaHora(red.ultima_actividad)}</Typography></Dato>
+              <Dato etiqueta="Espacios comunes"><Typography>{espaciosActivos(red).length ? espaciosActivos(red).map((e) => e.nombre).join(', ') : 'Ninguno'}</Typography></Dato>
             </Box>
           </Tarjeta>
 
@@ -153,12 +155,12 @@ export default function FichaComunidad() {
             ) : <Typography color="error.main">La comunidad no tiene administrador ni presidente. Asigna uno desde Personas.</Typography>}
           </Tarjeta>
 
-          <Tarjeta titulo="Módulos" extra={`${red.modulos.length} activos`}>
+          <Tarjeta titulo="Módulos" extra={`${modulosActivos(red).length} activos`}>
             <Box sx={{ mt: -0.5 }}>
               {Object.entries(MODULOS).map(([clave, nombre], i) => (
                 <Box key={clave} component="label" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, py: 0.5, borderTop: i ? 1 : 0, borderColor: 'divider', cursor: 'pointer' }}>
                   <Typography variant="body2">{nombre}</Typography>
-                  <Switch size="small" checked={red.modulos.includes(clave)} onChange={(e) => acciones.cambiarModulo(red, clave, e.target.checked)} inputProps={{ 'aria-label': nombre }} />
+                  <Switch size="small" checked={tieneModulo(red, clave)} onChange={(e) => acciones.cambiarModulo(red, clave, e.target.checked)} slotProps={{ input: { 'aria-label': nombre } }} />
                 </Box>
               ))}
             </Box>

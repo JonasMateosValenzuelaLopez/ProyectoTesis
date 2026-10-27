@@ -39,16 +39,17 @@ const hace = (n: number) => { const d = new Date(); d.setDate(d.getDate() - n); 
 // La plataforma no cobra: la administración ve el aviso y marca el pago a mano.
 export default function Transferencia() {
   const t = useTema();
-  const { comunidad, unidad, estado, avisoTransferencia, acciones } = useApp();
+  const { comunidad, unidad, estado, acciones } = useApp();
+  const avisoTransferencia = estado?.avisoPendiente ?? null;
   const [avisando, setAvisando] = useState(false);
   const r = estado ? resumenCuenta(estado) : null;
   const [f, setF] = useState({ fecha: hace(0), monto: String(r?.total ?? ''), nota: '' });
   if (!comunidad || !unidad || !r) return null;
-  const tr = comunidad.transferencia;
+  const tr = comunidad;
   const glosa = `${nombreUnidad(unidad)} ${estado!.actual.nombre}`;
 
   const copiarTodo = async () => {
-    await Clipboard.setStringAsync(`${tr.titular}\nRUT ${tr.rut}\n${tr.banco} · ${tr.tipoCuenta} ${tr.numero}\n${tr.correo}\nMonto ${clp(r.total)}\nGlosa: ${glosa}`);
+    await Clipboard.setStringAsync(`${tr.titular_cuenta}\nRUT ${tr.rut_titular}\n${tr.banco} · ${tr.tipo_cuenta} ${tr.numero_cuenta}\n${tr.correo_pagos}\nMonto ${clp(r.total)}\nGlosa: ${glosa}`);
     acciones.avisar('Datos copiados. Pégalos en la app de tu banco.');
   };
   const enviar = () => {
@@ -87,13 +88,18 @@ export default function Transferencia() {
         <Texto v="cifra">{clp(r.total)}</Texto>
         <Texto v="suave">Usa como glosa «{glosa}» para que la administración identifique tu pago.</Texto>
       </View>
-      <Tarjeta style={{ gap: 0, paddingVertical: 6 }}>
-        <Dato etiqueta="Titular" valor={tr.titular} />
-        <Dato etiqueta="RUT" valor={tr.rut} />
-        <Dato etiqueta="Banco" valor={tr.banco} />
-        <Dato etiqueta={tr.tipoCuenta} valor={tr.numero} />
-        <Dato etiqueta="Correo para el comprobante" valor={tr.correo} />
-      </Tarjeta>
+      {/* Las columnas bancarias de `redes_vecinales` pueden venir vacías en una comunidad recién creada */}
+      {tr.titular_cuenta && tr.rut_titular && tr.banco && tr.numero_cuenta ? (
+        <Tarjeta style={{ gap: 0, paddingVertical: 6 }}>
+          <Dato etiqueta="Titular" valor={tr.titular_cuenta} />
+          <Dato etiqueta="RUT" valor={tr.rut_titular} />
+          <Dato etiqueta="Banco" valor={tr.banco} />
+          <Dato etiqueta={tr.tipo_cuenta ?? 'Cuenta'} valor={tr.numero_cuenta} />
+          {tr.correo_pagos && <Dato etiqueta="Correo para el comprobante" valor={tr.correo_pagos} />}
+        </Tarjeta>
+      ) : (
+        <Tarjeta><Texto v="suave">La administración todavía no carga los datos de la cuenta. Pídeselos o revisa más tarde.</Texto></Tarjeta>
+      )}
       {avisoTransferencia && (
         <View style={{ backgroundColor: t.accionSoft, borderRadius: 12, padding: 12 }}>
           <Texto>Ya avisaste una transferencia de {clp(avisoTransferencia.monto)}. Cuando la administración la marque, el estado cambia a Pagado.</Texto>

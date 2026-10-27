@@ -8,19 +8,23 @@ import { usePlataforma } from '../../context/PlataformaContext';
 import { useSesion } from '../../context/SesionContext';
 import { DETALLE_MODULOS, MODULOS, MODULOS_POR_TIPO } from '../../config/modulos';
 import { CLAVE_PRUEBA } from '../../data/cuentasDemo';
-import { generarEstructura } from '../../utils/unidades';
+import { generarEstructura, registrarRed } from '../../utils/unidades';
 import { formatearRut, rutValido } from '../../utils/rut';
 import { roles } from '../../tokens';
 import Encabezado from '../../components/ui/Encabezado';
 import Tarjeta from '../../components/ui/Tarjeta';
 import PlanoComunidad from '../../components/marca/PlanoComunidad';
 import SelloCargo from '../../components/marca/SelloCargo';
+import { conNombresDeEspacios } from '../../utils/espacios';
 import ElegirTipo from '../../components/plataforma/ElegirTipo';
 
 const PASOS = ['Datos', 'Unidades', 'Módulos y espacios', 'Responsable'];
 const ESPACIOS_POR_TIPO = { Edificio: ['Quincho', 'Sala multiuso'], Condominio: ['Quincho'], Villa: ['Sede vecinal'] };
 const ESTRUCTURA = { torre: 'A', pisos: 8, porPiso: 4, norte: 10, sur: 10, manzanas: 3, casasPorManzana: 20 };
 const correoValido = (c) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c);
+// Comunidad provisoria para dibujar el plano antes de crearla (todavía no tiene id_red)
+const BORRADOR = 0;
+const RESP_VACIO = { nombre: '', apellido_paterno: '', apellido_materno: '', rut: '', correo: '' };
 
 function PasoUnidades({ tipo, e, cambiar, unidades, vista }) {
   const campo = (name, label, extra = {}) => (
@@ -66,7 +70,7 @@ function PasoModulos({ tipo, modulos, setModulos, espacios, setEspacios }) {
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: '62ch' }}>{DETALLE_MODULOS[clave]}</Typography>
             </Box>
             <Switch
-              checked={modulos.includes(clave)} inputProps={{ 'aria-label': nombre }}
+              checked={modulos.includes(clave)} slotProps={{ input: { 'aria-label': nombre } }}
               onChange={(ev) => setModulos(ev.target.checked ? [...modulos, clave] : modulos.filter((m) => m !== clave))}
             />
           </Box>
@@ -97,13 +101,15 @@ export default function NuevaComunidad() {
   const [e, setE] = useState(ESTRUCTURA);
   const [modulos, setModulos] = useState([]);
   const [espacios, setEspacios] = useState([]);
-  const [resp, setResp] = useState({ nombre: '', apellido: '', rut: '', correo: '' });
+  const [resp, setResp] = useState(RESP_VACIO);
   const [intento, setIntento] = useState(false);
   const [creada, setCreada] = useState(null);
 
   const tipo = datos.tipo;
-  const unidades = tipo ? generarEstructura(tipo, e) : [];
-  const vista = { tipo, unidades, espaciosComunes: espacios, calle: 'Pasaje', calles: [] };
+  if (tipo) registrarRed({ id_red: BORRADOR, tipo });
+  const unidades = tipo ? generarEstructura({ id_red: BORRADOR, tipo }, e) : [];
+  const espacios_comunes = conNombresDeEspacios({ id_red: BORRADOR, espacios_comunes: [] }, espacios);
+  const vista = { tipo, unidades, espacios_comunes };
   const cargo = modulos.includes('administrador_externo') ? 'administrador' : 'presidente';
   const rutUsado = rutValido(resp.rut) && cuentas.some((c) => c.rut === formatearRut(resp.rut));
 
@@ -111,7 +117,7 @@ export default function NuevaComunidad() {
     !datos.nombre.trim() || !datos.direccion.trim() || !tipo,
     unidades.length === 0,
     false,
-    !resp.nombre.trim() || !resp.apellido.trim() || !rutValido(resp.rut) || rutUsado || !correoValido(resp.correo),
+    !resp.nombre.trim() || !resp.apellido_paterno.trim() || !rutValido(resp.rut) || rutUsado || !correoValido(resp.correo),
   ];
 
   const elegirTipo = (t) => {
@@ -131,11 +137,16 @@ export default function NuevaComunidad() {
       setPaso(paso + 1);
       return;
     }
+    // Columnas de `redes_vecinales`; los datos de transferencia se completan después en Datos de la comunidad
     const red = {
-      nombre: datos.nombre.trim(), tipo, direccion: datos.direccion.trim(), modulos, unidades, espaciosComunes: espacios,
-      ...(tipo === 'Condominio' ? { calle: 'Pasaje' } : {}), ...(tipo === 'Villa' ? { calles: [] } : {}),
+      nombre: datos.nombre.trim(), tipo, direccion: datos.direccion.trim(),
+      banco: null, tipo_cuenta: null, numero_cuenta: null, titular_cuenta: null, rut_titular: null, correo_pagos: null, umbral_visado: 300000,
+      red_modulos: modulos.map((modulo) => ({ modulo, activo: 1 })), unidades, espacios_comunes,
     };
-    const responsable = { nombre: resp.nombre.trim(), apellido: resp.apellido.trim(), rut: formatearRut(resp.rut), correo: resp.correo.trim(), cargo };
+    const responsable = {
+      nombre: resp.nombre.trim(), apellido_paterno: resp.apellido_paterno.trim(), apellido_materno: resp.apellido_materno.trim() || null,
+      rut: formatearRut(resp.rut), correo: resp.correo.trim(), cargo,
+    };
     const id = acciones.crear(red, responsable);
     setCreada({ id, red, responsable });
   };
@@ -155,7 +166,7 @@ export default function NuevaComunidad() {
             <Typography variant="h4" component="h1">{creada.red.nombre} quedó creada</Typography>
           </Box>
           <Typography color="text.secondary">
-            {creada.red.unidades.length.toLocaleString('es-CL')} unidades y {creada.red.modulos.length} módulos. Enviamos a {r.correo} el enlace para que {r.nombre} defina su clave y empiece a invitar a los vecinos.
+            {creada.red.unidades.length.toLocaleString('es-CL')} unidades y {creada.red.red_modulos.length} módulos. Enviamos a {r.correo} el enlace para que {r.nombre} defina su clave y empiece a invitar a los vecinos.
           </Typography>
           <Box sx={{ display: 'grid', gap: 1, p: 2, borderRadius: 1, bgcolor: 'marca.signalSoft', color: 'marca.signalInk' }}>
             <Typography sx={{ fontWeight: 700 }}>Para probarlo en la demo</Typography>
@@ -163,7 +174,7 @@ export default function NuevaComunidad() {
           </Box>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             <Button variant="contained" onClick={() => navigate(`/plataforma/comunidades/${creada.id}`)}>Ver la ficha</Button>
-            <Button onClick={() => { setCreada(null); setPaso(0); setDatos({ nombre: '', direccion: '', tipo: '' }); setE(ESTRUCTURA); setResp({ nombre: '', apellido: '', rut: '', correo: '' }); }}>Crear otra comunidad</Button>
+            <Button onClick={() => { setCreada(null); setPaso(0); setDatos({ nombre: '', direccion: '', tipo: '' }); setE(ESTRUCTURA); setResp(RESP_VACIO); }}>Crear otra comunidad</Button>
           </Box>
         </Paper>
       </Box>
@@ -200,13 +211,14 @@ export default function NuevaComunidad() {
               <SelloCargo cargo={cargo} size={32} />
               <Typography>
                 {cargo === 'administrador'
-                  ? <>La comunidad tiene <b>administrador externo</b>, así que el primer responsable entra como <b>Administrador</b>.</>
-                  : <>Sin administrador externo, el primer responsable entra como <b>Presidente</b> y ve también las opciones de administración.</>}
+                  ? <>La comunidad tiene <b>administrador externo</b>, así que el primer responsable entra como <b>Administrador/a</b>.</>
+                  : <>Sin administrador externo, el primer responsable entra como <b>Presidente/a</b> y ve también las opciones de administración.</>}
               </Typography>
             </Paper>
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
               <TextField label="Nombre" name="nombre" value={resp.nombre} onChange={cambiarResp} error={marcar(!resp.nombre.trim())} helperText={marcar(!resp.nombre.trim()) ? 'Escribe el nombre' : ' '} />
-              <TextField label="Apellido" name="apellido" value={resp.apellido} onChange={cambiarResp} error={marcar(!resp.apellido.trim())} helperText={marcar(!resp.apellido.trim()) ? 'Escribe el apellido' : ' '} />
+              <TextField label="Apellido paterno" name="apellido_paterno" value={resp.apellido_paterno} onChange={cambiarResp} error={marcar(!resp.apellido_paterno.trim())} helperText={marcar(!resp.apellido_paterno.trim()) ? 'Escribe el apellido' : ' '} />
+              <TextField label="Apellido materno" name="apellido_materno" value={resp.apellido_materno} onChange={cambiarResp} helperText="Opcional" />
               <TextField
                 label="RUT" name="rut" value={resp.rut} onChange={cambiarResp} placeholder="12.345.678-5"
                 onBlur={() => rutValido(resp.rut) && setResp({ ...resp, rut: formatearRut(resp.rut) })}

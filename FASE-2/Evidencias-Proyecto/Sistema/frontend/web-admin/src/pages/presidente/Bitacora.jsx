@@ -29,7 +29,7 @@ export default function Bitacora() {
 
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
         <ToggleButtonGroup size="small" exclusive value={filtro} onChange={(_, v) => v && setFiltro(v)}>
-          <ToggleButton value="administrador">Administrador</ToggleButton>
+          <ToggleButton value="administrador">Administración</ToggleButton>
           <ToggleButton value="todos">Todos los cargos</ToggleButton>
         </ToggleButtonGroup>
         <TextField size="small" label="Buscar" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} sx={{ minWidth: 240 }} />
@@ -39,7 +39,7 @@ export default function Bitacora() {
       <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden' }}>
         {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>No hay acciones que coincidan.</Typography>}
         {lista.map((b, i) => (
-          <Box key={b.id} sx={{ px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', display: 'grid', gap: 0.5 }}>
+          <Box key={b.id_bitacora} sx={{ px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', display: 'grid', gap: 0.5 }}>
             <Typography sx={{ fontWeight: 700 }}>{b.accion}</Typography>
             <Typography variant="body2" color="text.secondary">{b.detalle}</Typography>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -64,7 +64,7 @@ export default function Bitacora() {
               <TableRow><TableCell colSpan={3}><Typography color="text.secondary">No hay acciones que coincidan.</Typography></TableCell></TableRow>
             )}
             {lista.map((b) => (
-              <TableRow key={b.id}>
+              <TableRow key={b.id_bitacora}>
                 <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>{fechaHora(b.fecha)}</TableCell>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>

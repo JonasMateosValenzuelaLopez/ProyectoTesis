@@ -22,8 +22,8 @@ const RESULTADOS = {
 const motivo = (r) => {
   const { inv } = r;
   switch (r.resultado) {
-    case 'temprano': return `Puede entrar desde las ${horaMinuto(inv.desde)}. Si el residente lo autoriza, regístralo como ingreso manual.`;
-    case 'vencido': return `La invitación terminó a las ${horaMinuto(inv.hasta)}. Pide al residente que la renueve desde la app.`;
+    case 'temprano': return `Puede entrar desde las ${horaMinuto(inv.fecha_desde)}. Si el residente lo autoriza, regístralo como ingreso manual.`;
+    case 'vencido': return `La invitación terminó a las ${horaMinuto(inv.fecha_hasta)}. Pide al residente que la renueve desde la app.`;
     case 'usado': return 'La visita ya entró y salió con este código. Cada código sirve para una visita.';
     case 'adentro': return 'Su ingreso ya está registrado. Si va saliendo, registra la salida en la lista de visitas.';
     case 'cancelada': return 'El residente canceló esta invitación.';
@@ -51,8 +51,8 @@ export default function ValidarQR() {
 
   const r = revision && RESULTADOS[revision.resultado];
   const inv = revision?.inv;
-  const unidad = inv && unidadPorId[inv.idUnidad];
-  const ejemplos = invitaciones.filter((i) => i.estado !== 'adentro').slice(0, 4);
+  const unidad = inv && unidadPorId[inv.id_unidad];
+  const ejemplos = invitaciones.filter((i) => i.estado !== 'Adentro').slice(0, 4);
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden', borderColor: 'marca.signal', borderWidth: 2 }}>
@@ -74,7 +74,7 @@ export default function ValidarQR() {
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Typography variant="body2" color="text.secondary">Códigos de prueba:</Typography>
             {ejemplos.map((i) => (
-              <Chip key={i.id} size="small" variant="outlined" label={i.codigo} onClick={() => { setCodigo(i.codigo); setRevision(revisarCodigo(invitaciones, i.codigo)); }} />
+              <Chip key={i.id_invitacion} size="small" variant="outlined" label={i.codigo} onClick={() => { setCodigo(i.codigo); setRevision(revisarCodigo(invitaciones, i.codigo)); }} />
             ))}
           </Box>
         )}
@@ -84,11 +84,11 @@ export default function ValidarQR() {
             <Typography sx={{ fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800, fontSize: '1.5rem', color: `${r.color}.main` }}>{r.titulo}</Typography>
             {inv && (
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="md" />
+                <PlacaUnidad unidad={unidad} size="md" />
                 <Box sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 800, fontSize: '1.2rem' }}>{inv.visitante}</Typography>
-                  <Typography color="text.secondary">{inv.rut}{inv.patente ? ` · patente ${inv.patente}` : ''}</Typography>
-                  <Typography color="text.secondary">Invita {residentes[inv.idUnidad] ?? 'el residente'}, {nombreUnidad(unidad)} · de {horaMinuto(inv.desde)} a {horaMinuto(inv.hasta)}</Typography>
+                  <Typography color="text.secondary">{inv.rut ?? 'Sin RUT'}{inv.patente ? ` · patente ${inv.patente}` : ''}</Typography>
+                  <Typography color="text.secondary">Invita {residentes[inv.id_unidad] ?? 'el residente'}, {nombreUnidad(unidad)} · de {horaMinuto(inv.fecha_desde)} a {horaMinuto(inv.fecha_hasta)}</Typography>
                 </Box>
               </Box>
             )}

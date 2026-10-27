@@ -1,14 +1,23 @@
 import { useState } from 'react';
-import { Box, Button, Chip, IconButton, InputAdornment, Paper, TextField, Typography } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import { Box, Button, Paper, TextField, Typography } from '@mui/material';
 import { useSesion } from '../../context/SesionContext';
 import { useAdmin } from '../../context/AdminContext';
 import Encabezado from '../../components/ui/Encabezado';
+import { conEspacios, espaciosActivos, espaciosValidos } from '../../utils/espacios';
+import EditorEspacios from '../../components/admin/EditorEspacios';
 import Tarjeta from '../../components/ui/Tarjeta';
 
+// Columnas de `redes_vecinales` que edita la administración. Los datos de transferencia
+// los muestra la app cuando el residente va a pagar.
+const BANCARIOS = [
+  ['banco', 'Banco'], ['tipo_cuenta', 'Tipo de cuenta'], ['numero_cuenta', 'Número de cuenta'],
+  ['titular_cuenta', 'Titular'], ['rut_titular', 'RUT del titular'], ['correo_pagos', 'Correo para comprobantes'],
+];
 const desde = (c) => ({
-  nombre: c.nombre, direccion: c.direccion ?? '', calle: c.calle ?? '',
-  calles: (c.calles ?? []).join('\n'), espaciosComunes: c.espaciosComunes ?? [],
+  nombre: c.nombre, direccion: c.direccion ?? '',
+  ...Object.fromEntries(BANCARIOS.map(([k]) => [k, c[k] ?? ''])),
+  // Lo que se edita de cada espacio activo: nombre, capacidad, descripción y bloques
+  espacios: espaciosActivos(c).map(({ id_espacio, nombre, descripcion, capacidad, espacios_bloques }) => ({ id_espacio, nombre, descripcion, capacidad, espacios_bloques })),
 });
 
 // Datos generales de la comunidad: los ve el residente en la app y se usan en el plano.
@@ -16,25 +25,18 @@ export default function RedVecinal() {
   const { comunidad } = useSesion();
   const { acciones } = useAdmin();
   const [form, setForm] = useState(() => desde(comunidad));
-  const [espacio, setEspacio] = useState('');
   const original = desde(comunidad);
   const cambios = JSON.stringify(form) !== JSON.stringify(original);
-  const valido = form.nombre.trim() && form.direccion.trim();
+  const valido = form.nombre.trim() && form.direccion.trim() && espaciosValidos(form.espacios);
 
   const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
-  const agregarEspacio = () => {
-    const nombre = espacio.trim();
-    if (nombre && !form.espaciosComunes.some((x) => x.toLowerCase() === nombre.toLowerCase())) {
-      setForm({ ...form, espaciosComunes: [...form.espaciosComunes, nombre] });
-    }
-    setEspacio('');
-  };
   const guardar = (e) => {
     e.preventDefault();
     if (!valido) return;
-    const datos = { nombre: form.nombre.trim(), direccion: form.direccion.trim(), espaciosComunes: form.espaciosComunes };
-    if (comunidad.tipo === 'Condominio') datos.calle = form.calle.trim();
-    if (comunidad.tipo === 'Villa') datos.calles = form.calles.split('\n').map((x) => x.trim()).filter(Boolean);
+    const datos = {
+      nombre: form.nombre.trim(), direccion: form.direccion.trim(), espacios_comunes: conEspacios(comunidad, form.espacios.map((x) => ({ ...x, nombre: x.nombre.trim() }))),
+      ...Object.fromEntries(BANCARIOS.map(([k]) => [k, form[k].trim() || null])),
+    };
     acciones.guardarComunidad(datos);
   };
 
@@ -43,7 +45,7 @@ export default function RedVecinal() {
       <Encabezado
         contexto={comunidad.nombre}
         titulo="Datos de la comunidad"
-        descripcion="Los residentes ven estos datos en la app. Los nombres de calles y espacios también aparecen en el plano."
+        descripcion="Los residentes ven estos datos en la app. Los espacios comunes también aparecen en el plano, y sus horarios son los que se pueden reservar."
       />
 
       <Box sx={{ display: 'grid', gap: 2.5 }}>
@@ -57,29 +59,14 @@ export default function RedVecinal() {
           </Paper>
         </Tarjeta>
 
-        {comunidad.tipo === 'Condominio' && (
-          <Tarjeta titulo="Plano">
-            <TextField label="Nombre del pasaje o calle interior" name="calle" value={form.calle} onChange={cambiar} />
-          </Tarjeta>
-        )}
-        {comunidad.tipo === 'Villa' && (
-          <Tarjeta titulo="Plano">
-            <TextField label="Calles entre manzanas" name="calles" value={form.calles} onChange={cambiar} multiline minRows={3} helperText="Una por línea, en orden: la primera separa las manzanas A y B." />
-          </Tarjeta>
-        )}
-
-        <Tarjeta titulo="Espacios comunes" extra="Se pueden reservar si el módulo de reservas está activo">
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {form.espaciosComunes.length === 0 && <Typography color="text.secondary">Sin espacios comunes.</Typography>}
-            {form.espaciosComunes.map((x) => (
-              <Chip key={x} label={x} onDelete={() => setForm({ ...form, espaciosComunes: form.espaciosComunes.filter((y) => y !== x) })} />
-            ))}
+        <Tarjeta titulo="Datos para transferencias" extra="La app se los muestra al residente cuando va a pagar">
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            {BANCARIOS.map(([k, etiqueta]) => <TextField key={k} label={etiqueta} name={k} value={form[k]} onChange={cambiar} />)}
           </Box>
-          <TextField
-            size="small" label="Agregar espacio" value={espacio} onChange={(e) => setEspacio(e.target.value)} placeholder="Ej: Sala de eventos"
-            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregarEspacio(); } }} sx={{ maxWidth: 360 }}
-            slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton aria-label="Agregar espacio" edge="end" onClick={agregarEspacio} disabled={!espacio.trim()}><AddIcon /></IconButton></InputAdornment> } }}
-          />
+        </Tarjeta>
+
+        <Tarjeta titulo="Espacios comunes" extra="Con sus horarios reservables, si el módulo de reservas está activo">
+          <EditorEspacios espacios={form.espacios} onCambio={(espacios) => setForm({ ...form, espacios })} />
         </Tarjeta>
 
         {/* Sin cambios el botón queda al final del formulario; con cambios, una barra fija recuerda guardarlos */}

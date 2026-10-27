@@ -90,11 +90,11 @@ export const status = panelStatus;
 
 // Sello de cada cargo: familia (directiva, personal, residente) e inicial.
 export const roles = {
-  administrador: { label: 'Administrador', initial: 'A', family: 'staff' },
+  administrador: { label: 'Administrador/a', initial: 'A', family: 'staff' },
   conserje: { label: 'Conserjería', initial: 'C', family: 'staff' },
-  presidente: { label: 'Presidente', initial: 'P', family: 'directiva' },
-  tesorero: { label: 'Tesorero', initial: 'T', family: 'directiva' },
-  secretario: { label: 'Secretario', initial: 'S', family: 'directiva' },
+  presidente: { label: 'Presidente/a', initial: 'P', family: 'directiva' },
+  tesorero: { label: 'Tesorero/a', initial: 'T', family: 'directiva' },
+  secretario: { label: 'Secretario/a', initial: 'S', family: 'directiva' },
   residente: { label: 'Residente', initial: 'R', family: 'residente' },
 };
 

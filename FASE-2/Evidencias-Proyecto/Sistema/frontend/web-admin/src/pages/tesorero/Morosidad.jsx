@@ -26,7 +26,7 @@ export default function Morosidad() {
         contexto={comunidad.nombre}
         titulo="Morosidad"
         descripcion={morosos.length
-          ? `${morosos.length} unidades deben ${clp(resumen.deudaMorosa)} de meses anteriores.${ultimoRecordatorio ? ` Último recordatorio: ${fechaHora(ultimoRecordatorio.fecha)}.` : ''}`
+          ? `${morosos.length} unidades deben ${clp(resumen.deudaMorosa)} de meses anteriores.${ultimoRecordatorio ? ` Último recordatorio: ${fechaHora(ultimoRecordatorio.fecha_envio)}.` : ''}`
           : 'Ninguna unidad tiene deuda de meses anteriores.'}
         acciones={gestiona && morosos.length > 0 && (
           <Button variant="contained" startIcon={<RecordarIcon />} onClick={() => setRecordatorio(true)}>
@@ -38,10 +38,10 @@ export default function Morosidad() {
       {morosos.length > 0 && (
         <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden' }}>
           {morosos.map((m, i) => (
-            <ButtonBase key={m.unidad.id} onClick={() => setUnidad(m.unidad)} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', width: '100%', textAlign: 'left', px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', '&:active': { bgcolor: 'action.hover' } }}>
-              <PlacaUnidad tipo={m.unidad.tipo} numero={m.unidad.numero} size="sm" />
+            <ButtonBase key={m.unidad.id_unidad} onClick={() => setUnidad(m.unidad)} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', width: '100%', textAlign: 'left', px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', '&:active': { bgcolor: 'action.hover' } }}>
+              <PlacaUnidad unidad={m.unidad} size="sm" />
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 700 }}>{residentes[m.unidad.id]}</Typography>
+                <Typography sx={{ fontWeight: 700 }}>{residentes[m.unidad.id_unidad]}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   <Box component="span" sx={{ color: 'error.main', fontWeight: 700 }}>{clp(m.deudaAnterior)}</Box> anterior · {clp(m.pendienteMes)} este mes
                 </Typography>
@@ -66,11 +66,11 @@ export default function Morosidad() {
             </TableHead>
             <TableBody>
               {morosos.map((m) => (
-                <TableRow key={m.unidad.id} hover>
+                <TableRow key={m.unidad.id_unidad} hover>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <PlacaUnidad tipo={m.unidad.tipo} numero={m.unidad.numero} size="sm" />
-                      <Typography sx={{ fontWeight: 700 }}>{residentes[m.unidad.id]}</Typography>
+                      <PlacaUnidad unidad={m.unidad} size="sm" />
+                      <Typography sx={{ fontWeight: 700 }}>{residentes[m.unidad.id_unidad]}</Typography>
                     </Box>
                   </TableCell>
                   <TableCell align="right" sx={{ color: 'error.main', fontWeight: 700 }}>{clp(m.deudaAnterior)}</TableCell>

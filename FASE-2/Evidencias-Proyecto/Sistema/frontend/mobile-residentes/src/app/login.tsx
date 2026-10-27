@@ -47,13 +47,14 @@ function CuentasPrueba({ onElegir }: { onElegir: (c: Cuenta) => void }) {
         <Texto v="chico">Clave para todas: {CLAVE_PRUEBA} · código: {CODIGO_PRUEBA}</Texto>
       </View>
       {CUENTAS.map((c) => {
-        const u = UNIDADES[c.residencias[0].idUnidad];
+        const u = UNIDADES[c.residencias[0].id_unidad];
+        const nombre = `${c.nombre} ${c.apellido_paterno}`;
         return (
-          <Pressable key={c.id} onPress={() => onElegir(c)} accessibilityRole="button" accessibilityLabel={`Usar la cuenta de ${c.nombre} ${c.apellido}`}
+          <Pressable key={c.id_usuario} onPress={() => onElegir(c)} accessibilityRole="button" accessibilityLabel={`Usar la cuenta de ${nombre}`}
             style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderColor: t.line, backgroundColor: pressed ? t.accionSoft : t.surface })}>
-            <PlacaUnidad tipo="" numero={u.numero} size="sm" />
+            <PlacaUnidad tipo="" numero={u.numero_identificador} size="sm" />
             <View style={{ flex: 1 }}>
-              <Texto v="fuerte">{c.nombre} {c.apellido}</Texto>
+              <Texto v="fuerte">{nombre}</Texto>
               <Texto v="chico">{c.flujo}</Texto>
             </View>
             <Texto v="chico" style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'] }}>{c.rut}</Texto>

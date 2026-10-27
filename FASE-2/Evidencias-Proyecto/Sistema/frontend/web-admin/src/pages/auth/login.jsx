@@ -9,6 +9,8 @@ import { formatearRut, rutValido } from '../../utils/rut';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
 import PanelMarca from '../../components/marca/PanelMarca';
 import SelloCargo from '../../components/marca/SelloCargo';
+import { cargoDe, esPlataforma } from '../../config/roles';
+import { nombreCorto } from '../../utils/formato';
 
 // Las cuentas de prueba se muestran salvo que el build defina VITE_MODO_PRUEBA=false
 const MODO_PRUEBA = import.meta.env.VITE_MODO_PRUEBA !== 'false';
@@ -31,14 +33,14 @@ function CuentasPrueba({ onElegir }) {
         <Box sx={{ display: 'grid', borderTop: 1, borderColor: 'divider', maxHeight: 320, overflowY: 'auto' }}>
           {cuentas.map((c, i) => (
             <ButtonBase
-              key={c.id} onClick={() => onElegir(c)}
+              key={c.id_usuario} onClick={() => onElegir(c)}
               sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', px: 2, py: 1, textAlign: 'left', borderTop: i ? 1 : 0, borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}
             >
-              {c.plataforma
+              {esPlataforma(c)
                 ? <Box sx={{ width: 22, height: 22, borderRadius: '5px', bgcolor: 'marca.signal', color: 'marca.signalInk', display: 'grid', placeItems: 'center', fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: 11 }}>EC</Box>
-                : <SelloCargo cargo={c.membresias[0]?.cargo ?? 'residente'} />}
+                : <SelloCargo cargo={c.membresias[0] ? cargoDe(c.membresias[0]) : 'residente'} />}
               <Box sx={{ minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>{c.nombre} {c.apellido}</Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>{nombreCorto(c)}</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{c.flujo}</Typography>
               </Box>
               <Typography variant="caption" sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary', whiteSpace: 'nowrap' }}>{c.rut}</Typography>
@@ -61,7 +63,7 @@ export default function Login() {
   const [codigoEnviadoA, setCodigoEnviadoA] = useState(null);
   const [error, setError] = useState(null);
 
-  if (usuario) return <Navigate to={usuario.plataforma ? '/plataforma' : '/panel'} replace />;
+  if (usuario) return <Navigate to={esPlataforma(usuario) ? '/plataforma' : '/panel'} replace />;
 
   const rutMal = rut.length > 3 && !rutValido(rut);
 
@@ -70,7 +72,7 @@ export default function Login() {
       setError('Tu cuenta está bloqueada. Escribe a soporte@entrecasas.cl para revisarla.');
       return;
     }
-    if (c.plataforma) {
+    if (esPlataforma(c)) {
       iniciarSesion(c);
       navigate('/plataforma');
       return;

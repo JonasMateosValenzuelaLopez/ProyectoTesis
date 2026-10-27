@@ -2,6 +2,8 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import { comunidades } from '../data/mock';
 import { CUENTAS } from '../data/cuentasDemo';
 import { bitacoraPlataformaInicial } from '../data/plataformaMock';
+import { ID_ROL, cargoDe, membresiasVigentes } from '../config/roles';
+import { registrarRed } from '../utils/unidades';
 
 // Sesión: quién está conectado y con qué comunidad y cargo está actuando.
 // Por ahora las cuentas salen de las cuentas de prueba; con la API vendrán del login (token)
@@ -11,6 +13,11 @@ import { bitacoraPlataformaInicial } from '../data/plataformaMock';
 const SesionContext = createContext(null);
 const CLAVE_CONTEXTO = 'entrecasas.contexto';
 const CLAVE_SESION = 'entrecasas.sesion';
+// Fecha y hora local en el formato DATETIME de la base
+const fechaLocal = () => {
+  const f = new Date();
+  return new Date(f.getTime() - f.getTimezoneOffset() * 60000).toISOString().slice(0, 19);
+};
 
 function leer(clave) {
   try {
@@ -26,15 +33,17 @@ function guardar(clave, valor) {
   } catch { /* sin almacenamiento */ }
 }
 
-// Membresías en comunidades que no están suspendidas
-const vigentes = (usuario, redes) => (usuario?.membresias ?? [])
-  .filter((m) => redes.find((r) => r.id === m.idRed)?.estado !== 'suspendida');
+// Cargos vigentes del usuario en comunidades que no están suspendidas, como { id_red, cargo }.
+// La membresía de Plataforma no tiene comunidad y se maneja aparte.
+const vigentes = (usuario, redes) => membresiasVigentes(usuario)
+  .filter((m) => m.id_red != null && redes.find((r) => r.id_red === m.id_red)?.estado !== 'Suspendida')
+  .map((m) => ({ id_red: m.id_red, cargo: cargoDe(m) }));
 
 function contextoInicial(usuario, redes) {
   const lista = vigentes(usuario, redes);
   if (!lista.length) return null;
   const guardado = leer(CLAVE_CONTEXTO);
-  const valido = lista.some((m) => m.idRed === guardado?.idRed && m.cargo === guardado?.cargo);
+  const valido = lista.some((m) => m.id_red === guardado?.id_red && m.cargo === guardado?.cargo);
   return valido ? guardado : lista[0];
 }
 
@@ -43,16 +52,18 @@ export function SesionProvider({ children }) {
   const [cuentasNuevas, setCuentasNuevas] = useState([]);
   const [bloqueados, setBloqueados] = useState([]);
   const [bitacoraPlataforma, setBitacoraPlataforma] = useState(bitacoraPlataformaInicial);
-  const [usuario, setUsuario] = useState(() => CUENTAS.find((c) => c.id === leer(CLAVE_SESION)) ?? null);
+  const [usuario, setUsuario] = useState(() => CUENTAS.find((c) => c.id_usuario === leer(CLAVE_SESION)) ?? null);
   const [activo, setActivo] = useState(() => contextoInicial(usuario, comunidades));
 
   const valor = useMemo(() => {
+    // El tipo de unidad (Casa o Departamento) sale del tipo de la comunidad
+    redes.forEach(registrarRed);
     const cuentas = [...CUENTAS, ...cuentasNuevas];
     const membresias = vigentes(usuario, redes);
-    const comunidad = activo ? redes.find((c) => c.id === activo.idRed) : null;
+    const comunidad = activo ? redes.find((c) => c.id_red === activo.id_red) : null;
 
-    const cambiarContexto = (idRed, cargo) => {
-      const nuevo = { idRed, cargo };
+    const cambiarContexto = (id_red, cargo) => {
+      const nuevo = { id_red, cargo };
       setActivo(nuevo);
       guardar(CLAVE_CONTEXTO, nuevo);
     };
@@ -60,7 +71,7 @@ export function SesionProvider({ children }) {
       const primera = vigentes(cuenta, redes)[0] ?? null;
       setUsuario(cuenta);
       setActivo(primera);
-      guardar(CLAVE_SESION, cuenta.id);
+      guardar(CLAVE_SESION, cuenta.id_usuario);
       guardar(CLAVE_CONTEXTO, primera);
     };
     const cerrarSesion = () => {
@@ -71,29 +82,36 @@ export function SesionProvider({ children }) {
     };
     // Membresías agrupadas por comunidad, para el selector
     const porComunidad = redes
-      .map((c) => ({ comunidad: c, cargos: membresias.filter((m) => m.idRed === c.id).map((m) => m.cargo) }))
+      .map((c) => ({ comunidad: c, cargos: membresias.filter((m) => m.id_red === c.id_red).map((m) => m.cargo) }))
       .filter((g) => g.cargos.length > 0);
     // Cambia una comunidad; recibe los cambios o una función que los calcula a partir de ella
-    const actualizarRed = (idRed, cambios) => setRedes((lista) => lista.map((c) => (
-      c.id === idRed ? { ...c, ...(typeof cambios === 'function' ? cambios(c) : cambios), ultimaActividad: new Date().toISOString() } : c
+    const actualizarRed = (id_red, cambios) => setRedes((lista) => lista.map((c) => (
+      c.id_red === id_red ? { ...c, ...(typeof cambios === 'function' ? cambios(c) : cambios), ultima_actividad: new Date().toISOString().slice(0, 19) } : c
     )));
-    const actualizarComunidad = (cambios) => actualizarRed(activo?.idRed, cambios);
+    const actualizarComunidad = (cambios) => actualizarRed(activo?.id_red, cambios);
 
     // Nivel plataforma
+    // Crea la fila de `redes_vecinales` con sus unidades y módulos, y al primer responsable
+    // como fila de `usuarios` con su membresía. La API hará lo mismo en una transacción.
     const crearComunidad = (red, responsable) => {
-      const id = Math.max(...redes.map((r) => r.id)) + 1;
-      const ahora = new Date().toISOString();
-      // Los ids de unidad llevan el id de la comunidad para no chocar con los de otras
-      const unidades = red.unidades.map((u) => ({ ...u, id: `n${id}-${u.id}` }));
-      setRedes((lista) => [...lista, { ...red, unidades, id, estado: 'activa', creadaEn: ahora.slice(0, 10), ultimaActividad: ahora, responsable }]);
-      setCuentasNuevas((lista) => [...lista, {
-        id: Date.now(), nombre: responsable.nombre, apellido: responsable.apellido, rut: responsable.rut, correo: responsable.correo,
-        flujo: `Primer responsable de ${red.nombre}`, membresias: [{ idRed: id, cargo: responsable.cargo }],
+      const id_red = Math.max(...redes.map((r) => r.id_red)) + 1;
+      const ahora = new Date().toISOString().slice(0, 19);
+      const unidades = red.unidades.map((u, i) => ({ ...u, id_unidad: id_red * 1000 + i + 1, id_red }));
+      const { cargo, ...datos } = responsable;
+      const usuario = { ...datos, id_usuario: Date.now(), telefono: null, estado: 'Invitado', fecha_registro: ahora };
+      const membresia = {
+        id_membresia: Date.now() + 1, id_usuario: usuario.id_usuario, id_red, id_rol: ID_ROL[cargo],
+        fecha_desde: ahora.slice(0, 10), fecha_hasta: null, estado: 'Vigente',
+      };
+      setRedes((lista) => [...lista, {
+        ...red, unidades, id_red, espacios_comunes: (red.espacios_comunes ?? []).map((e) => ({ ...e, id_red })), estado: 'Activa', motivo_suspension: null, fecha_registro: ahora, ultima_actividad: ahora,
+        responsable: { usuario, membresia },
       }]);
-      return id;
+      setCuentasNuevas((lista) => [...lista, { ...usuario, flujo: `Primer responsable de ${red.nombre}`, membresias: [membresia] }]);
+      return id_red;
     };
-    const anotarPlataforma = (accion, detalle, idRed = null) => setBitacoraPlataforma((lista) => [{
-      id: `bp${Date.now().toString(36)}`, fecha: new Date().toISOString(), actor: `${usuario?.nombre} ${usuario?.apellido}`, accion, detalle, idRed,
+    const anotarPlataforma = (accion, detalle, id_red = null) => setBitacoraPlataforma((lista) => [{
+      id_bitacora: `bp${Date.now().toString(36)}`, id_red, id_usuario: usuario.id_usuario, accion, detalle, fecha: fechaLocal(),
     }, ...lista]);
     const bloquear = (rut, bloqueado) => setBloqueados((lista) => (bloqueado ? [...lista, rut] : lista.filter((r) => r !== rut)));
 

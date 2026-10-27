@@ -2,6 +2,7 @@ import { Redirect, Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/App';
+import { espaciosActivos } from '@/data/demo';
 import { F, useTema } from '@/constants/tema';
 
 type Icono = keyof typeof Ionicons.glyphMap;
@@ -19,7 +20,7 @@ export default function Pestanas() {
   const { cuenta, tiene, comunidad, pendientesMercado } = useApp();
   if (!cuenta) return <Redirect href="/login" />;
 
-  const conReservas = tiene('reservas') && !!comunidad?.espacios.length;
+  const conReservas = tiene('reservas') && espaciosActivos(comunidad).length > 0;
   return (
     <Tabs
       screenOptions={{

@@ -5,6 +5,8 @@ import { useSesion } from '../context/SesionContext';
 import { PlataformaProvider, usePlataforma } from '../context/PlataformaContext';
 import { SECCIONES_PLATAFORMA, activoPlataforma } from '../config/plataforma';
 import MarcoPanel from './MarcoPanel';
+import { nombreCorto } from '../utils/formato';
+import { esPlataforma } from '../config/roles';
 
 function Etiqueta() {
   return (
@@ -32,7 +34,7 @@ export default function PlataformaProtegida() {
   const { usuario, bloqueados, cerrarSesion } = useSesion();
   const navigate = useNavigate();
   if (!usuario) return <Navigate to="/login" replace />;
-  if (!usuario.plataforma) return <Navigate to="/panel" replace />;
+  if (!esPlataforma(usuario)) return <Navigate to="/panel" replace />;
 
   const salir = () => {
     cerrarSesion();
@@ -52,7 +54,7 @@ export default function PlataformaProtegida() {
             <BarraContexto />
             <Box sx={{ flexGrow: 1 }} />
             <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', md: 'block' } }}>
-              {usuario.nombre} {usuario.apellido}
+              {nombreCorto(usuario)}
             </Typography>
             <Tooltip title="Cerrar sesión">
               <IconButton aria-label="Cerrar sesión" onClick={salir} sx={{ color: 'text.secondary' }}>

@@ -20,6 +20,7 @@ import {
   ToggleOnOutlined as ModulosIcon,
   ContactPhoneOutlined as DirectorioIcon,
 } from '@mui/icons-material';
+import { tieneModulo } from './modulos';
 
 // Menú del panel. Cada opción declara qué cargos la ven (`cargos`) y qué módulo
 // de la comunidad necesita (`modulo`). `pendiente` es la clave del contador que arma DashboardLayout.
@@ -40,7 +41,7 @@ export const SECCIONES = [
       { texto: 'Cobros', ruta: '/panel/finanzas', icono: <CobrosIcon />, cargos: ['tesorero', 'administrador'], modulo: 'cobros' },
       { texto: 'Morosidad', ruta: '/panel/morosidad', icono: <MorosidadIcon />, cargos: ['tesorero', 'administrador', 'presidente'], modulo: 'cobros', pendiente: 'morosidad' },
       { texto: 'Exenciones', ruta: '/panel/exenciones', icono: <ExencionIcon />, cargos: ['tesorero', 'presidente'], modulo: 'cobros', pendiente: 'exenciones' },
-      { texto: 'Categorías de gasto', ruta: '/panel/categorias', icono: <CategoriaIcon />, cargos: ['tesorero'], modulo: 'cobros' },
+      { texto: 'Categorías de cobro', ruta: '/panel/categorias', icono: <CategoriaIcon />, cargos: ['tesorero'], modulo: 'cobros' },
       { texto: 'Reportes', ruta: '/panel/reportes', icono: <ReportesIcon />, cargos: ['tesorero', 'presidente'], modulo: 'cobros' },
     ],
   },
@@ -75,7 +76,7 @@ export const SECCIONES = [
 
 // Sin administrador externo (típico en villas), el Presidente administra la comunidad.
 export function cargosEfectivos(cargo, comunidad) {
-  if (cargo === 'presidente' && !comunidad.modulos.includes('administrador_externo')) {
+  if (cargo === 'presidente' && !tieneModulo(comunidad, 'administrador_externo')) {
     return ['presidente', 'administrador'];
   }
   return [cargo];
@@ -84,8 +85,8 @@ export function cargosEfectivos(cargo, comunidad) {
 export function puedeVer(item, cargo, comunidad) {
   const cargos = cargosEfectivos(cargo, comunidad);
   const tieneCargo = item.cargos.some((c) => cargos.includes(c));
-  const tieneModulo = !item.modulo || comunidad.modulos.includes(item.modulo);
-  return tieneCargo && tieneModulo;
+  const conModulo = !item.modulo || tieneModulo(comunidad, item.modulo);
+  return tieneCargo && conModulo;
 }
 
 export function menuPara(cargo, comunidad) {

@@ -1,4 +1,5 @@
 // Formatos para Chile: pesos sin decimales y fechas en español.
+import { tipoUnidad } from './unidades';
 const pesos = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 const fechaCorta = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short' });
 const fechaLarga = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -18,7 +19,10 @@ export const diasHasta = (valor, desde = new Date()) => {
   return Math.round(ms / 86400000);
 };
 
-export const nombreUnidad = (u) => (u ? `${u.tipo === 'Departamento' ? 'Depto' : u.tipo} ${u.numero}` : '');
+export const nombreUnidad = (u) => (u ? `${tipoUnidad(u) === 'Departamento' ? 'Depto' : 'Casa'} ${u.numero_identificador}` : '');
+// Nombre para mostrar de una fila de `usuarios`
+export const nombreCompleto = (u) => (u ? [u.nombre, u.apellido_paterno, u.apellido_materno].filter(Boolean).join(' ') : '');
+export const nombreCorto = (u) => (u ? `${u.nombre} ${u.apellido_paterno}` : '');
 
 // Genera y descarga un CSV (separado por ; para que Excel en español lo abra bien).
 export function descargarCSV(nombreArchivo, filas) {
@@ -45,3 +49,12 @@ export function saludo(ahora = new Date()) {
 export const hoyTexto = () => new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
 
 export const horaMinuto = (valor) => hora.format(aFecha(valor));
+
+// La base guarda +56961234501; en pantalla se lee +56 9 6123 4501
+export const telefono = (t) => {
+  const m = t?.match(/^\+56(9)(\d{4})(\d{4})$/);
+  return m ? `+56 ${m[1]} ${m[2]} ${m[3]}` : t ?? '';
+};
+
+// Columnas `text` con un elemento por línea (asistentes y temas de `actas`)
+export const lineas = (texto) => (texto ?? '').split('\n').map((l) => l.trim()).filter(Boolean);

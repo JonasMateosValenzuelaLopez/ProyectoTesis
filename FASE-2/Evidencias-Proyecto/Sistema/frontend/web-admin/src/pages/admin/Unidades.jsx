@@ -6,7 +6,8 @@ import {
 import { AddHomeWorkOutlined as LoteIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
 import { useAdmin } from '../../context/AdminContext';
-import { nombreUnidad } from '../../utils/formato';
+import { nombreCompleto, nombreUnidad } from '../../utils/formato';
+import { grupoDe, pisoDe } from '../../utils/unidades';
 import Encabezado from '../../components/ui/Encabezado';
 import FranjaKpi from '../../components/ui/FranjaKpi';
 import Tarjeta from '../../components/ui/Tarjeta';
@@ -14,35 +15,38 @@ import PlacaUnidad from '../../components/marca/PlacaUnidad';
 import PlanoComunidad, { LeyendaPlano } from '../../components/marca/PlanoComunidad';
 import DialogoLote from '../../components/admin/DialogoLote';
 
-const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
-const ubicacion = (u) => (u.piso ? `Torre ${u.torre} · piso ${u.piso}` : u.manzana ? `Manzana ${u.manzana}` : u.sector ? `Sector ${u.sector}` : '—');
+const ubicacion = (u, tipo) => {
+  const grupo = grupoDe(u) || '—';
+  return tipo === 'Edificio' ? `${grupo} · piso ${pisoDe(u)}` : grupo;
+};
 
 function estadoOcupacion(ocupantes) {
   if (!ocupantes?.length) return 'vacia';
-  return ocupantes.some((o) => o.relacion === 'propietario') && !ocupantes.some((o) => o.relacion === 'arrendatario') ? 'ocupada' : 'arrendada';
+  return ocupantes.some((o) => o.relacion === 'Propietario') && !ocupantes.some((o) => o.relacion === 'Arrendatario') ? 'ocupada' : 'arrendada';
 }
 
 function DialogoUnidad({ unidad, onClose }) {
+  const { comunidad } = useSesion();
   const { ocupantes, acciones } = useAdmin();
-  const [numero, setNumero] = useState(unidad.numero);
-  const personas = ocupantes[unidad.id] ?? [];
+  const [numero, setNumero] = useState(unidad.numero_identificador);
+  const personas = ocupantes[unidad.id_unidad] ?? [];
   const guardar = () => {
-    if (numero.trim() && numero.trim() !== unidad.numero) acciones.editarUnidad({ ...unidad, numero: numero.trim() });
+    if (numero.trim() && numero.trim() !== unidad.numero_identificador) acciones.editarUnidad({ ...unidad, numero_identificador: numero.trim() });
     onClose();
   };
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-        <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="sm" />
+        <PlacaUnidad unidad={unidad} size="sm" />
         {nombreUnidad(unidad)}
       </DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2 }}>
-        <Typography color="text.secondary">{ubicacion(unidad)}</Typography>
+        <Typography color="text.secondary">{ubicacion(unidad, comunidad.tipo)}</Typography>
         <Box sx={{ display: 'grid', gap: 0.75 }}>
           <Typography variant="subtitle2" component="h3">Residentes</Typography>
           {personas.length === 0 && <Typography color="text.secondary">Nadie registrado. Invita a sus residentes desde Residentes y cargos.</Typography>}
           {personas.map((p) => (
-            <Typography key={p.id}>{p.nombre} <Box component="span" sx={{ color: 'text.secondary' }}>· {RELACION[p.relacion]}</Box></Typography>
+            <Typography key={p.id_usuario}>{nombreCompleto(p)} <Box component="span" sx={{ color: 'text.secondary' }}>· {p.relacion}</Box></Typography>
           ))}
         </Box>
         <TextField size="small" label="Número" value={numero} onChange={(e) => setNumero(e.target.value)} helperText="Cámbialo solo si se registró mal." />
@@ -63,12 +67,12 @@ export default function Unidades() {
   const [filtro, setFiltro] = useState('todas');
   const [busqueda, setBusqueda] = useState('');
 
-  const estados = Object.fromEntries(comunidad.unidades.map((u) => [u.id, estadoOcupacion(ocupantes[u.id])]));
-  const cuenta = (e) => comunidad.unidades.filter((u) => estados[u.id] === e).length;
+  const estados = Object.fromEntries(comunidad.unidades.map((u) => [u.id_unidad, estadoOcupacion(ocupantes[u.id_unidad])]));
+  const cuenta = (e) => comunidad.unidades.filter((u) => estados[u.id_unidad] === e).length;
   const texto = busqueda.trim().toLowerCase();
   const lista = comunidad.unidades
-    .filter((u) => filtro === 'todas' || estados[u.id] === filtro)
-    .filter((u) => !texto || `${nombreUnidad(u)} ${ubicacion(u)} ${(ocupantes[u.id] ?? []).map((o) => o.nombre).join(' ')}`.toLowerCase().includes(texto));
+    .filter((u) => filtro === 'todas' || estados[u.id_unidad] === filtro)
+    .filter((u) => !texto || `${nombreUnidad(u)} ${ubicacion(u, comunidad.tipo)} ${(ocupantes[u.id_unidad] ?? []).map(nombreCompleto).join(' ')}`.toLowerCase().includes(texto));
 
   return (
     <Box sx={{ maxWidth: 1300 }}>
@@ -112,13 +116,13 @@ export default function Unidades() {
           <TableBody>
             {lista.length === 0 && <TableRow><TableCell colSpan={3}><Typography color="text.secondary" sx={{ py: 1 }}>Ninguna unidad coincide.</Typography></TableCell></TableRow>}
             {lista.map((u) => (
-              <TableRow key={u.id} hover tabIndex={0} onClick={() => setUnidad(unidadPorId[u.id])} onKeyDown={(e) => e.key === 'Enter' && setUnidad(u)} sx={{ cursor: 'pointer' }}>
-                <TableCell sx={{ py: 1 }}><PlacaUnidad tipo={u.tipo} numero={u.numero} size="sm" /></TableCell>
-                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{ubicacion(u)}</TableCell>
+              <TableRow key={u.id_unidad} hover tabIndex={0} onClick={() => setUnidad(unidadPorId[u.id_unidad])} onKeyDown={(e) => e.key === 'Enter' && setUnidad(u)} sx={{ cursor: 'pointer' }}>
+                <TableCell sx={{ py: 1 }}><PlacaUnidad unidad={u} size="sm" /></TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{ubicacion(u, comunidad.tipo)}</TableCell>
                 <TableCell>
-                  {(ocupantes[u.id] ?? []).length === 0
+                  {(ocupantes[u.id_unidad] ?? []).length === 0
                     ? <Typography variant="body2" color="text.secondary">Sin residentes</Typography>
-                    : ocupantes[u.id].map((o) => <Typography key={o.id} variant="body2">{o.nombre} <Box component="span" sx={{ color: 'text.secondary' }}>· {RELACION[o.relacion]}</Box></Typography>)}
+                    : ocupantes[u.id_unidad].map((o) => <Typography key={o.id_usuario} variant="body2">{nombreCompleto(o)} <Box component="span" sx={{ color: 'text.secondary' }}>· {o.relacion}</Box></Typography>)}
                 </TableCell>
               </TableRow>
             ))}
@@ -127,7 +131,7 @@ export default function Unidades() {
       </TableContainer>
 
       {lote && <DialogoLote onClose={() => setLote(false)} />}
-      {unidad && <DialogoUnidad key={unidad.id} unidad={unidad} onClose={() => setUnidad(null)} />}
+      {unidad && <DialogoUnidad key={unidad.id_unidad} unidad={unidad} onClose={() => setUnidad(null)} />}
     </Box>
   );
 }

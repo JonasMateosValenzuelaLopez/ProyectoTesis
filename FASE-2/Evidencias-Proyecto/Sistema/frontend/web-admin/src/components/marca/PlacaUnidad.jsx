@@ -1,4 +1,5 @@
 import { Box } from '@mui/material';
+import { tipoUnidad } from '../../utils/unidades';
 
 // Placa de bronce con el número de la vivienda: el elemento firma de EntreCasas.
 // El número reserva dos cifras para que las placas 1 a 99 midan lo mismo y los nombres queden alineados.
@@ -8,8 +9,11 @@ const TAMANOS = {
   lg: { pad: '8px', radio: '12px', interior: '8px 18px 6px', borde: 2.5, radioInt: '7px', numero: '3.2rem', etiqueta: '0.72rem' },
 };
 
-export default function PlacaUnidad({ tipo = 'Casa', numero, size = 'md', invertida = false, sx }) {
+// Con `unidad` (fila de `unidades`) deduce tipo y número; `tipo` y `numero` sirven para la placa de la marca.
+export default function PlacaUnidad({ unidad, tipo: tipoMarca, numero: numeroMarca, size = 'md', invertida = false, sx }) {
   const t = TAMANOS[size];
+  const tipo = unidad ? tipoUnidad(unidad) : tipoMarca ?? 'Casa';
+  const numero = unidad ? unidad.numero_identificador : numeroMarca;
   const etiqueta = tipo === 'Departamento' ? 'DEPTO' : tipo.toUpperCase();
   return (
     <Box

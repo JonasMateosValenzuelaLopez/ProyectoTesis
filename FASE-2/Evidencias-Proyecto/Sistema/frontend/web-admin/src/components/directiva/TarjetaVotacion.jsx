@@ -20,22 +20,22 @@ function Barra({ valor, color = 'primary.main', marca, alto = 8 }) {
 }
 
 function Plazo({ votacion }) {
-  if (votacion.estado === 'cerrada') return <>Cerró el {fecha(votacion.cierre)}</>;
-  const dias = diasHasta(votacion.cierre);
+  if (votacion.estado === 'Cerrada') return <>Cerró el {fecha(votacion.fecha_cierre)}</>;
+  const dias = diasHasta(votacion.fecha_cierre);
   if (dias <= 0) return <>Cierra hoy</>;
-  return <>Cierra el {fecha(votacion.cierre)} · {dias === 1 ? 'queda 1 día' : `quedan ${dias} días`}</>;
+  return <>Cierra el {fecha(votacion.fecha_cierre)} · {dias === 1 ? 'queda 1 día' : `quedan ${dias} días`}</>;
 }
 
 export default function TarjetaVotacion({ votacion, totalUnidades, onRecordar, onCerrar, compacta = false }) {
   const r = resultado(votacion, totalUnidades);
-  const abierta = votacion.estado === 'abierta';
+  const abierta = votacion.estado === 'Abierta';
   const lider = Math.max(...votacion.opciones.map((o) => o.votos));
 
   return (
     <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 2, alignContent: 'start' }}>
       <Box sx={{ display: 'grid', gap: 0.75 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Chip size="small" label={votacion.tipo === 'votacion' ? 'Votación' : 'Encuesta'} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
+          <Chip size="small" label={votacion.tipo} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
           <Typography variant="body2" color="text.secondary"><Plazo votacion={votacion} /></Typography>
         </Box>
         <Typography variant="h6" component="h3">{votacion.titulo}</Typography>
@@ -47,7 +47,7 @@ export default function TarjetaVotacion({ votacion, totalUnidades, onRecordar, o
           const p = r.votos ? (o.votos / r.votos) * 100 : 0;
           const gana = o.votos === lider && o.votos > 0;
           return (
-            <Box key={o.id} sx={{ display: 'grid', gap: 0.5 }}>
+            <Box key={o.id_opcion} sx={{ display: 'grid', gap: 0.5 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
                 <Typography sx={{ fontWeight: gana ? 700 : 400 }}>{o.texto}</Typography>
                 <Typography color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>{o.votos} · {pct(p)}</Typography>

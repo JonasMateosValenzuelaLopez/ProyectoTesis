@@ -10,8 +10,8 @@ import Boton from '@/components/ec/Boton';
 import Chip, { type Tono } from '@/components/ec/Chip';
 
 const ESTADO: Record<string, { texto: string; tono: Tono }> = {
-  esperada: { texto: 'Esperando', tono: 'senal' }, adentro: { texto: 'Ingresó', tono: 'ok' },
-  salio: { texto: 'Ya salió', tono: 'neutro' }, cancelada: { texto: 'Cancelada', tono: 'bad' }, vencida: { texto: 'Vencida', tono: 'neutro' },
+  Esperada: { texto: 'Esperando', tono: 'senal' }, Adentro: { texto: 'Ingresó', tono: 'ok' },
+  Salió: { texto: 'Ya salió', tono: 'neutro' }, Cancelada: { texto: 'Cancelada', tono: 'bad' }, vencida: { texto: 'Vencida', tono: 'neutro' },
 };
 
 // El pase de la visita: código QR grande y opciones para compartirlo.
@@ -19,13 +19,13 @@ export default function DetalleInvitacion() {
   const t = useTema();
   const { id, nueva } = useLocalSearchParams<{ id: string; nueva?: string }>();
   const { misInvitaciones, unidad, comunidad, acciones } = useApp();
-  const inv = misInvitaciones.find((i) => i.id === id);
+  const inv = misInvitaciones.find((i) => i.id_invitacion === Number(id));
   if (!inv || !unidad || !comunidad) return <Hoja titulo="Invitación"><Texto>No encontramos esta invitación.</Texto></Hoja>;
 
-  const vencida = inv.estado === 'esperada' && new Date(inv.hasta) < new Date();
+  const vencida = inv.estado === 'Esperada' && new Date(inv.fecha_hasta) < new Date();
   const estado = ESTADO[vencida ? 'vencida' : inv.estado];
-  const vigente = inv.estado === 'esperada' && !vencida;
-  const horario = `${cuando(inv.desde)}, de ${horaMinuto(inv.desde)} a ${horaMinuto(inv.hasta)}`;
+  const vigente = inv.estado === 'Esperada' && !vencida;
+  const horario = `${cuando(inv.fecha_desde)}, de ${horaMinuto(inv.fecha_desde)} a ${horaMinuto(inv.fecha_hasta)}`;
 
   const compartir = () => Share.share({
     message: `Hola ${inv.visitante.split(' ')[0]}, te invito a ${comunidad.nombre} (${comunidad.direccion}), ${nombreUnidad(unidad)}. Puedes entrar ${horario}. Muestra este código en la entrada: ${inv.codigo}\nhttps://entrecasas.cl/pase/${inv.codigo}`,
@@ -37,7 +37,7 @@ export default function DetalleInvitacion() {
       abajo={vigente ? (
         <>
           <Boton tipo="senal" icono="share-social" texto="Compartir por WhatsApp u otra app" onPress={compartir} />
-          <Boton tipo="peligro" texto="Cancelar invitación" onPress={() => acciones.cancelarInvitacion(inv.id)} />
+          <Boton tipo="peligro" texto="Cancelar invitación" onPress={() => acciones.cancelarInvitacion(inv.id_invitacion)} />
         </>
       ) : <Boton tipo="secundario" texto="Invitar a otra persona" onPress={() => router.replace('/invitar')} />}
     >
@@ -59,7 +59,7 @@ export default function DetalleInvitacion() {
       <Texto v="suave">
         {vigente
           ? `Comparte el código con ${inv.visitante.split(' ')[0]}. En la entrada lo escanean o lo escriben, y te llega un aviso cuando ingrese.`
-          : inv.estado === 'cancelada' ? 'Cancelaste esta invitación: el código ya no abre la entrada.' : 'Este código ya no sirve para entrar.'}
+          : inv.estado === 'Cancelada' ? 'Cancelaste esta invitación: el código ya no abre la entrada.' : 'Este código ya no sirve para entrar.'}
       </Texto>
     </Hoja>
   );

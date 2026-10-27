@@ -5,13 +5,13 @@ import {
 import { Add as AddIcon, FileDownloadOutlined as DescargarIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
 import { useDirectiva } from '../../context/DirectivaContext';
-import { fecha, fechaCompleta } from '../../utils/formato';
+import { fecha, fechaCompleta, lineas } from '../../utils/formato';
 import Encabezado from '../../components/ui/Encabezado';
 import DialogoActa from '../../components/directiva/DialogoActa';
 
 const ESTADO = {
-  borrador: { texto: 'Borrador', color: 'warning' },
-  publicada: { texto: 'Publicada', color: 'success' },
+  Borrador: { texto: 'Borrador', color: 'warning' },
+  Publicada: { texto: 'Publicada', color: 'success' },
 };
 
 // Texto plano del acta para descargar o imprimir.
@@ -23,11 +23,11 @@ function actaComoTexto(acta, comunidad) {
     `Fecha: ${fechaCompleta(acta.fecha)}`,
     `Lugar: ${acta.lugar}`,
   ];
-  if (acta.unidadesPresentes != null) l.push(`Unidades presentes: ${acta.unidadesPresentes} de ${comunidad.unidades.length}`);
-  l.push('', 'ASISTENTES', ...acta.asistentes.map((a) => `- ${a}`));
-  l.push('', 'TEMAS TRATADOS', ...acta.temas.map((t, i) => `${i + 1}. ${t}`));
+  if (acta.unidades_presentes != null) l.push(`Unidades presentes: ${acta.unidades_presentes} de ${comunidad.unidades.length}`);
+  l.push('', 'ASISTENTES', ...lineas(acta.asistentes).map((a) => `- ${a}`));
+  l.push('', 'TEMAS TRATADOS', ...lineas(acta.temas).map((t, i) => `${i + 1}. ${t}`));
   l.push('', 'ACUERDOS', ...acta.acuerdos.map((a, i) => `${i + 1}. ${a.texto}${a.responsable ? ` Responsable: ${a.responsable}.` : ''}${a.plazo ? ` Plazo: ${fechaCompleta(a.plazo)}.` : ''}`));
-  l.push('', `Redactada por ${acta.redactadaPor}${acta.publicadaEn ? ` · publicada el ${fechaCompleta(acta.publicadaEn)}` : ''}`);
+  l.push('', `Redactada por ${acta.redactor}${acta.fecha_publicacion ? ` · publicada el ${fechaCompleta(acta.fecha_publicacion.slice(0, 10))}` : ''}`);
   return l.join('\n');
 }
 
@@ -51,7 +51,8 @@ function Seccion({ titulo, children }) {
 
 function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
   const { comunidad } = useSesion();
-  const borrador = acta.estado === 'borrador';
+  const borrador = acta.estado === 'Borrador';
+  const asistentes = lineas(acta.asistentes);
   return (
     <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 1.5, display: 'grid', gap: 2.5, alignContent: 'start' }}>
       <Box sx={{ display: 'grid', gap: 0.5 }}>
@@ -62,17 +63,17 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
         <Typography variant="h5" component="h2">{acta.tipo}</Typography>
         <Typography color="text.secondary">
           {fechaCompleta(acta.fecha)} · {acta.lugar}
-          {acta.unidadesPresentes != null && ` · ${acta.unidadesPresentes} de ${comunidad.unidades.length} unidades presentes`}
+          {acta.unidades_presentes != null && ` · ${acta.unidades_presentes} de ${comunidad.unidades.length} unidades presentes`}
         </Typography>
       </Box>
 
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         <Seccion titulo="Asistentes">
-          {acta.asistentes.length ? acta.asistentes.map((a) => <Typography key={a}>{a}</Typography>) : <Typography color="text.secondary">Sin registrar</Typography>}
+          {asistentes.length ? asistentes.map((a) => <Typography key={a}>{a}</Typography>) : <Typography color="text.secondary">Sin registrar</Typography>}
         </Seccion>
         <Seccion titulo="Temas tratados">
           <Box component="ol" sx={{ m: 0, pl: 0, listStylePosition: 'inside', display: 'grid', gap: 0.75, '& li::marker': { color: 'text.secondary' } }}>
-            {acta.temas.map((t) => <Typography component="li" key={t}>{t}</Typography>)}
+            {lineas(acta.temas).map((t) => <Typography component="li" key={t}>{t}</Typography>)}
           </Box>
         </Seccion>
       </Box>
@@ -105,7 +106,7 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
           <>
             <Button variant="outlined" startIcon={<DescargarIcon />} onClick={() => descargar(acta, comunidad)}>Descargar</Button>
             <Typography variant="body2" color="text.secondary" sx={{ flex: '1 1 260px' }}>
-              Publicada el {fecha(acta.publicadaEn)}. Ya no se puede editar: para corregirla, redacta un acta rectificatoria.
+              Publicada el {fecha(acta.fecha_publicacion)}. Ya no se puede editar: para corregirla, redacta un acta rectificatoria.
             </Typography>
           </>
         )}
@@ -123,8 +124,8 @@ export default function Actas() {
   const [busqueda, setBusqueda] = useState('');
 
   const texto = busqueda.trim().toLowerCase();
-  const lista = actas.filter((a) => !texto || [a.tipo, ...a.temas, ...a.acuerdos.map((x) => x.texto)].join(' ').toLowerCase().includes(texto));
-  const seleccionada = actas.find((a) => a.id === idSeleccionada) ?? lista[0];
+  const lista = actas.filter((a) => !texto || [a.tipo, a.temas, ...a.acuerdos.map((x) => x.texto)].join(' ').toLowerCase().includes(texto));
+  const seleccionada = actas.find((a) => a.id_acta === idSeleccionada) ?? lista[0];
 
   const ejecutar = () => {
     if (confirmar.tipo === 'publicar') acciones.publicarActa(confirmar.acta);
@@ -147,10 +148,10 @@ export default function Actas() {
           <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
             {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>{actas.length ? 'Ninguna acta coincide.' : 'Todavía no hay actas.'}</Typography>}
             {lista.map((a, i) => {
-              const activa = seleccionada?.id === a.id;
+              const activa = seleccionada?.id_acta === a.id_acta;
               return (
                 <ButtonBase
-                  key={a.id} onClick={() => setIdSeleccionada(a.id)} aria-current={activa || undefined}
+                  key={a.id_acta} onClick={() => setIdSeleccionada(a.id_acta)} aria-current={activa || undefined}
                   sx={{
                     width: '100%', textAlign: 'left', justifyContent: 'stretch', display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center',
                     px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider',
@@ -164,7 +165,7 @@ export default function Actas() {
                     <Typography sx={{ fontWeight: 700 }} noWrap>{a.tipo}</Typography>
                     <Typography variant="body2" color="text.secondary">{fecha(a.fecha)}</Typography>
                   </Box>
-                  {a.estado === 'borrador' && <Chip size="small" variant="outlined" color="warning" label="Borrador" />}
+                  {a.estado === 'Borrador' && <Chip size="small" variant="outlined" color="warning" label="Borrador" />}
                 </ButtonBase>
               );
             })}
@@ -181,7 +182,7 @@ export default function Actas() {
         )}
       </Box>
 
-      {edicion && <DialogoActa key={edicion.acta?.id ?? 'nueva'} open acta={edicion.acta} onClose={() => setEdicion(null)} />}
+      {edicion && <DialogoActa key={edicion.acta?.id_acta ?? 'nueva'} open acta={edicion.acta} onClose={() => setEdicion(null)} />}
 
       <Dialog open={Boolean(confirmar)} onClose={() => setConfirmar(null)}>
         <DialogTitle>{confirmar?.tipo === 'publicar' ? `¿Publicar el acta N° ${confirmar?.acta.numero}?` : '¿Eliminar este borrador?'}</DialogTitle>

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useApp } from '@/context/App';
 import { useTema } from '@/constants/tema';
-import { UNIDADES } from '@/data/demo';
+import { UNIDADES, tipoUnidad } from '@/data/demo';
 import { clp, hace, nombreUnidad } from '@/utils/formato';
 import Hoja from '@/components/ec/Hoja';
 import Texto from '@/components/ec/Texto';
@@ -27,24 +27,23 @@ export default function Aviso() {
   const t = useTema();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { publicaciones, unidad, acciones, solicitudDe, solicitudesRecibidas } = useApp();
-  const p = publicaciones.find((x) => x.id === id && x.lugar === 'mercado');
+  const p = publicaciones.find((x) => x.id === Number(id) && x.lugar === 'mercado');
   const s = p ? solicitudDe(p.id) : null;
 
   // Al abrir el aviso, la respuesta del vendedor queda vista y se apaga el globo de Mercado
   useEffect(() => {
-    if (s && s.estado !== 'pendiente' && !s.vista) acciones.marcarRespuestaVista(s.id);
+    if (s && s.estado !== 'Pendiente' && !s.vista) acciones.marcarRespuestaVista(s.id_solicitud);
   }, [s, acciones]);
 
   if (!p) {
     return <Hoja titulo="Aviso"><Texto v="suave">Este aviso ya no está disponible.</Texto></Hoja>;
   }
-  const u = p.idUnidad ? UNIDADES[p.idUnidad] : undefined;
-  const mio = !!unidad && p.idUnidad === unidad.id;
+  const u = p.id_unidad ? UNIDADES[p.id_unidad] : undefined;
+  const mio = !!unidad && p.id_unidad === unidad.id_unidad;
   const nombre = p.autor.split(' ')[0];
   const cosa = p.categoria === 'Servicio' ? 'Este servicio' : p.categoria === 'Busco' ? 'Este pedido' : 'Este artículo';
-  const interesados = solicitudesRecibidas.filter((x) => x.idPublicacion === p.id);
-  const resumen = p.texto.length > 60 ? `${p.texto.slice(0, 57)}…` : p.texto;
-  const mensaje = `Hola ${nombre}, vi tu aviso en el mercado de EntreCasas: «${resumen}». ¿Sigue disponible?`;
+  const interesados = solicitudesRecibidas.filter((x) => x.id_producto === p.id);
+  const mensaje = `Hola ${nombre}, vi tu aviso en el mercado de EntreCasas: «${p.titulo}». ¿Sigue disponible?`;
 
   const abrir = async (url: string, alFallar: string) => {
     try {
@@ -61,8 +60,8 @@ export default function Aviso() {
 
   const abajo = mio ? undefined
     : !s ? <Boton texto="Contactar" icono="chatbubble-ellipses-outline" onPress={() => acciones.pedirContacto(p.id)} />
-      : s.estado === 'pendiente' ? <Boton tipo="secundario" texto="Cancelar solicitud" onPress={() => acciones.cancelarSolicitud(s.id)} />
-        : s.estado === 'aceptada' && p.telefono ? (
+      : s.estado === 'Pendiente' ? <Boton tipo="secundario" texto="Cancelar solicitud" onPress={() => acciones.cancelarSolicitud(s.id_solicitud)} />
+        : s.estado === 'Aceptada' && p.telefono ? (
           <>
             <Boton texto="Contactar por WhatsApp" icono="logo-whatsapp" onPress={() => abrir(`https://wa.me/${soloDigitos(p.telefono!)}?text=${encodeURIComponent(mensaje)}`, 'No se pudo abrir WhatsApp. Copia el teléfono y escríbele desde tu celular.')} />
             <Boton tipo="secundario" texto="Llamar" icono="call-outline" onPress={() => abrir(`tel:+${soloDigitos(p.telefono!)}`, 'No se pudo iniciar la llamada desde este dispositivo.')} />
@@ -73,7 +72,8 @@ export default function Aviso() {
     <Hoja titulo={p.categoria === 'Servicio' ? 'Servicio' : p.categoria === 'Busco' ? 'Busca' : 'En venta'} abajo={abajo}>
       <View style={{ gap: 8 }}>
         {p.categoria && <View style={{ flexDirection: 'row' }}><Chip texto={p.categoria} tono={p.categoria === 'Vendo' ? 'accion' : p.categoria === 'Busco' ? 'senal' : 'neutro'} /></View>}
-        <Texto style={{ fontSize: 18, lineHeight: 26 }}>{p.texto}</Texto>
+        <Texto v="subtitulo" style={{ fontSize: 20, lineHeight: 26 }}>{p.titulo}</Texto>
+        {!!p.texto && <Texto style={{ fontSize: 17, lineHeight: 25 }}>{p.texto}</Texto>}
         {p.precio != null
           ? <Texto v="cifra" style={{ fontSize: 30, lineHeight: 34 }}>{clp(p.precio)}</Texto>
           : p.categoria !== 'Busco' && <Texto v="suave">Precio a convenir</Texto>}
@@ -84,20 +84,20 @@ export default function Aviso() {
         <Tarjeta>
           <Texto v="etiqueta">Vecinos interesados</Texto>
           {interesados.length
-            ? interesados.map((x, i) => <SolicitudRecibida key={x.id} s={x} borde={i > 0} />)
+            ? interesados.map((x, i) => <SolicitudRecibida key={x.id_solicitud} s={x} borde={i > 0} />)
             : <Texto v="suave">Cuando un vecino toque «Contactar», aparecerá aquí para que aceptes o rechaces. Tu teléfono solo se comparte si aceptas.</Texto>}
         </Tarjeta>
       ) : !s ? (
         <Texto v="suave">Al tocar «Contactar», {nombre} recibe un aviso con tu nombre y tu vivienda. Si acepta, te compartimos su teléfono para que lo llames o le escribas por WhatsApp.</Texto>
-      ) : s.estado === 'pendiente' ? (
+      ) : s.estado === 'Pendiente' ? (
         <Tarjeta>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Ionicons name="time-outline" size={22} color={t.accion} />
             <Texto v="fuerte" style={{ flex: 1 }}>Solicitud enviada</Texto>
           </View>
-          <Texto v="suave">Le avisamos a {nombre} {hace(s.fecha)}. Te mostraremos su respuesta aquí y en la pestaña Mercado.</Texto>
+          <Texto v="suave">Le avisamos a {nombre} {hace(s.fecha_solicitud)}. Te mostraremos su respuesta aquí y en la pestaña Mercado.</Texto>
         </Tarjeta>
-      ) : s.estado === 'rechazada' ? (
+      ) : s.estado === 'Rechazada' ? (
         <Tarjeta>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Ionicons name="close-circle-outline" size={22} color={t.ink2} />
@@ -112,7 +112,7 @@ export default function Aviso() {
             <Texto v="fuerte" style={{ flex: 1 }}>{nombre} aceptó tu solicitud</Texto>
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            {u && <PlacaUnidad tipo={u.tipo} numero={u.numero} size="sm" />}
+            {u && <PlacaUnidad tipo={tipoUnidad(u)} numero={u.numero_identificador} size="sm" />}
             <View style={{ flex: 1, gap: 2 }}>
               <Texto v="subtitulo">{p.autor}</Texto>
               <Texto v="suave">{nombreUnidad(u)}</Texto>

@@ -3,18 +3,21 @@ import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, 
 import { useSesion } from '../../context/SesionContext';
 import { useAdmin } from '../../context/AdminContext';
 import PlacaUnidad from '../marca/PlacaUnidad';
-import { generar } from '../../utils/unidades';
+import { generar, grupoDe, pisoDe } from '../../utils/unidades';
 
 const inicial = (comunidad) => {
-  const nums = comunidad.unidades.map((u) => Number(u.numero)).filter(Number.isFinite);
+  const nums = comunidad.unidades.map((u) => Number(u.numero_identificador)).filter(Number.isFinite);
   const siguiente = nums.length ? Math.max(...nums) + 1 : 1;
   if (comunidad.tipo === 'Edificio') {
-    const pisos = comunidad.unidades.map((u) => u.piso);
+    const pisos = comunidad.unidades.map(pisoDe);
     const piso = pisos.length ? Math.max(...pisos) + 1 : 1;
-    return { torre: comunidad.unidades[0]?.torre ?? 'A', pisoDesde: piso, pisoHasta: piso, porPiso: 4 };
+    const torre = grupoDe(comunidad.unidades[0] ?? {}).replace(/^Torre /, '') || 'A';
+    return { torre, pisoDesde: piso, pisoHasta: piso, porPiso: 4 };
   }
-  const grupos = comunidad.unidades.map((u) => u.manzana ?? u.sector).filter(Boolean);
-  return { grupo: grupos.at(-1) ?? (comunidad.tipo === 'Villa' ? 'A' : 'norte'), desde: siguiente, hasta: siguiente + 3 };
+  // En la villa se escribe solo la letra de la manzana; en el condominio, la hilera o pasaje
+  const ultimo = grupoDe(comunidad.unidades.at(-1) ?? {});
+  const grupo = comunidad.tipo === 'Villa' ? ultimo.replace(/^Manzana /, '') || 'A' : ultimo || 'Lado norte';
+  return { grupo, desde: siguiente, hasta: siguiente + 3 };
 };
 
 export default function DialogoLote({ onClose }) {
@@ -23,20 +26,22 @@ export default function DialogoLote({ onClose }) {
   const [f, setF] = useState(() => inicial(comunidad));
   const cambiar = (e) => setF({ ...f, [e.target.name]: e.target.value });
 
-  const generadas = generar(comunidad.tipo, f);
-  const existentes = new Set(comunidad.unidades.map((u) => `${u.tipo}-${u.numero}`));
-  const nuevas = generadas.filter((u) => !existentes.has(`${u.tipo}-${u.numero}`));
+  const generadas = generar(comunidad, f);
+  // En un edificio el número se puede repetir entre torres; en casas es único en la comunidad
+  const clave = (u) => (comunidad.tipo === 'Edificio' ? `${grupoDe(u)}-${u.numero_identificador}` : u.numero_identificador);
+  const existentes = new Set(comunidad.unidades.map(clave));
+  const nuevas = generadas.filter((u) => !existentes.has(clave(u)));
   const repetidas = generadas.length - nuevas.length;
 
   const crear = (e) => {
     e.preventDefault();
     if (!nuevas.length) return;
-    acciones.crearUnidades(nuevas.map((u, i) => ({ ...u, id: `${u.id}-${Date.now().toString(36)}${i}` })));
+    acciones.crearUnidades(nuevas);
     onClose();
   };
 
   const edificio = comunidad.tipo === 'Edificio';
-  const etiquetaGrupo = comunidad.tipo === 'Villa' ? 'Manzana' : 'Sector o hilera';
+  const etiquetaGrupo = comunidad.tipo === 'Villa' ? 'Letra de la manzana' : 'Hilera o pasaje';
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm" component="form" onSubmit={crear}>
@@ -45,7 +50,7 @@ export default function DialogoLote({ onClose }) {
         <Typography color="text.secondary">
           {edificio
             ? 'Se crea un departamento por cada número en cada piso: piso 7 con 4 deptos genera 701, 702, 703 y 704.'
-            : `Se crea una casa por cada número del rango, ${comunidad.tipo === 'Villa' ? 'en la manzana' : 'en el sector o hilera'} que indiques.`}
+            : `Se crea una casa por cada número del rango, ${comunidad.tipo === 'Villa' ? 'en la manzana' : 'en la hilera o pasaje'} que indiques.`}
         </Typography>
         {edificio ? (
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' } }}>
@@ -68,7 +73,7 @@ export default function DialogoLote({ onClose }) {
           </Typography>
           {nuevas.length > 0 && (
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-              {nuevas.slice(0, 8).map((u) => <PlacaUnidad key={u.id} tipo={u.tipo} numero={u.numero} size="sm" />)}
+              {nuevas.slice(0, 8).map((u) => <PlacaUnidad key={u.id_unidad} unidad={u} size="sm" />)}
               {nuevas.length > 8 && <Typography color="text.secondary">y {nuevas.length - 8} más</Typography>}
             </Box>
           )}

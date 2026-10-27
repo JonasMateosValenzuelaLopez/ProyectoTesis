@@ -15,7 +15,7 @@ export default function DialogoRecordatorio({ open, onClose }) {
         </Typography>
         {ultimoRecordatorio && (
           <Alert severity="warning" variant="outlined">
-            El último recordatorio se envió el {fechaHora(ultimoRecordatorio.fecha)}.
+            El último recordatorio se envió el {fechaHora(ultimoRecordatorio.fecha_envio)}.
           </Alert>
         )}
       </DialogContent>

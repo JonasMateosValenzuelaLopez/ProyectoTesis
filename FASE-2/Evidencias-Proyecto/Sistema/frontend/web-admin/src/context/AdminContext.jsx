@@ -2,63 +2,85 @@ import { createContext, useContext, useMemo, useReducer } from 'react';
 import { useSesion } from './SesionContext';
 import { useFinanzas } from './FinanzasContext';
 import { adminInicial, adminVacio } from '../data/adminMock';
-import { MODULOS } from '../config/modulos';
+import { MODULOS, conModulo } from '../config/modulos';
+import { ID_ROL, cargoDe, cargosDe, membresiasVigentes, residenciasActivas } from '../config/roles';
 import { roles } from '../tokens';
-import { nombreUnidad } from '../utils/formato';
+import { nombreCompleto, nombreUnidad } from '../utils/formato';
 
 // Estado de Administración de cada comunidad: usuarios con sus residencias y cargos,
-// solicitudes de acceso y moderación del muro. Los datos de la comunidad, sus unidades
+// y solicitudes de acceso. Los datos de la comunidad, sus unidades
 // y módulos viven en la sesión para que todo el panel los vea al instante.
 const AdminContext = createContext(null);
 
-const nuevoId = (prefijo) => `${prefijo}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
+const nuevoId = () => Date.now() + Math.floor(Math.random() * 1000);
 const hoy = () => new Date().toISOString().slice(0, 10);
+const ahora = () => new Date().toISOString().slice(0, 19);
 
 // Cargos que solo puede tener una persona a la vez en cada comunidad
 // eslint-disable-next-line react-refresh/only-export-components
 export const CARGOS_UNICOS = ['presidente', 'tesorero', 'secretario', 'administrador'];
 const ORDEN_DIRECTIVA = ['presidente', 'tesorero', 'secretario', 'administrador'];
 
-function reducer(state, { tipo, idRed, ...p }) {
-  const d = state[idRed];
-  const con = (cambios) => ({ ...state, [idRed]: { ...d, ...cambios } });
-  const conUsuario = (id, fn) => con({ usuarios: d.usuarios.map((u) => (u.id === id ? fn(u) : u)) });
+// Termina las membresías vigentes que cumplen `fn` (quedan en la base como historial)
+const terminar = (u, fn) => ({
+  ...u,
+  membresias: u.membresias.map((m) => (m.estado === 'Vigente' && fn(m) ? { ...m, estado: 'Terminada', fecha_hasta: hoy() } : m)),
+});
+
+function reducer(state, { tipo, id_red, ...p }) {
+  const d = state[id_red];
+  const con = (cambios) => ({ ...state, [id_red]: { ...d, ...cambios } });
+  const conUsuario = (id, fn) => con({ usuarios: d.usuarios.map((u) => (u.id_usuario === id ? fn(u) : u)) });
 
   switch (tipo) {
     case 'asignarCargo': {
-      const nuevo = { cargo: p.cargo, desde: hoy(), hasta: p.hasta ?? '' };
+      const id_rol = ID_ROL[p.cargo];
+      const nueva = { id_membresia: nuevoId(), id_usuario: p.id_usuario, id_red, id_rol, fecha_desde: hoy(), fecha_hasta: p.hasta || null, estado: 'Vigente' };
       const unico = CARGOS_UNICOS.includes(p.cargo);
       return con({
         usuarios: d.usuarios.map((u) => {
-          if (u.id === p.idUsuario) return { ...u, cargos: [...u.cargos.filter((c) => c.cargo !== p.cargo), nuevo] };
-          return unico ? { ...u, cargos: u.cargos.filter((c) => c.cargo !== p.cargo) } : u;
+          if (u.id_usuario === p.id_usuario) {
+            const sin = terminar(u, (m) => m.id_rol === id_rol);
+            return { ...sin, membresias: [...sin.membresias, nueva] };
+          }
+          return unico ? terminar(u, (m) => m.id_rol === id_rol) : u;
         }),
       });
     }
     case 'quitarCargo':
-      return conUsuario(p.idUsuario, (u) => ({ ...u, cargos: u.cargos.filter((c) => c.cargo !== p.cargo) }));
+      return conUsuario(p.id_usuario, (u) => terminar(u, (m) => m.id_rol === ID_ROL[p.cargo]));
     case 'cambiarEstado':
-      return conUsuario(p.idUsuario, (u) => ({ ...u, estado: p.estado, ...(p.estado === 'desactivado' ? { cargos: [] } : {}) }));
-    case 'invitar':
-      return con({ usuarios: [...d.usuarios, { ...p.usuario, id: nuevoId('u'), estado: 'invitado', cargos: [], registro: hoy() }] });
-    case 'resolverSolicitud': {
-      const s = d.solicitudes.find((x) => x.id === p.id);
-      const solicitudes = d.solicitudes.filter((x) => x.id !== p.id);
-      if (!p.aprobada) return con({ solicitudes });
-      const usuario = {
-        id: nuevoId('u'), nombre: s.nombre, rut: s.rut, correo: s.correo, telefono: '', estado: 'activo',
-        residencias: [{ idUnidad: s.idUnidad, relacion: s.relacion }], cargos: [], registro: hoy(),
-      };
-      return con({ solicitudes, usuarios: [...d.usuarios, usuario] });
-    }
-    case 'moderar':
-      return con({
-        publicaciones: d.publicaciones.map((x) => {
-          if (x.id !== p.id) return x;
-          if (p.accion === 'descartar') return { ...x, reportes: [] };
-          return { ...x, estado: p.accion === 'ocultar' ? 'oculta' : 'visible', moderadaPor: p.actor };
-        }),
+      return conUsuario(p.id_usuario, (u) => {
+        const conEstado = { ...u, estado: p.estado };
+        return p.estado === 'Desactivado' ? terminar(conEstado, () => true) : conEstado;
       });
+    case 'invitar': {
+      const id_usuario = nuevoId();
+      const { residencias, ...datos } = p.usuario;
+      return con({
+        usuarios: [...d.usuarios, {
+          ...datos, id_usuario, estado: 'Invitado', fecha_registro: ahora(), membresias: [],
+          residencias: residencias.map((r) => ({
+            id_residencia: nuevoId(), id_usuario, ...r, estado: 'Activa', mensaje: null,
+            fecha_solicitud: ahora(), id_usuario_resuelve: p.actor, fecha_resolucion: ahora(),
+          })),
+        }],
+      });
+    }
+    case 'resolverSolicitud': {
+      const s = d.solicitudes.find((x) => x.id_residencia === p.id_residencia);
+      const solicitudes = d.solicitudes.filter((x) => x.id_residencia !== p.id_residencia);
+      if (!p.aprobada) return con({ solicitudes });
+      const { usuario, ...fila } = s;
+      const res = { ...fila, estado: 'Activa', id_usuario_resuelve: p.actor, fecha_resolucion: ahora() };
+      const existe = d.usuarios.some((u) => u.id_usuario === usuario.id_usuario);
+      return con({
+        solicitudes,
+        usuarios: existe
+          ? d.usuarios.map((u) => (u.id_usuario === usuario.id_usuario ? { ...u, residencias: [...u.residencias, res] } : u))
+          : [...d.usuarios, { ...usuario, residencias: [res], membresias: [] }],
+      });
+    }
     default:
       return state;
   }
@@ -69,92 +91,99 @@ export function AdminProvider({ children }) {
   const { acciones: finanzas } = useFinanzas();
   const [state, dispatch] = useReducer(reducer, null, () => {
     const inicial = adminInicial();
-    redes.forEach((r) => { inicial[r.id] ??= adminVacio(r); });
+    redes.forEach((r) => { inicial[r.id_red] ??= adminVacio(r); });
     return inicial;
   });
-  const idRed = comunidad.id;
-  const d = state[idRed];
+  const id_red = comunidad.id_red;
+  const d = state[id_red];
 
   const valor = useMemo(() => {
-    const unidadPorId = Object.fromEntries(comunidad.unidades.map((u) => [u.id, u]));
-    const usuarioPorId = Object.fromEntries(d.usuarios.map((u) => [u.id, u]));
-    const activos = d.usuarios.filter((u) => u.estado !== 'desactivado');
+    const unidadPorId = Object.fromEntries(comunidad.unidades.map((u) => [u.id_unidad, u]));
+    const usuarioPorId = Object.fromEntries(d.usuarios.map((u) => [u.id_usuario, u]));
+    const activos = d.usuarios.filter((u) => u.estado !== 'Desactivado');
+    const cargos = (u) => cargosDe(u, id_red);
 
     // Ocupación de cada unidad según las residencias vigentes
     const ocupantes = {};
-    activos.forEach((u) => u.residencias.forEach((r) => { (ocupantes[r.idUnidad] ??= []).push({ ...u, relacion: r.relacion }); }));
+    activos.forEach((u) => residenciasActivas(u).forEach((r) => { (ocupantes[r.id_unidad] ??= []).push({ ...u, relacion: r.relacion }); }));
 
     const directiva = ORDEN_DIRECTIVA.flatMap((cargo) => activos
-      .filter((u) => u.cargos.some((c) => c.cargo === cargo))
-      .map((u) => ({
-        cargo, nombre: u.nombre, idUsuario: u.id,
-        unidad: u.residencias[0] ? nombreUnidad(unidadPorId[u.residencias[0].idUnidad]) : cargo === 'administrador' ? 'Administración externa' : 'Sin unidad registrada',
-        ...u.cargos.find((c) => c.cargo === cargo),
-      })));
-
-    const reportadas = d.publicaciones.filter((x) => x.estado === 'visible' && x.reportes.length > 0);
+      .filter((u) => cargos(u).includes(cargo))
+      .map((u) => {
+        const casa = residenciasActivas(u)[0];
+        const m = u.membresias.find((x) => x.estado === 'Vigente' && x.id_red === id_red && x.id_rol === ID_ROL[cargo]);
+        return {
+          cargo, nombre: nombreCompleto(u), id_usuario: u.id_usuario,
+          unidad: casa ? nombreUnidad(unidadPorId[casa.id_unidad]) : cargo === 'administrador' ? 'Administración externa' : 'Sin unidad registrada',
+          desde: m.fecha_desde, hasta: m.fecha_hasta ?? '',
+        };
+      }));
 
     const acciones = {
-      asignarCargo: (idUsuario, cargo, hasta) => {
-        const anterior = CARGOS_UNICOS.includes(cargo) ? activos.find((u) => u.id !== idUsuario && u.cargos.some((c) => c.cargo === cargo)) : null;
-        dispatch({ tipo: 'asignarCargo', idRed, idUsuario, cargo, hasta });
-        const nombre = usuarioPorId[idUsuario].nombre;
-        finanzas.anotar('Asignó un cargo', `${nombre} como ${roles[cargo].label}${anterior ? `, en reemplazo de ${anterior.nombre}` : ''}`,
+      asignarCargo: (id_usuario, cargo, hasta) => {
+        const anterior = CARGOS_UNICOS.includes(cargo) ? activos.find((u) => u.id_usuario !== id_usuario && cargos(u).includes(cargo)) : null;
+        dispatch({ tipo: 'asignarCargo', id_red, id_usuario, cargo, hasta });
+        const nombre = nombreCompleto(usuarioPorId[id_usuario]);
+        finanzas.anotar('Asignó un cargo', `${nombre} como ${roles[cargo].label}${anterior ? `, en reemplazo de ${nombreCompleto(anterior)}` : ''}`,
           `${nombre} ahora es ${roles[cargo].label}.`);
       },
-      quitarCargo: (idUsuario, cargo) => {
-        dispatch({ tipo: 'quitarCargo', idRed, idUsuario, cargo });
-        finanzas.anotar('Quitó un cargo', `${usuarioPorId[idUsuario].nombre} dejó de ser ${roles[cargo].label}`, 'Cargo quitado.');
+      quitarCargo: (id_usuario, cargo) => {
+        dispatch({ tipo: 'quitarCargo', id_red, id_usuario, cargo });
+        finanzas.anotar('Quitó un cargo', `${nombreCompleto(usuarioPorId[id_usuario])} dejó de ser ${roles[cargo].label}`, 'Cargo quitado.');
       },
-      cambiarEstado: (idUsuario, estado) => {
-        dispatch({ tipo: 'cambiarEstado', idRed, idUsuario, estado });
-        const nombre = usuarioPorId[idUsuario].nombre;
-        finanzas.anotar(estado === 'desactivado' ? 'Desactivó un usuario' : 'Reactivó un usuario', nombre,
-          estado === 'desactivado' ? `${nombre} ya no puede entrar a la comunidad.` : `${nombre} puede volver a entrar.`);
+      cambiarEstado: (id_usuario, estado) => {
+        dispatch({ tipo: 'cambiarEstado', id_red, id_usuario, estado });
+        const nombre = nombreCompleto(usuarioPorId[id_usuario]);
+        finanzas.anotar(estado === 'Desactivado' ? 'Desactivó un usuario' : 'Reactivó un usuario', nombre,
+          estado === 'Desactivado' ? `${nombre} ya no puede entrar a la comunidad.` : `${nombre} puede volver a entrar.`);
       },
-      reenviarInvitacion: (idUsuario) => {
-        finanzas.anotar('Reenvió una invitación', usuarioPorId[idUsuario].correo, `Invitación reenviada a ${usuarioPorId[idUsuario].correo}.`);
+      reenviarInvitacion: (id_usuario) => {
+        finanzas.anotar('Reenvió una invitación', usuarioPorId[id_usuario].correo, `Invitación reenviada a ${usuarioPorId[id_usuario].correo}.`);
       },
       invitar: (usuario) => {
-        dispatch({ tipo: 'invitar', idRed, usuario });
-        finanzas.anotar('Invitó a un residente', `${usuario.nombre} · ${nombreUnidad(unidadPorId[usuario.residencias[0].idUnidad])}`,
+        dispatch({ tipo: 'invitar', id_red, usuario, actor: yo.id_usuario });
+        finanzas.anotar('Invitó a un residente', `${nombreCompleto(usuario)} · ${nombreUnidad(unidadPorId[usuario.residencias[0].id_unidad])}`,
           `Invitación enviada a ${usuario.correo}.`);
       },
-      resolverSolicitud: (id, aprobada) => {
-        const s = d.solicitudes.find((x) => x.id === id);
-        dispatch({ tipo: 'resolverSolicitud', idRed, id, aprobada });
-        finanzas.anotar(aprobada ? 'Aprobó una solicitud de acceso' : 'Rechazó una solicitud de acceso', `${s.nombre} · ${nombreUnidad(unidadPorId[s.idUnidad])}`,
-          aprobada ? `${s.nombre} ya puede entrar a la app.` : 'Solicitud rechazada. Se le avisó por correo.');
-      },
-      moderar: (pub, accion) => {
-        dispatch({ tipo: 'moderar', idRed, id: pub.id, accion, actor: `${yo.nombre} ${yo.apellido}` });
-        const textos = { ocultar: ['Ocultó una publicación', 'Publicación oculta. Su autor recibió un aviso.'], restaurar: ['Restauró una publicación', 'Publicación visible otra vez.'], descartar: ['Descartó reportes', 'Reportes descartados. La publicación sigue visible.'] };
-        finanzas.anotar(textos[accion][0], `«${pub.texto.slice(0, 60)}${pub.texto.length > 60 ? '…' : ''}» de ${nombreUnidad(unidadPorId[pub.idUnidad])}`, textos[accion][1]);
+      resolverSolicitud: (id_residencia, aprobada) => {
+        const s = d.solicitudes.find((x) => x.id_residencia === id_residencia);
+        dispatch({ tipo: 'resolverSolicitud', id_red, id_residencia, aprobada, actor: yo.id_usuario });
+        const nombre = nombreCompleto(s.usuario);
+        finanzas.anotar(aprobada ? 'Aprobó una solicitud de acceso' : 'Rechazó una solicitud de acceso', `${nombre} · ${nombreUnidad(unidadPorId[s.id_unidad])}`,
+          aprobada ? `${nombre} ya puede entrar a la app.` : 'Solicitud rechazada. Se le avisó por correo.');
       },
       guardarComunidad: (cambios) => {
         actualizarComunidad(cambios);
         finanzas.anotar('Editó los datos de la comunidad', Object.keys(cambios).join(', '), 'Datos de la comunidad guardados.');
       },
       cambiarModulo: (modulo, activo) => {
-        actualizarComunidad((c) => ({ modulos: activo ? [...c.modulos, modulo] : c.modulos.filter((m) => m !== modulo) }));
+        actualizarComunidad((c) => ({ red_modulos: conModulo(c, modulo, activo) }));
         finanzas.anotar('Cambió los módulos', `${activo ? 'Activó' : 'Desactivó'} ${MODULOS[modulo]}`, `${MODULOS[modulo]}: ${activo ? 'activado' : 'desactivado'}.`);
       },
       crearUnidades: (nuevas) => {
-        actualizarComunidad((c) => ({ unidades: [...c.unidades, ...nuevas] }));
+        // Mientras no exista la API, los ids siguen la numeración de la comunidad
+        actualizarComunidad((c) => {
+          const base = Math.max(c.id_red * 1000, ...c.unidades.map((u) => u.id_unidad));
+          return { unidades: [...c.unidades, ...nuevas.map((u, i) => ({ ...u, id_unidad: base + i + 1 }))] };
+        });
         finanzas.anotar('Creó unidades', `${nuevas.length} unidades: ${nombreUnidad(nuevas[0])} a ${nombreUnidad(nuevas.at(-1))}`, `${nuevas.length} unidades creadas.`);
       },
       editarUnidad: (unidad) => {
-        actualizarComunidad((c) => ({ unidades: c.unidades.map((u) => (u.id === unidad.id ? { ...u, ...unidad } : u)) }));
+        actualizarComunidad((c) => ({ unidades: c.unidades.map((u) => (u.id_unidad === unidad.id_unidad ? { ...u, ...unidad } : u)) }));
         finanzas.anotar('Editó una unidad', nombreUnidad(unidad), 'Unidad guardada.');
       },
     };
 
+    // Cargos vigentes de una persona en esta comunidad, con su periodo
+    const cargosVigentes = (u) => membresiasVigentes(u, id_red)
+      .map((m) => ({ cargo: cargoDe(m), desde: m.fecha_desde, hasta: m.fecha_hasta ?? '' }));
+
     return {
-      ...d, unidadPorId, usuarioPorId, ocupantes, directiva, reportadas,
+      ...d, unidadPorId, usuarioPorId, ocupantes, directiva, cargosVigentes,
       solicitudesPendientes: d.solicitudes,
       acciones,
     };
-  }, [d, idRed, comunidad, actualizarComunidad, finanzas, yo]);
+  }, [d, id_red, comunidad, actualizarComunidad, finanzas, yo]);
 
   return <AdminContext.Provider value={valor}>{children}</AdminContext.Provider>;
 }

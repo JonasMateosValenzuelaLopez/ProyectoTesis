@@ -15,13 +15,13 @@ import SelloCargo from '../../components/marca/SelloCargo';
 const vacio = { nombre: '', detalle: '', telefono: '', horario: '' };
 
 function DialogoContacto({ contacto, onClose, onGuardar }) {
-  const [form, setForm] = useState(contacto ?? vacio);
+  const [form, setForm] = useState(contacto ? { ...contacto, detalle: contacto.detalle ?? '', horario: contacto.horario ?? '' } : vacio);
   const valido = form.nombre.trim() && form.telefono.trim();
   const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const guardar = (e) => {
     e.preventDefault();
     if (!valido) return;
-    onGuardar({ ...form, nombre: form.nombre.trim(), detalle: form.detalle.trim(), telefono: form.telefono.trim(), horario: form.horario.trim() });
+    onGuardar({ ...form, nombre: form.nombre.trim(), detalle: form.detalle.trim() || null, telefono: form.telefono.trim(), horario: form.horario.trim() || null });
     onClose();
   };
   return (
@@ -31,7 +31,7 @@ function DialogoContacto({ contacto, onClose, onGuardar }) {
         <TextField required label="Nombre" name="nombre" value={form.nombre} onChange={cambiar} placeholder="Ej: Gasfitería Don Hugo" />
         <TextField label="Para qué sirve" name="detalle" value={form.detalle} onChange={cambiar} placeholder="Ej: Gasfíter de confianza del condominio" />
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
-          <TextField required label="Teléfono" name="telefono" type="tel" value={form.telefono} onChange={cambiar} placeholder="+56 9 1234 5678" />
+          <TextField required label="Teléfono" name="telefono" type="tel" value={form.telefono} onChange={cambiar} placeholder="+56 9 1234 5678" slotProps={{ htmlInput: { maxLength: 15 } }} />
           <TextField label="Horario" name="horario" value={form.horario} onChange={cambiar} placeholder="Ej: Lunes a viernes" />
         </Box>
       </DialogContent>
@@ -65,7 +65,7 @@ export default function Directorio() {
           ) : (
             <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' } }}>
               {directiva.map((m) => (
-                <Box key={`${m.cargo}-${m.idUsuario}`} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1.5, display: 'grid', gap: 0.75, alignContent: 'start' }}>
+                <Box key={`${m.cargo}-${m.id_usuario}`} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1.5, display: 'grid', gap: 0.75, alignContent: 'start' }}>
                   <SelloCargo cargo={m.cargo} conTexto sx={{ fontSize: '0.85rem', color: 'text.secondary' }} />
                   <Typography sx={{ fontWeight: 700, fontSize: '1.05rem' }}>{m.nombre}</Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -84,7 +84,7 @@ export default function Directorio() {
           {contactos.length === 0 && <Typography color="text.secondary">Agrega la administración, proveedores de confianza o el plan cuadrante del sector.</Typography>}
           <Box sx={{ display: 'grid' }}>
             {contactos.map((k, i) => (
-              <Box key={k.id} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: '1fr 200px auto' }, gap: { xs: 1, sm: 2 }, alignItems: 'center', py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
+              <Box key={k.id_contacto} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', sm: '1fr 200px auto' }, gap: { xs: 1, sm: 2 }, alignItems: 'center', py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
                 <Box sx={{ minWidth: 0, opacity: k.visible ? 1 : 0.6 }}>
                   <Typography sx={{ fontWeight: 700 }}>{k.nombre}</Typography>
                   <Typography variant="body2" color="text.secondary">{[k.detalle, k.horario].filter(Boolean).join(' · ')}</Typography>
@@ -93,7 +93,7 @@ export default function Directorio() {
                 <Typography sx={{ display: { xs: 'none', sm: 'block' }, fontVariantNumeric: 'tabular-nums', opacity: k.visible ? 1 : 0.6 }}>{k.telefono}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
                   <Tooltip title={k.visible ? 'Visible en la app' : 'Oculto en la app'}>
-                    <Switch checked={k.visible} inputProps={{ 'aria-label': `${k.nombre} visible en la app` }} onChange={(e) => acciones.guardarContacto({ ...k, visible: e.target.checked })} />
+                    <Switch checked={k.visible === 1} slotProps={{ input: { 'aria-label': `${k.nombre} visible en la app` } }} onChange={(e) => acciones.guardarContacto({ ...k, visible: e.target.checked ? 1 : 0 })} />
                   </Tooltip>
                   <Tooltip title="Editar">
                     <IconButton aria-label={`Editar ${k.nombre}`} onClick={() => setEdicion({ contacto: k })}><EditIcon /></IconButton>
@@ -121,7 +121,7 @@ export default function Directorio() {
 
       {edicion && (
         <DialogoContacto
-          key={edicion.contacto?.id ?? 'nuevo'} contacto={edicion.contacto}
+          key={edicion.contacto?.id_contacto ?? 'nuevo'} contacto={edicion.contacto}
           onClose={() => setEdicion(null)} onGuardar={acciones.guardarContacto}
         />
       )}
