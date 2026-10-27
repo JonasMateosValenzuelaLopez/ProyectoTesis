@@ -1,225 +1,178 @@
-import React, { useState } from 'react';
-import { 
-  Box, Typography, Button, Paper, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, IconButton, Dialog, 
-  DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Chip,
-  Grid, Avatar, Divider, Tooltip
+import { useState } from 'react';
+import {
+  Box, Button, ButtonBase, Chip, MenuItem, Paper, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
 } from '@mui/material';
-import { 
-  Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, 
-  Person as PersonIcon, Visibility as VisibilityIcon,
-  Email as EmailIcon, WhatsApp as WhatsAppIcon, Phone as PhoneIcon
-} from '@mui/icons-material';
+import { ChevronRight as IrIcon, PersonAddAlt1Outlined as InvitarIcon } from '@mui/icons-material';
+import { roles } from '../../tokens';
+import { useSesion } from '../../context/SesionContext';
+import { useAdmin } from '../../context/AdminContext';
+import { fecha, nombreUnidad } from '../../utils/formato';
+import Encabezado from '../../components/ui/Encabezado';
+import PlacaUnidad from '../../components/marca/PlacaUnidad';
+import SelloCargo from '../../components/marca/SelloCargo';
+import DialogoUsuario from '../../components/admin/DialogoUsuario';
+import DialogoInvitar from '../../components/admin/DialogoInvitar';
 
+const FILTROS = {
+  todos: { texto: 'Todas las personas', fn: () => true },
+  cargos: { texto: 'Directiva y personal', fn: (u) => u.cargos.length > 0 },
+  propietario: { texto: 'Propietarios', fn: (u) => u.residencias.some((r) => r.relacion === 'propietario') },
+  arrendatario: { texto: 'Arrendatarios', fn: (u) => u.residencias.some((r) => r.relacion === 'arrendatario') },
+  invitado: { texto: 'Invitación pendiente', fn: (u) => u.estado === 'invitado' },
+};
+const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
+
+function Solicitudes() {
+  const { solicitudesPendientes, unidadPorId, ocupantes, acciones } = useAdmin();
+  if (solicitudesPendientes.length === 0) {
+    return <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">No hay solicitudes de acceso pendientes.</Typography></Paper>;
+  }
+  return (
+    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, alignItems: 'start' }}>
+      {solicitudesPendientes.map((s) => {
+        const unidad = unidadPorId[s.idUnidad];
+        const actuales = ocupantes[s.idUnidad] ?? [];
+        return (
+          <Paper key={s.id} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 1.5 }}>
+            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+              <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="sm" />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700 }}>{s.nombre}</Typography>
+                <Typography variant="body2" color="text.secondary">{s.rut} · {RELACION[s.relacion]} · pidió el {fecha(s.fecha)}</Typography>
+              </Box>
+            </Box>
+            {s.mensaje && <Typography color="text.secondary">«{s.mensaje}»</Typography>}
+            <Typography variant="body2">
+              {actuales.length
+                ? `Hoy en ${nombreUnidad(unidad)}: ${actuales.map((o) => `${o.nombre} (${RELACION[o.relacion].toLowerCase()})`).join(', ')}.`
+                : `${nombreUnidad(unidad)} no tiene residentes registrados.`}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button variant="contained" onClick={() => acciones.resolverSolicitud(s.id, true)}>Aprobar acceso</Button>
+              <Button color="inherit" onClick={() => acciones.resolverSolicitud(s.id, false)}>Rechazar</Button>
+            </Box>
+          </Paper>
+        );
+      })}
+    </Box>
+  );
+}
+
+// Directorio completo de la comunidad: personas, su unidad, sus cargos y el estado de su cuenta.
 export default function Residentes() {
-  const [openModalCrear, setOpenModalCrear] = useState(false);
-  const [openModalPerfil, setOpenModalPerfil] = useState(false);
-  
-  const [nuevoUsuario, setNuevoUsuario] = useState({ rut: '', nombre: '', correo: '', telefono: '', rol: 'Residente', unidad: '' });
-  const [usuarioSeleccionado, setUsuarioSeleccionado] = useState(null);
+  const { comunidad } = useSesion();
+  const { usuarios, unidadPorId, solicitudesPendientes } = useAdmin();
+  const [pestana, setPestana] = useState('personas');
+  const [filtro, setFiltro] = useState('todos');
+  const [busqueda, setBusqueda] = useState('');
+  const [seleccion, setSeleccion] = useState(null);
+  const [invitar, setInvitar] = useState(false);
 
-  const rolesDisponibles = ['Administrador', 'Comité (Presidente/Tesorero)', 'Conserje', 'Residente'];
-  const unidadesDisponibles = ['Casa 14', 'Casa 15', 'Depto 402', 'Depto 501', 'Sin unidad (Trabajador)'];
-  
-  const [usuarios, setUsuarios] = useState([
-    { id: 1, rut: '19.876.543-2', nombre: 'Juan Pérez', correo: 'juan@correo.cl', telefono: '+56912345678', rol: 'Residente', unidad: 'Casa 15', fechaRegistro: '2026-03-15' },
-    { id: 2, rut: '15.123.456-7', nombre: 'María González', correo: 'maria@correo.cl', telefono: '+56987654321', rol: 'Conserje', unidad: 'Sin unidad (Trabajador)', fechaRegistro: '2026-01-10' }
-  ]);
-
-  // Manejo de Modal Crear
-  const handleOpenCrear = () => setOpenModalCrear(true);
-  const handleCloseCrear = () => setOpenModalCrear(false);
-  const handleChangeCrear = (e) => setNuevoUsuario({ ...nuevoUsuario, [e.target.name]: e.target.value });
-  const handleSubmitCrear = (e) => {
-    e.preventDefault();
-    setUsuarios([...usuarios, { ...nuevoUsuario, id: usuarios.length + 1, fechaRegistro: new Date().toISOString().split('T')[0] }]);
-    handleCloseCrear();
-    setNuevoUsuario({ rut: '', nombre: '', correo: '', telefono: '', rol: 'Residente', unidad: '' });
-  };
-
-  // Manejo de Modal Perfil
-  const handleVerPerfil = (usuario) => {
-    setUsuarioSeleccionado(usuario);
-    setOpenModalPerfil(true);
-  };
-  const handleClosePerfil = () => {
-    setOpenModalPerfil(false);
-    setUsuarioSeleccionado(null);
-  };
-
-  const getRoleColor = (rol) => {
-    if (rol.includes('Administrador') || rol.includes('Comité')) return 'primary';
-    if (rol === 'Conserje') return 'warning';
-    return 'default';
-  };
+  const texto = busqueda.trim().toLowerCase();
+  const base = usuarios.filter((u) => (pestana === 'desactivados' ? u.estado === 'desactivado' : u.estado !== 'desactivado'));
+  const lista = base
+    .filter(FILTROS[filtro].fn)
+    .filter((u) => !texto || [u.nombre, u.rut, u.correo, ...u.residencias.map((r) => nombreUnidad(unidadPorId[r.idUnidad]))].join(' ').toLowerCase().includes(texto));
+  const desactivados = usuarios.filter((u) => u.estado === 'desactivado').length;
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary" fontWeight="bold">
-          Directorio de Usuarios y Roles
-        </Typography>
-        <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleOpenCrear}>
-          Registrar Usuario
-        </Button>
-      </Box>
+    <Box sx={{ maxWidth: 1300 }}>
+      <Encabezado
+        contexto={comunidad.nombre}
+        titulo="Residentes y cargos"
+        descripcion="Las personas de la comunidad, su vivienda y sus cargos. Un cargo vale solo en esta comunidad."
+        acciones={<Button variant="contained" startIcon={<InvitarIcon />} onClick={() => setInvitar(true)}>Invitar residente</Button>}
+      />
 
-      {/* Tabla de Datos */}
-      <TableContainer component={Paper} elevation={2}>
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead sx={{ bgcolor: 'rgba(42, 157, 143, 0.1)' }}>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>RUT</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Nombre Completo</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Rol / Permiso</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Vivienda Asociada</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {usuarios.map((row) => (
-              <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }}>
-                <TableCell sx={{ fontWeight: '500' }}>{row.rut}</TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <PersonIcon fontSize="small" color="action" /> {row.nombre}
-                  </Box>
-                </TableCell>
-                <TableCell><Chip label={row.rol} size="small" color={getRoleColor(row.rol)} /></TableCell>
-                <TableCell>
-                  {row.unidad.includes('Sin unidad') ? <Typography variant="body2" color="text.secondary" fontStyle="italic">N/A</Typography> : row.unidad}
-                </TableCell>
-                <TableCell align="center">
-                  <Tooltip title="Ver Perfil y Contactar">
-                    <IconButton color="info" size="small" onClick={() => handleVerPerfil(row)}><VisibilityIcon /></IconButton>
-                  </Tooltip>
-                  <Tooltip title="Editar Datos">
-                    <IconButton color="primary" size="small"><EditIcon /></IconButton>
-                  </Tooltip>
-                  <Tooltip title="Eliminar Usuario">
-                    <IconButton color="error" size="small"><DeleteIcon /></IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Tabs value={pestana} onChange={(_, v) => setPestana(v)} sx={{ mb: 2 }} variant="scrollable" allowScrollButtonsMobile>
+        <Tab value="personas" label={`Personas (${usuarios.length - desactivados})`} />
+        <Tab value="solicitudes" label={`Solicitudes de acceso (${solicitudesPendientes.length})`} />
+        <Tab value="desactivados" label="Desactivados" />
+      </Tabs>
 
-      {/* Modal: Crear Usuario */}
-      <Dialog open={openModalCrear} onClose={handleCloseCrear} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>Dar de Alta Nuevo Usuario</DialogTitle>
-        <DialogContent dividers>
-          <Box component="form" id="form-usuario" onSubmit={handleSubmitCrear} sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField label="RUT" name="rut" required fullWidth value={nuevoUsuario.rut} onChange={handleChangeCrear} />
-            <TextField label="Nombre Completo" name="nombre" required fullWidth value={nuevoUsuario.nombre} onChange={handleChangeCrear} />
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField label="Correo" name="correo" type="email" required fullWidth value={nuevoUsuario.correo} onChange={handleChangeCrear} />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField label="Teléfono" name="telefono" placeholder="+569..." fullWidth value={nuevoUsuario.telefono} onChange={handleChangeCrear} />
-              </Grid>
-            </Grid>
-            <TextField select label="Nivel de Acceso (Rol)" name="rol" required fullWidth value={nuevoUsuario.rol} onChange={handleChangeCrear}>
-              {rolesDisponibles.map((rol, i) => <MenuItem key={i} value={rol}>{rol}</MenuItem>)}
-            </TextField>
-            <TextField select label="Vivienda Asociada" name="unidad" required fullWidth value={nuevoUsuario.unidad} onChange={handleChangeCrear}>
-              {unidadesDisponibles.map((unidad, i) => <MenuItem key={i} value={unidad}>{unidad}</MenuItem>)}
-            </TextField>
+      {pestana === 'solicitudes' ? <Solicitudes /> : (
+        <>
+          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+            <TextField size="small" label="Buscar por nombre, RUT o unidad" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} sx={{ flex: '1 1 260px', maxWidth: 420 }} />
+            {pestana === 'personas' && (
+              <TextField select size="small" label="Mostrar" value={filtro} onChange={(e) => setFiltro(e.target.value)} sx={{ minWidth: 220 }}>
+                {Object.entries(FILTROS).map(([k, f]) => <MenuItem key={k} value={k}>{f.texto}</MenuItem>)}
+              </TextField>
+            )}
           </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseCrear} color="inherit">Cancelar</Button>
-          <Button type="submit" form="form-usuario" variant="contained" color="primary">Guardar Usuario</Button>
-        </DialogActions>
-      </Dialog>
 
-      {/* Modal: Perfil del Residente */}
-      <Dialog open={openModalPerfil} onClose={handleClosePerfil} maxWidth="sm" fullWidth>
-        {usuarioSeleccionado && (
-          <>
-            <DialogTitle sx={{ bgcolor: 'rgba(42, 157, 143, 0.05)', pb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Avatar sx={{ width: 60, height: 60, bgcolor: 'primary.main', fontSize: '1.5rem' }}>
-                  {usuarioSeleccionado.nombre.charAt(0)}
-                </Avatar>
-                <Box>
-                  <Typography variant="h5" fontWeight="bold" color="text.primary">
-                    {usuarioSeleccionado.nombre}
-                  </Typography>
-                  <Chip label={usuarioSeleccionado.rol} size="small" color={getRoleColor(usuarioSeleccionado.rol)} sx={{ mt: 0.5 }} />
+          {/* En el celular cada persona es una fila tocable; la tabla queda para pantallas anchas */}
+          <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden' }}>
+            {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>Nadie coincide con la búsqueda.</Typography>}
+            {lista.map((u, i) => (
+              <ButtonBase key={u.id} onClick={() => setSeleccion(u.id)} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', width: '100%', textAlign: 'left', px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', '&:active': { bgcolor: 'action.hover' } }}>
+                <Box sx={{ width: 52, display: 'grid', gap: 0.5, justifyItems: 'start' }}>
+                  {u.residencias.length === 0
+                    ? <Typography variant="caption" color="text.secondary">Personal</Typography>
+                    : u.residencias.map((r) => <PlacaUnidad key={r.idUnidad} tipo={unidadPorId[r.idUnidad].tipo} numero={unidadPorId[r.idUnidad].numero} size="sm" />)}
                 </Box>
-              </Box>
-            </DialogTitle>
-            
-            <DialogContent sx={{ pt: 3 }}>
-              <Grid container spacing={3}>
-                {/* Columna de Datos */}
-                <Grid item xs={12} sm={7}>
-                  <Typography variant="overline" color="text.secondary" fontWeight="bold">Información Personal</Typography>
-                  <Typography variant="body1" sx={{ mb: 1 }}><strong>RUT:</strong> {usuarioSeleccionado.rut}</Typography>
-                  <Typography variant="body1" sx={{ mb: 1 }}><strong>Vivienda:</strong> {usuarioSeleccionado.unidad}</Typography>
-                  <Typography variant="body1" sx={{ mb: 1 }}><strong>Miembro desde:</strong> {usuarioSeleccionado.fechaRegistro}</Typography>
-                  
-                  <Divider sx={{ my: 2 }} />
-                  
-                  <Typography variant="overline" color="text.secondary" fontWeight="bold">Datos de Contacto</Typography>
-                  <Typography variant="body1" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <EmailIcon fontSize="small" color="action"/> {usuarioSeleccionado.correo}
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700 }}>{u.nombre}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {[...u.residencias.map((r) => RELACION[r.relacion]), ...u.cargos.map((c) => roles[c.cargo].label)].join(' · ') || u.rut}
                   </Typography>
-                  <Typography variant="body1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <PhoneIcon fontSize="small" color="action"/> {usuarioSeleccionado.telefono || 'No registrado'}
-                  </Typography>
-                </Grid>
+                  {u.estado === 'invitado' && <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 700 }}>Invitación pendiente</Typography>}
+                </Box>
+                <IrIcon sx={{ color: 'text.secondary' }} />
+              </ButtonBase>
+            ))}
+          </Paper>
 
-                {/* Columna de Acciones de Comunicación */}
-                <Grid item xs={12} sm={5} sx={{ display: 'flex', flexDirection: 'column', gap: 2, borderLeft: { sm: '1px solid #eee' }, pl: { sm: 3 } }}>
-                  <Typography variant="overline" color="text.secondary" fontWeight="bold" align="center">
-                    Contactar Directamente
-                  </Typography>
-                  
-                  <Button 
-                    variant="outlined" 
-                    color="primary" 
-                    startIcon={<EmailIcon />} 
-                    fullWidth
-                    href={`mailto:${usuarioSeleccionado.correo}`}
-                  >
-                    Enviar Correo
-                  </Button>
-                  
-                  <Button 
-                    variant="contained" 
-                    color="success" 
-                    startIcon={<WhatsAppIcon />} 
-                    fullWidth
-                    disabled={!usuarioSeleccionado.telefono}
-                    href={`https://wa.me/${usuarioSeleccionado.telefono?.replace('+', '')}`}
-                    target="_blank"
-                  >
-                    WhatsApp
-                  </Button>
+          <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 1.5 }}>
+            <Table sx={{ minWidth: 820 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Persona</TableCell>
+                  <TableCell>Vivienda</TableCell>
+                  <TableCell>Cargos</TableCell>
+                  <TableCell>Cuenta</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {lista.length === 0 && (
+                  <TableRow><TableCell colSpan={4}><Typography color="text.secondary">Nadie coincide con la búsqueda.</Typography></TableCell></TableRow>
+                )}
+                {lista.map((u) => (
+                  <TableRow key={u.id} hover tabIndex={0} onClick={() => setSeleccion(u.id)} onKeyDown={(e) => e.key === 'Enter' && setSeleccion(u.id)} sx={{ cursor: 'pointer' }}>
+                    <TableCell>
+                      <Typography sx={{ fontWeight: 700 }}>{u.nombre}</Typography>
+                      <Typography variant="body2" color="text.secondary">{u.rut}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      {u.residencias.length === 0 ? <Typography color="text.secondary">Personal</Typography> : u.residencias.map((r) => (
+                        <Box key={r.idUnidad} sx={{ display: 'flex', gap: 1.25, alignItems: 'center' }}>
+                          <PlacaUnidad tipo={unidadPorId[r.idUnidad].tipo} numero={unidadPorId[r.idUnidad].numero} size="sm" />
+                          <Typography variant="body2" color="text.secondary">{RELACION[r.relacion]}</Typography>
+                        </Box>
+                      ))}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                        {u.cargos.length === 0 && <Typography variant="body2" color="text.secondary">Sin cargo</Typography>}
+                        {u.cargos.map((c) => <SelloCargo key={c.cargo} cargo={c.cargo} conTexto sx={{ fontSize: '0.875rem' }} />)}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      {u.estado === 'activo' && <Typography variant="body2" color="text.secondary">Activa</Typography>}
+                      {u.estado === 'invitado' && <Chip size="small" variant="outlined" color="warning" label="Invitación pendiente" />}
+                      {u.estado === 'desactivado' && <Chip size="small" variant="outlined" label="Desactivada" />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>Toca una persona para ver sus datos y asignar o quitar cargos.</Typography>
+        </>
+      )}
 
-                  <Button 
-                    variant="outlined" 
-                    color="secondary" 
-                    fullWidth
-                    sx={{ mt: 'auto' }}
-                    disabled // Deshabilitado hasta integrar módulo de mensajería
-                  >
-                    Mensaje Interno (Próximamente)
-                  </Button>
-                </Grid>
-              </Grid>
-            </DialogContent>
-            
-            <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
-              <Button onClick={handleClosePerfil} color="inherit">Cerrar Perfil</Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
+      {seleccion && <DialogoUsuario idUsuario={seleccion} onClose={() => setSeleccion(null)} />}
+      <DialogoInvitar open={invitar} onClose={() => setInvitar(false)} />
     </Box>
   );
 }

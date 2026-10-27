@@ -1,81 +1,124 @@
-import React, { useState } from 'react';
-import { 
-  Box, Typography, Button, Paper, Table, TableBody, TableCell, 
-  TableContainer, TableHead, TableRow, IconButton, Dialog, 
-  DialogTitle, DialogContent, DialogActions, TextField, MenuItem, Chip 
+import { useState } from 'react';
+import {
+  Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Table, TableBody, TableCell, TableContainer,
+  TableHead, TableRow, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, HomeWork as HomeWorkIcon } from '@mui/icons-material';
+import { AddHomeWorkOutlined as LoteIcon } from '@mui/icons-material';
+import { useSesion } from '../../context/SesionContext';
+import { useAdmin } from '../../context/AdminContext';
+import { nombreUnidad } from '../../utils/formato';
+import Encabezado from '../../components/ui/Encabezado';
+import FranjaKpi from '../../components/ui/FranjaKpi';
+import Tarjeta from '../../components/ui/Tarjeta';
+import PlacaUnidad from '../../components/marca/PlacaUnidad';
+import PlanoComunidad, { LeyendaPlano } from '../../components/marca/PlanoComunidad';
+import DialogoLote from '../../components/admin/DialogoLote';
+
+const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
+const ubicacion = (u) => (u.piso ? `Torre ${u.torre} · piso ${u.piso}` : u.manzana ? `Manzana ${u.manzana}` : u.sector ? `Sector ${u.sector}` : '—');
+
+function estadoOcupacion(ocupantes) {
+  if (!ocupantes?.length) return 'vacia';
+  return ocupantes.some((o) => o.relacion === 'propietario') && !ocupantes.some((o) => o.relacion === 'arrendatario') ? 'ocupada' : 'arrendada';
+}
+
+function DialogoUnidad({ unidad, onClose }) {
+  const { ocupantes, acciones } = useAdmin();
+  const [numero, setNumero] = useState(unidad.numero);
+  const personas = ocupantes[unidad.id] ?? [];
+  const guardar = () => {
+    if (numero.trim() && numero.trim() !== unidad.numero) acciones.editarUnidad({ ...unidad, numero: numero.trim() });
+    onClose();
+  };
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="sm" />
+        {nombreUnidad(unidad)}
+      </DialogTitle>
+      <DialogContent sx={{ display: 'grid', gap: 2 }}>
+        <Typography color="text.secondary">{ubicacion(unidad)}</Typography>
+        <Box sx={{ display: 'grid', gap: 0.75 }}>
+          <Typography variant="subtitle2" component="h3">Residentes</Typography>
+          {personas.length === 0 && <Typography color="text.secondary">Nadie registrado. Invita a sus residentes desde Residentes y cargos.</Typography>}
+          {personas.map((p) => (
+            <Typography key={p.id}>{p.nombre} <Box component="span" sx={{ color: 'text.secondary' }}>· {RELACION[p.relacion]}</Box></Typography>
+          ))}
+        </Box>
+        <TextField size="small" label="Número" value={numero} onChange={(e) => setNumero(e.target.value)} helperText="Cámbialo solo si se registró mal." />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" onClick={guardar}>Guardar</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
 
 export default function Unidades() {
-  const [openModal, setOpenModal] = useState(false);
-  const [nuevaUnidad, setNuevaUnidad] = useState({ numero: '', redVecinal: '', estado: 'Desocupada' });
+  const { comunidad } = useSesion();
+  const { ocupantes, unidadPorId } = useAdmin();
+  const [lote, setLote] = useState(false);
+  const [unidad, setUnidad] = useState(null);
+  const [filtro, setFiltro] = useState('todas');
+  const [busqueda, setBusqueda] = useState('');
 
-  // Datos simulados. Luego Camila los traerá desde PostgreSQL/MariaDB vía API REST
-  const redesDisponibles = ['Condominio Las Palmas', 'Villa Los Aromos', 'Edificio Central'];
-  const [unidades, setUnidades] = useState([
-    { id: 1, numero: 'Casa 15', redVecinal: 'Condominio Las Palmas', estado: 'Ocupada' },
-    { id: 2, numero: 'Depto 402', redVecinal: 'Edificio Central', estado: 'Desocupada' }
-  ]);
-
-  const handleOpen = () => setOpenModal(true);
-  const handleClose = () => setOpenModal(false);
-
-  const handleChange = (e) => {
-    setNuevaUnidad({ ...nuevaUnidad, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const unidad = { ...nuevaUnidad, id: unidades.length + 1 };
-    setUnidades([...unidades, unidad]);
-    handleClose();
-    setNuevaUnidad({ numero: '', redVecinal: '', estado: 'Desocupada' });
-  };
+  const estados = Object.fromEntries(comunidad.unidades.map((u) => [u.id, estadoOcupacion(ocupantes[u.id])]));
+  const cuenta = (e) => comunidad.unidades.filter((u) => estados[u.id] === e).length;
+  const texto = busqueda.trim().toLowerCase();
+  const lista = comunidad.unidades
+    .filter((u) => filtro === 'todas' || estados[u.id] === filtro)
+    .filter((u) => !texto || `${nombreUnidad(u)} ${ubicacion(u)} ${(ocupantes[u.id] ?? []).map((o) => o.nombre).join(' ')}`.toLowerCase().includes(texto));
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" color="primary" fontWeight="bold">
-          Gestión de Unidades
-        </Typography>
-        <Button variant="contained" color="primary" startIcon={<AddIcon />} onClick={handleOpen}>
-          Registrar Unidad
-        </Button>
+    <Box sx={{ maxWidth: 1300 }}>
+      <Encabezado
+        contexto={`${comunidad.nombre} · ${comunidad.tipo}`}
+        titulo="Unidades"
+        descripcion="Cada unidad recibe sus cobros y puede tener propietarios y arrendatarios."
+        acciones={<Button variant="contained" startIcon={<LoteIcon />} onClick={() => setLote(true)}>Crear unidades en lote</Button>}
+      />
+
+      <FranjaKpi items={[
+        { etiqueta: 'Unidades', valor: comunidad.unidades.length },
+        { etiqueta: 'Vive el propietario', valor: cuenta('ocupada') },
+        { etiqueta: 'Arrendadas', valor: cuenta('arrendada') },
+        { etiqueta: 'Sin residentes', valor: cuenta('vacia'), color: cuenta('vacia') ? 'warning.main' : undefined, nota: cuenta('vacia') ? 'sin nadie registrado en la app' : undefined },
+      ]} />
+
+      <Tarjeta titulo="Plano de ocupación" extra="Toca una unidad para ver quién vive ahí" sx={{ mb: 2.5 }}>
+        <PlanoComunidad comunidad={comunidad} estados={estados} onSelect={setUnidad} />
+        <LeyendaPlano estados={['ocupada', 'arrendada', 'vacia']} />
+      </Tarjeta>
+
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
+        <TextField size="small" label="Buscar unidad o residente" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} sx={{ flex: '1 1 240px', maxWidth: 380 }} />
+        <ToggleButtonGroup size="small" exclusive value={filtro} onChange={(_, v) => v && setFiltro(v)}>
+          <ToggleButton value="todas">Todas</ToggleButton>
+          <ToggleButton value="arrendada">Arrendadas</ToggleButton>
+          <ToggleButton value="vacia">Sin residentes</ToggleButton>
+        </ToggleButtonGroup>
       </Box>
 
-      {/* Tabla de Datos */}
-      <TableContainer component={Paper} elevation={2}>
-        <Table sx={{ minWidth: 650 }}>
-          <TableHead sx={{ bgcolor: 'rgba(42, 157, 143, 0.1)' }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
+        <Table size="small" sx={{ minWidth: { xs: 0, sm: 640 } }}>
+          <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold' }}>ID</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Número / Identificador</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Red Vecinal (Condominio)</TableCell>
-              <TableCell sx={{ fontWeight: 'bold' }}>Estado</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 'bold' }}>Acciones</TableCell>
+              <TableCell>Unidad</TableCell>
+              <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Ubicación</TableCell>
+              <TableCell>Residentes</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {unidades.map((row) => (
-              <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }}>
-                <TableCell>{row.id}</TableCell>
-                <TableCell sx={{ fontWeight: '500' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <HomeWorkIcon fontSize="small" color="action" /> {row.numero}
-                  </Box>
-                </TableCell>
-                <TableCell>{row.redVecinal}</TableCell>
+            {lista.length === 0 && <TableRow><TableCell colSpan={3}><Typography color="text.secondary" sx={{ py: 1 }}>Ninguna unidad coincide.</Typography></TableCell></TableRow>}
+            {lista.map((u) => (
+              <TableRow key={u.id} hover tabIndex={0} onClick={() => setUnidad(unidadPorId[u.id])} onKeyDown={(e) => e.key === 'Enter' && setUnidad(u)} sx={{ cursor: 'pointer' }}>
+                <TableCell sx={{ py: 1 }}><PlacaUnidad tipo={u.tipo} numero={u.numero} size="sm" /></TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{ubicacion(u)}</TableCell>
                 <TableCell>
-                  <Chip 
-                    label={row.estado} 
-                    size="small" 
-                    color={row.estado === 'Ocupada' ? 'success' : 'default'} 
-                    variant={row.estado === 'Ocupada' ? 'filled' : 'outlined'}
-                  />
-                </TableCell>
-                <TableCell align="center">
-                  <IconButton color="primary" size="small"><EditIcon /></IconButton>
-                  <IconButton color="error" size="small"><DeleteIcon /></IconButton>
+                  {(ocupantes[u.id] ?? []).length === 0
+                    ? <Typography variant="body2" color="text.secondary">Sin residentes</Typography>
+                    : ocupantes[u.id].map((o) => <Typography key={o.id} variant="body2">{o.nombre} <Box component="span" sx={{ color: 'text.secondary' }}>· {RELACION[o.relacion]}</Box></Typography>)}
                 </TableCell>
               </TableRow>
             ))}
@@ -83,32 +126,8 @@ export default function Unidades() {
         </Table>
       </TableContainer>
 
-      {/* Modal para Crear Nueva Unidad */}
-      <Dialog open={openModal} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ fontWeight: 'bold', color: 'primary.main' }}>Registrar Vivienda</DialogTitle>
-        <DialogContent dividers>
-          <Box component="form" id="form-unidad" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            
-            <TextField select label="Pertenece a la Red Vecinal" name="redVecinal" required fullWidth value={nuevaUnidad.redVecinal} onChange={handleChange}>
-              {redesDisponibles.map((red, index) => (
-                <MenuItem key={index} value={red}>{red}</MenuItem>
-              ))}
-            </TextField>
-
-            <TextField label="Número de Casa o Departamento" name="numero" placeholder="Ej: Casa 14, Depto 501" required fullWidth value={nuevaUnidad.numero} onChange={handleChange} />
-            
-            <TextField select label="Estado Inicial" name="estado" required fullWidth value={nuevaUnidad.estado} onChange={handleChange}>
-              <MenuItem value="Desocupada">Desocupada (Sin residentes)</MenuItem>
-              <MenuItem value="Ocupada">Ocupada</MenuItem>
-            </TextField>
-
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleClose} color="inherit">Cancelar</Button>
-          <Button type="submit" form="form-unidad" variant="contained" color="primary">Guardar Vivienda</Button>
-        </DialogActions>
-      </Dialog>
+      {lote && <DialogoLote onClose={() => setLote(false)} />}
+      {unidad && <DialogoUnidad key={unidad.id} unidad={unidad} onClose={() => setUnidad(null)} />}
     </Box>
   );
 }
