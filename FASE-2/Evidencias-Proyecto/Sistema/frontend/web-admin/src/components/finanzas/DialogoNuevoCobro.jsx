@@ -7,17 +7,17 @@ import { useFinanzas } from '../../context/FinanzasContext';
 import { useSesion } from '../../context/SesionContext';
 import { clp } from '../../utils/formato';
 
-const vacio = { idCategoria: '', concepto: '', monto: '', vencimiento: '2026-11-05', extraordinario: false };
+const vacio = { id_categoria: '', concepto: '', monto: '', fecha_vencimiento: '2026-11-05', es_extraordinario: false };
 
 // Crear un cobro envía el correo automáticamente; el formulario lo dice antes de guardar.
 export default function DialogoNuevoCobro({ open, onClose }) {
   const { comunidad } = useSesion();
   const { datos, acciones } = useFinanzas();
   const [form, setForm] = useState(vacio);
-  const categorias = datos.categorias.filter((c) => c.activa);
+  const categorias = datos.categorias_cobro.filter((c) => c.activa);
   const unidades = comunidad.unidades.length;
   const monto = Number(form.monto) || 0;
-  const valido = form.idCategoria && form.concepto.trim() && monto > 0 && form.vencimiento;
+  const valido = form.id_categoria && form.concepto.trim() && monto > 0 && form.fecha_vencimiento;
 
   const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const cerrar = () => { setForm(vacio); onClose(); };
@@ -25,8 +25,8 @@ export default function DialogoNuevoCobro({ open, onClose }) {
     e.preventDefault();
     if (!valido) return;
     acciones.crearCobro({
-      idCategoria: form.idCategoria, concepto: form.concepto.trim(), montoPorUnidad: monto,
-      emision: new Date().toISOString().slice(0, 10), vencimiento: form.vencimiento, extraordinario: form.extraordinario,
+      id_categoria: form.id_categoria, concepto: form.concepto.trim(), monto_por_unidad: monto,
+      fecha_emision: new Date().toISOString().slice(0, 10), fecha_vencimiento: form.fecha_vencimiento, es_extraordinario: form.es_extraordinario ? 1 : 0,
     });
     cerrar();
   };
@@ -35,17 +35,17 @@ export default function DialogoNuevoCobro({ open, onClose }) {
     <Dialog open={open} onClose={cerrar} fullWidth maxWidth="sm" component="form" onSubmit={guardar}>
       <DialogTitle>Nuevo cobro</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
-        <TextField select required label="Categoría" name="idCategoria" value={form.idCategoria} onChange={cambiar}>
-          {categorias.map((c) => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}
+        <TextField select required label="Categoría" name="id_categoria" value={form.id_categoria} onChange={cambiar}>
+          {categorias.map((c) => <MenuItem key={c.id_categoria} value={c.id_categoria}>{c.nombre}</MenuItem>)}
         </TextField>
         <TextField required label="Concepto" name="concepto" value={form.concepto} onChange={cambiar} placeholder="Ej: Gasto común noviembre" />
         <TextField
           required label="Monto por unidad" name="monto" type="number" value={form.monto} onChange={cambiar}
-          slotProps={{ input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }, htmlInput: { min: 1, step: 100 } }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start">$</InputAdornment> }, htmlInput: { min: 1, step: 1 } }}
         />
-        <TextField required label="Vence el" name="vencimiento" type="date" value={form.vencimiento} onChange={cambiar} slotProps={{ inputLabel: { shrink: true } }} />
+        <TextField required label="Vence el" name="fecha_vencimiento" type="date" value={form.fecha_vencimiento} onChange={cambiar} slotProps={{ inputLabel: { shrink: true } }} />
         <FormControlLabel
-          control={<Switch checked={form.extraordinario} onChange={(e) => setForm({ ...form, extraordinario: e.target.checked })} />}
+          control={<Switch checked={form.es_extraordinario} onChange={(e) => setForm({ ...form, es_extraordinario: e.target.checked })} />}
           label="Cobro extraordinario"
         />
         {monto > 0 && (

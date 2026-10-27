@@ -13,8 +13,8 @@ export default function SelectorContexto() {
   const navigate = useNavigate();
   const [ancla, setAncla] = useState(null);
 
-  const elegir = (idRed, nuevoCargo) => {
-    cambiarContexto(idRed, nuevoCargo);
+  const elegir = (id_red, nuevoCargo) => {
+    cambiarContexto(id_red, nuevoCargo);
     setAncla(null);
     navigate('/panel');
   };
@@ -47,13 +47,13 @@ export default function SelectorContexto() {
 
       <Menu anchorEl={ancla} open={Boolean(ancla)} onClose={() => setAncla(null)} slotProps={{ paper: { variant: 'outlined', sx: { minWidth: 260, mt: 0.5 } } }}>
         {porComunidad.flatMap(({ comunidad: c, cargos }) => [
-          <ListSubheader key={`h${c.id}`} sx={{ lineHeight: '32px', fontWeight: 700 }}>
+          <ListSubheader key={`h${c.id_red}`} sx={{ lineHeight: '32px', fontWeight: 700 }}>
             {c.nombre} · {c.tipo}
           </ListSubheader>,
           ...cargos.map((cg) => {
-            const activo = c.id === comunidad.id && cg === cargo;
+            const activo = c.id_red === comunidad.id_red && cg === cargo;
             return (
-              <MenuItem key={`${c.id}-${cg}`} selected={activo} onClick={() => elegir(c.id, cg)}>
+              <MenuItem key={`${c.id_red}-${cg}`} selected={activo} onClick={() => elegir(c.id_red, cg)}>
                 <ListItemIcon><SelloCargo cargo={cg} /></ListItemIcon>
                 <ListItemText primary={roles[cg].label} />
                 {activo && <CheckIcon fontSize="small" color="primary" />}

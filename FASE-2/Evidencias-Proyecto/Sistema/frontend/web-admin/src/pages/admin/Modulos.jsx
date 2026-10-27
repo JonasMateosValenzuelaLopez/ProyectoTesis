@@ -1,7 +1,7 @@
 import { Box, Chip, Paper, Switch, Typography } from '@mui/material';
 import { useSesion } from '../../context/SesionContext';
 import { useAdmin } from '../../context/AdminContext';
-import { DETALLE_MODULOS, MODULOS, MODULOS_POR_TIPO } from '../../config/modulos';
+import { DETALLE_MODULOS, MODULOS, MODULOS_POR_TIPO, tieneModulo } from '../../config/modulos';
 import Encabezado from '../../components/ui/Encabezado';
 
 export default function Modulos() {
@@ -18,7 +18,7 @@ export default function Modulos() {
       />
       <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
         {Object.entries(MODULOS).map(([clave, nombre], i) => {
-          const activo = comunidad.modulos.includes(clave);
+          const activo = tieneModulo(comunidad, clave);
           return (
             <Box key={clave} component="label" sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 2, alignItems: 'center', px: 2.5, py: 2, borderTop: i ? 1 : 0, borderColor: 'divider', cursor: 'pointer' }}>
               <Box sx={{ minWidth: 0 }}>
@@ -28,7 +28,7 @@ export default function Modulos() {
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ maxWidth: '62ch' }}>{DETALLE_MODULOS[clave]}</Typography>
               </Box>
-              <Switch checked={activo} onChange={(e) => acciones.cambiarModulo(clave, e.target.checked)} inputProps={{ 'aria-label': nombre }} />
+              <Switch checked={activo} onChange={(e) => acciones.cambiarModulo(clave, e.target.checked)} slotProps={{ input: { 'aria-label': nombre } }} />
             </Box>
           );
         })}

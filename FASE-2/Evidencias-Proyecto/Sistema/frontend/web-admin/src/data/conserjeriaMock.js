@@ -1,82 +1,134 @@
-// Datos de ejemplo de portería, con la forma del modelo propuesto: invitaciones (QR),
-// registro_accesos, vehiculos y reservas. Las horas se arman sobre el día de hoy
-// para que la garita siempre se vea "en vivo" al abrir la demo.
-import { residentes } from './finanzasMock';
+// Datos de ejemplo de portería con las filas de la base: `visitantes`, `invitaciones` (QR),
+// `registro_accesos` (una fila por visita, con su ingreso y su salida), `vehiculos` y `reservas`.
+// Las horas se arman sobre el día de hoy para que la garita siempre se vea "en vivo" al abrir la demo.
+// Son las mismas filas que usa la app de residentes.
 
 const pad = (n) => String(n).padStart(2, '0');
 export const diaISO = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+// DATETIME local, como lo guarda MariaDB
+export const fechaHoraLocal = (d = new Date()) => `${diaISO(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 const enDias = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return diaISO(d); };
 
-// Hora de hoy desplazada en minutos respecto de ahora (negativo = en el pasado)
-const haceMin = (min) => new Date(Date.now() - min * 60000).toISOString();
-// Hora de hoy a una hora fija
-const hoyA = (h, m = 0) => { const d = new Date(); d.setHours(h, m, 0, 0); return d.toISOString(); };
+// Hora desplazada en minutos respecto de ahora (negativo = en el futuro)
+const haceMin = (min) => fechaHoraLocal(new Date(Date.now() - min * 60000));
+// Día relativo a hoy a una hora fija
+const diaA = (n, h, m = 0) => { const d = new Date(); d.setDate(d.getDate() + n); d.setHours(h, m, 0, 0); return fechaHoraLocal(d); };
 
+// Un delivery o una empresa sin apellido se guarda con apellido vacío
+const visitante = (id_visitante, nombre, apellido = '', rut = null, tipo = 'Esporádico') => ({ id_visitante, rut, nombre, apellido, tipo });
+// Quien invita es el residente de la unidad (`id_usuario`, el mismo de Residentes y cargos)
+const invitacion = (id_invitacion, codigo, id_unidad, id_usuario, id_visitante, tipo, fecha_desde, fecha_hasta, patente, estado) => ({
+  id_invitacion, codigo, id_unidad, id_usuario, id_visitante, tipo, fecha_desde, fecha_hasta, patente, estado, fecha_creacion: fecha_desde,
+});
+// Con invitación nace Aprobado; sin invitación, «Pendiente de Confirmación» hasta que el residente responde
+const acceso = (id_acceso, id_visitante, id_unidad, categoria, fecha_ingreso, fecha_salida, extra) => ({
+  id_acceso, id_visitante, id_unidad, id_invitacion: null, categoria, patente: null, metodo: 'Manual', fecha_ingreso, fecha_salida,
+  estado_autorizacion: 'Aprobado', autorizado_via: null, id_usuario_autoriza: null, id_usuario_registra: null, codigo_qr_validado: 0, ...extra,
+});
+const conQR = (inv, id_usuario_registra) => ({
+  id_invitacion: inv, metodo: 'QR', autorizado_via: 'Invitación', codigo_qr_validado: 1, id_usuario_registra,
+});
+const vehiculo = (id_vehiculo, id_unidad, patente, modelo, estacionamiento = null) => ({ id_vehiculo, id_unidad, patente, modelo, estacionamiento });
+
+// Fila de `reservas`. Quien reserva es el residente de la unidad (`id_usuario`, el mismo de
+// Residentes y cargos); las horas son columnas TIME. La app las crea Aprobada: no hay paso de aprobación.
+const reserva = (id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, inicio, fin, cantidad_invitados, estado_reserva = 'Aprobada', observacion = null) => ({
+  id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, hora_inicio: `${inicio}:00`, hora_fin: `${fin}:00`,
+  cantidad_invitados, estado_reserva, observacion, fecha_solicitud: `${diaISO()}T09:00:00`,
+});
+
+// 108 Héctor Lillo (conserje) registra los ingresos en la garita
 function edificio() {
   return {
+    visitantes: [
+      visitante(301, 'Daniela', 'Pino', '17.654.321-6'),
+      visitante(302, 'Gasfitería Lagos', '', '76.543.210-3'),
+      visitante(303, 'Tomás', 'Herrera', '19.111.222-3'),
+      visitante(304, 'Isidora', 'Tapia', '18.765.432-1', 'Frecuente'),
+      visitante(305, 'Felipe', 'Navarro', '16.222.333-4'),
+      visitante(306, 'Catalina', 'Núñez', '20.333.444-5'),
+      visitante(307, 'Mudanzas Andes', '', '77.888.999-0'),
+      visitante(308, 'Ignacio', 'Fuentes'),
+      visitante(309, 'Carmen', 'Rojas', null, 'Frecuente'),
+      visitante(310, 'Repartidor PedidosYa'),
+      visitante(311, 'Sebastián', 'Rojas'),
+      visitante(312, 'Repartidor Rappi'),
+    ],
     invitaciones: [
-      { id: 'i1', codigo: 'EC-4K7Q2', visitante: 'Daniela Pino', rut: '17.654.321-6', idUnidad: 'd502', tipo: 'visita', desde: haceMin(30), hasta: haceMin(-180), patente: 'RTKD45', estado: 'esperada' },
-      { id: 'i2', codigo: 'EC-9P3M8', visitante: 'Gasfitería Lagos', rut: '76.543.210-3', idUnidad: 'd301', tipo: 'proveedor', desde: haceMin(10), hasta: haceMin(-120), patente: '', estado: 'esperada' },
-      { id: 'i3', codigo: 'EC-2H6W1', visitante: 'Tomás Herrera', rut: '19.111.222-3', idUnidad: 'd104', tipo: 'visita', desde: haceMin(-90), hasta: haceMin(-300), patente: '', estado: 'esperada' },
-      { id: 'i4', codigo: 'EC-7B5N3', visitante: 'Isidora Tapia', rut: '18.765.432-1', idUnidad: 'd602', tipo: 'visita', desde: haceMin(120), hasta: haceMin(-60), patente: 'KLPR12', estado: 'adentro' },
-      { id: 'i5', codigo: 'EC-1X8C4', visitante: 'Felipe Navarro', rut: '16.222.333-4', idUnidad: 'd203', tipo: 'visita', desde: haceMin(600), hasta: haceMin(240), patente: '', estado: 'esperada' },
-      { id: 'i6', codigo: 'EC-5T2R9', visitante: 'Catalina Núñez', rut: '20.333.444-5', idUnidad: 'd401', tipo: 'visita', desde: haceMin(300), hasta: haceMin(120), patente: '', estado: 'salio' },
-      { id: 'i7', codigo: 'EC-3V9J6', visitante: 'Mudanzas Andes', rut: '77.888.999-0', idUnidad: 'd201', tipo: 'servicio', desde: hoyA(9), hasta: hoyA(13), patente: 'FHJK88', estado: 'cancelada' },
+      invitacion(301, 'EC-4K7Q2', 3502, 3008, 301, 'Visita', haceMin(30), haceMin(-180), 'RTKD45', 'Esperada'),
+      invitacion(302, 'EC-9P3M8', 3301, 3015, 302, 'Proveedor', haceMin(10), haceMin(-120), null, 'Esperada'),
+      invitacion(303, 'EC-2H6W1', 3104, 3026, 303, 'Visita', haceMin(-90), haceMin(-300), null, 'Esperada'),
+      invitacion(304, 'EC-7B5N3', 3602, 3004, 304, 'Visita', haceMin(120), haceMin(-60), 'KLPR12', 'Adentro'),
+      invitacion(305, 'EC-1X8C4', 3203, 3021, 305, 'Visita', haceMin(600), haceMin(240), null, 'Esperada'),
+      invitacion(306, 'EC-5T2R9', 3401, 3011, 306, 'Visita', haceMin(300), haceMin(120), null, 'Salió'),
+      invitacion(307, 'EC-3V9J6', 3201, 3019, 307, 'Servicio', diaA(0, 9), diaA(0, 13), 'FHJK88', 'Cancelada'),
+      invitacion(308, 'EC-7M2D4', 3502, 3008, 308, 'Visita', diaA(2, 19), diaA(2, 23), null, 'Esperada'),
+      invitacion(309, 'EC-8R4Z1', 3502, 3008, 309, 'Visita', diaA(-3, 15), diaA(-3, 19), null, 'Salió'),
     ],
-    accesos: [
-      { id: 'a1', fecha: haceMin(2), sentido: 'ingreso', persona: residentes.d403, categoria: 'residente', idUnidad: 'd403', metodo: 'Tag', patente: '' },
-      { id: 'a2', fecha: haceMin(9), sentido: 'salida', persona: residentes.d104, categoria: 'residente', idUnidad: 'd104', metodo: 'Patente', patente: 'GHTY21' },
-      { id: 'a3', fecha: haceMin(16), sentido: 'ingreso', persona: 'Repartidor PedidosYa', categoria: 'delivery', idUnidad: 'd502', metodo: 'Manual', patente: '' },
-      { id: 'a4', fecha: haceMin(17), sentido: 'salida', persona: 'Repartidor PedidosYa', categoria: 'delivery', idUnidad: 'd502', metodo: 'Manual', patente: '' },
-      { id: 'a5', fecha: haceMin(48), sentido: 'salida', persona: 'Catalina Núñez', categoria: 'visita', idUnidad: 'd401', metodo: 'QR', patente: '' },
-      { id: 'a6', fecha: haceMin(115), sentido: 'ingreso', persona: 'Isidora Tapia', categoria: 'visita', idUnidad: 'd602', metodo: 'QR', patente: 'KLPR12' },
-      { id: 'a7', fecha: haceMin(160), sentido: 'ingreso', persona: residentes.d201, categoria: 'residente', idUnidad: 'd201', metodo: 'Tag', patente: '' },
+    registro_accesos: [
+      acceso(301, 304, 3602, 'Visita', haceMin(115), null, { ...conQR(304, 108), patente: 'KLPR12' }),
+      acceso(302, 306, 3401, 'Visita', haceMin(170), haceMin(48), conQR(306, 108)),
+      acceso(303, 310, 3502, 'Delivery', haceMin(20), haceMin(16), { autorizado_via: 'App', id_usuario_autoriza: 3008, id_usuario_registra: 108 }),
+      acceso(304, 309, 3502, 'Visita', diaA(-3, 15, 10), diaA(-3, 18, 40), conQR(309, 108)),
+      // Llegaron sin invitación: esperan que el residente responda
+      acceso(305, 311, 3603, 'Visita', haceMin(2), null, { estado_autorizacion: 'Pendiente de Confirmación', id_usuario_registra: 108 }),
+      acceso(306, 312, 3502, 'Delivery', haceMin(1), null, { estado_autorizacion: 'Pendiente de Confirmación', id_usuario_registra: 108 }),
     ],
-    vehiculos: {
-      d104: [{ patente: 'GHTY21', modelo: 'Toyota Yaris gris' }],
-      d403: [{ patente: 'PLMN34', modelo: 'Kia Morning rojo' }],
-      d502: [{ patente: 'BCDF56', modelo: 'Suzuki Swift blanco' }, { patente: 'XZ1234', modelo: 'Moto Honda negra' }],
-      d601: [{ patente: 'JKLM78', modelo: 'Hyundai Tucson azul' }],
-    },
-    estacionamientos: { d104: 'E-12', d403: 'E-04', d502: 'E-07', d601: 'E-01' },
+    vehiculos: [
+      vehiculo(301, 3104, 'GHTY21', 'Toyota Yaris gris', 'E-12'),
+      vehiculo(302, 3403, 'PLMN34', 'Kia Morning rojo', 'E-04'),
+      vehiculo(303, 3502, 'BCDF56', 'Suzuki Swift blanco', 'E-07'),
+      vehiculo(304, 3502, 'XZ1234', 'Moto Honda negra', 'E-07'),
+      vehiculo(305, 3601, 'JKLM78', 'Hyundai Tucson azul', 'E-01'),
+    ],
     reservas: [
-      { id: 'r1', espacio: 'Quincho', idUnidad: 'd302', fecha: diaISO(), desde: '13:00', hasta: '17:00', invitados: 12, estado: 'devuelto', observacion: 'Sin novedades' },
-      { id: 'r2', espacio: 'Quincho', idUnidad: 'd504', fecha: diaISO(), desde: '19:00', hasta: '23:30', invitados: 15, estado: 'confirmada' },
-      { id: 'r3', espacio: 'Sala multiuso', idUnidad: 'd203', fecha: diaISO(), desde: '10:00', hasta: '12:00', invitados: 6, estado: 'devuelto', observacion: 'Sin novedades' },
-      { id: 'r4', espacio: 'Sala multiuso', idUnidad: 'd404', fecha: diaISO(), desde: '18:00', hasta: '20:00', invitados: 8, estado: 'confirmada' },
-      { id: 'r5', espacio: 'Gimnasio', idUnidad: 'd601', fecha: diaISO(), desde: '07:00', hasta: '08:00', invitados: 0, estado: 'devuelto', observacion: 'Sin novedades' },
-      { id: 'r6', espacio: 'Quincho', idUnidad: 'd104', fecha: enDias(1), desde: '13:00', hasta: '18:00', invitados: 10, estado: 'confirmada' },
-      { id: 'r7', espacio: 'Sala multiuso', idUnidad: 'd301', fecha: enDias(2), desde: '17:00', hasta: '19:00', invitados: 5, estado: 'confirmada' },
-      { id: 'r8', espacio: 'Quincho', idUnidad: 'd602', fecha: enDias(5), desde: '12:00', hasta: '16:00', invitados: 20, estado: 'confirmada' },
+      reserva(301, 31, 3016, 3302, diaISO(), '12:00', '17:00', 12, 'Devuelto', 'Sin novedades'),
+      reserva(302, 31, 3010, 3504, diaISO(), '18:00', '23:30', 15),
+      reserva(303, 32, 3021, 3203, diaISO(), '10:00', '13:00', 6, 'Devuelto', 'Sin novedades'),
+      reserva(304, 32, 3014, 3404, diaISO(), '18:00', '22:00', 8),
+      reserva(305, 33, 3003, 3601, diaISO(), '07:00', '08:00', 0, 'Devuelto', 'Sin novedades'),
+      reserva(306, 31, 3026, 3104, enDias(1), '12:00', '17:00', 10),
+      reserva(307, 32, 3015, 3301, enDias(2), '15:00', '18:00', 5),
+      reserva(308, 31, 3004, 3602, enDias(5), '12:00', '17:00', 20),
+      reserva(309, 33, 3008, 3502, enDias(1), '07:00', '08:00', 0),
     ],
   };
 }
 
+// Sin conserjería: el administrador 101 Carlos Ibáñez registra los ingresos
 function lasPalmas() {
   return {
+    visitantes: [
+      visitante(101, 'Ignacio', 'Ruiz', '18.552.901-K'),
+      visitante(102, 'Jardines del Sur', '', '76.111.222-3', 'Frecuente'),
+      visitante(103, 'Marcela', 'Díaz'),
+    ],
     invitaciones: [
-      { id: 'pi1', codigo: 'EC-6L4S2', visitante: 'Ignacio Ruiz', rut: '18.552.901-K', idUnidad: 'c9', tipo: 'visita', desde: haceMin(60), hasta: haceMin(-240), patente: 'HJTR19', estado: 'esperada' },
-      { id: 'pi2', codigo: 'EC-8D1F7', visitante: 'Jardines del Sur', rut: '76.111.222-3', idUnidad: 'c1', tipo: 'proveedor', desde: hoyA(9), hasta: hoyA(13), patente: '', estado: 'salio' },
+      invitacion(101, 'EC-6L4S2', 1009, 1010, 101, 'Visita', haceMin(60), haceMin(-240), 'HJTR19', 'Esperada'),
+      invitacion(102, 'EC-8D1F7', 1001, 110, 102, 'Proveedor', diaA(0, 9), diaA(0, 13), null, 'Salió'),
+      invitacion(103, 'EC-3F9K7', 1001, 110, 103, 'Visita', diaA(0, 18), diaA(0, 22), 'PFGH62', 'Esperada'),
     ],
-    accesos: [
-      { id: 'pa1', fecha: haceMin(40), sentido: 'salida', persona: 'Jardines del Sur', categoria: 'proveedor', idUnidad: 'c1', metodo: 'QR', patente: '' },
-      { id: 'pa2', fecha: haceMin(210), sentido: 'ingreso', persona: 'Jardines del Sur', categoria: 'proveedor', idUnidad: 'c1', metodo: 'QR', patente: '' },
+    registro_accesos: [
+      acceso(101, 102, 1001, 'Proveedor', haceMin(210), haceMin(40), conQR(102, 101)),
     ],
-    vehiculos: { c4: [{ patente: 'LKJH23', modelo: 'Nissan Versa gris' }], c11: [{ patente: 'MNBV98', modelo: 'Chevrolet Sail blanco' }] },
-    estacionamientos: {},
+    vehiculos: [
+      vehiculo(101, 1004, 'LKJH23', 'Nissan Versa gris'),
+      vehiculo(102, 1011, 'MNBV98', 'Chevrolet Sail blanco'),
+    ],
     reservas: [
-      { id: 'pr1', espacio: 'Quincho', idUnidad: 'c5', fecha: enDias(2), desde: '13:00', hasta: '18:00', invitados: 14, estado: 'confirmada' },
-      { id: 'pr2', espacio: 'Quincho', idUnidad: 'c12', fecha: enDias(6), desde: '19:00', hasta: '23:00', invitados: 8, estado: 'confirmada' },
+      reserva(101, 11, 102, 1005, enDias(2), '12:00', '17:00', 14),
+      reserva(102, 11, 1013, 1012, enDias(6), '18:00', '23:30', 8),
+      reserva(103, 11, 110, 1001, enDias(-9), '12:00', '17:00', 12, 'Devuelto', 'Sin novedades'),
     ],
   };
 }
 
 function villa() {
   return {
-    invitaciones: [], accesos: [], vehiculos: {}, estacionamientos: {},
+    visitantes: [], invitaciones: [], registro_accesos: [], vehiculos: [],
     reservas: [
-      { id: 'vr1', espacio: 'Sede vecinal', idUnidad: 'vB2', fecha: enDias(3), desde: '10:00', hasta: '14:00', invitados: 30, estado: 'confirmada' },
-      { id: 'vr2', espacio: 'Multicancha', idUnidad: 'vD5', fecha: enDias(1), desde: '18:00', hasta: '20:00', invitados: 10, estado: 'confirmada' },
+      reserva(201, 21, 2026, 2026, enDias(3), '10:00', '14:00', 30),
+      reserva(202, 22, 2077, 2077, enDias(1), '18:00', '20:00', 10),
     ],
   };
 }
@@ -85,13 +137,4 @@ export function conserjeriaInicial() {
   return { 1: lasPalmas(), 2: villa(), 3: edificio() };
 }
 
-// Gente que entra y sale para simular el monitor en vivo de la garita
-export const MOVIMIENTOS_SIMULADOS = [
-  { categoria: 'residente', metodo: 'Tag' },
-  { categoria: 'residente', metodo: 'Patente' },
-  { categoria: 'delivery', metodo: 'Manual', persona: 'Repartidor Rappi' },
-  { categoria: 'residente', metodo: 'Tag' },
-  { categoria: 'delivery', metodo: 'Manual', persona: 'Correos de Chile' },
-];
-
-export const conserjeriaVacia = () => ({ invitaciones: [], accesos: [], vehiculos: {}, estacionamientos: {}, reservas: [] });
+export const conserjeriaVacia = () => ({ visitantes: [], invitaciones: [], registro_accesos: [], vehiculos: [], reservas: [] });

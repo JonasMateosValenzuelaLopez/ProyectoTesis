@@ -11,27 +11,28 @@ import PlacaUnidad from './PlacaUnidad';
 // rechazar le avisa que el aviso ya no está disponible. `aviso` muestra a qué aviso se refiere.
 export default function SolicitudRecibida({ s, aviso, borde = true }: { s: SolicitudContacto; aviso?: string; borde?: boolean }) {
   const t = useTema();
-  const { acciones } = useApp();
-  const u = UNIDADES[s.idUnidad];
-  const nombre = s.nombre.split(' ')[0];
+  const { acciones, nombreDe } = useApp();
+  const u = s.id_unidad ? UNIDADES[s.id_unidad] : undefined;
+  const completo = nombreDe(s.id_usuario);
+  const nombre = completo.split(' ')[0];
   return (
     <View style={{ gap: 10, paddingTop: borde ? 12 : 0, borderTopWidth: borde ? 1 : 0, borderColor: t.line }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        {u && <PlacaUnidad tipo="" numero={u.numero} size="sm" />}
+        {u && <PlacaUnidad tipo="" numero={u.numero_identificador} size="sm" />}
         <View style={{ flex: 1 }}>
-          <Texto v="fuerte">{s.nombre}</Texto>
-          <Texto v="chico">{nombreUnidad(u)} · {hace(s.fecha)}</Texto>
+          <Texto v="fuerte">{completo}</Texto>
+          <Texto v="chico">{nombreUnidad(u)} · {hace(s.fecha_solicitud)}</Texto>
         </View>
       </View>
       {!!aviso && <Texto v="suave">Le interesa «{aviso}».</Texto>}
-      {s.estado === 'pendiente' ? (
+      {s.estado === 'Pendiente' ? (
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Boton texto="Aceptar" icono="checkmark" style={{ flex: 1 }} onPress={() => acciones.responderSolicitud(s.id, true)} accessibilityLabel={`Aceptar a ${s.nombre}`} />
-          <Boton tipo="secundario" texto="Rechazar" style={{ flex: 1 }} onPress={() => acciones.responderSolicitud(s.id, false)} accessibilityLabel={`Rechazar a ${s.nombre}`} />
+          <Boton texto="Aceptar" icono="checkmark" style={{ flex: 1 }} onPress={() => acciones.responderSolicitud(s.id_solicitud, true)} accessibilityLabel={`Aceptar a ${completo}`} />
+          <Boton tipo="secundario" texto="Rechazar" style={{ flex: 1 }} onPress={() => acciones.responderSolicitud(s.id_solicitud, false)} accessibilityLabel={`Rechazar a ${completo}`} />
         </View>
       ) : (
-        <Texto v="chico" color={s.estado === 'aceptada' ? t.ok : t.ink2}>
-          {s.estado === 'aceptada' ? `Aceptaste. ${nombre} ya tiene tu teléfono.` : `Rechazaste. Le avisamos a ${nombre} que no está disponible.`}
+        <Texto v="chico" color={s.estado === 'Aceptada' ? t.ok : t.ink2}>
+          {s.estado === 'Aceptada' ? `Aceptaste. ${nombre} ya tiene tu teléfono.` : `Rechazaste. Le avisamos a ${nombre} que no está disponible.`}
         </Texto>
       )}
     </View>

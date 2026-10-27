@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/App';
 import { F, useTema } from '@/constants/tema';
-import { clp, cuando, diasHasta, fecha, fechaLargaTexto, horaMinuto, saludo } from '@/utils/formato';
+import { clp, cuando, diasHasta, fecha, fechaLargaTexto, hace, horaMinuto, saludo } from '@/utils/formato';
 import { resumenCuenta } from '@/utils/cuenta';
 import Pantalla from '@/components/ec/Pantalla';
 import Texto from '@/components/ec/Texto';
@@ -14,6 +14,7 @@ import Tarjeta from '@/components/ec/Tarjeta';
 import Chip from '@/components/ec/Chip';
 import Boton from '@/components/ec/Boton';
 import PlacaUnidad from '@/components/ec/PlacaUnidad';
+import { espaciosActivos, hora, tipoUnidad } from '@/data/demo';
 import Fila from '@/components/ec/Fila';
 import SelloCargo from '@/components/ec/SelloCargo';
 
@@ -21,7 +22,8 @@ import SelloCargo from '@/components/ec/SelloCargo';
 function Portada() {
   const t = useTema();
   const insets = useSafeAreaInsets();
-  const { cuenta, unidad, comunidad, estado, avisoTransferencia, tiene } = useApp();
+  const { cuenta, unidad, comunidad, estado, tiene } = useApp();
+  const aviso = estado?.avisoPendiente;
   const [detalle, setDetalle] = useState(false);
   // El encabezado es oscuro también en tema claro: la barra de estado va en claro mientras se ve esta pantalla.
   useFocusEffect(useCallback(() => {
@@ -37,7 +39,7 @@ function Portada() {
   return (
     <View style={{ backgroundColor: t.sidebar, marginHorizontal: -16, marginTop: -(insets.top + 12), paddingTop: insets.top + 24, paddingHorizontal: 20, paddingBottom: 24, gap: 20 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-        <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="lg" />
+        <PlacaUnidad tipo={tipoUnidad(unidad)} numero={unidad.numero_identificador} size="lg" />
         <View style={{ flex: 1, gap: 2 }}>
           <Texto style={{ color: t.sidebarInk }}>{comunidad.nombre}</Texto>
           <Texto v="titulo" accessibilityRole="header" style={{ color: '#fff', fontSize: 24, lineHeight: 28 }}>{saludo()}, {cuenta.nombre}</Texto>
@@ -49,7 +51,7 @@ function Portada() {
           <View style={{ gap: 4 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <Texto style={{ color: t.sidebarInk, flex: 1 }}>
-                {alDia ? `Pagaste ${estado.actual.nombre.split(' ')[0].toLowerCase()}` : `Vence el ${fechaLargaTexto(estado.actual.vence)}`}
+                {alDia ? `Pagaste ${estado.actual.nombre.split(' ')[0].toLowerCase()}` : `Vence el ${fechaLargaTexto(estado.actual.fecha_vencimiento)}`}
               </Texto>
               <Chip texto={r.estado.texto} tono={r.estado.tono} />
             </View>
@@ -58,10 +60,10 @@ function Portada() {
 
           {detalle && (
             <View>
-              {estado.actual.items.map((i) => (
-                <View key={i.concepto} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: t.sidebarActive }}>
-                  <Texto style={{ flex: 1, color: t.sidebarInk }}>{i.concepto}{i.extraordinario ? ' · extraordinario' : ''}</Texto>
-                  <Texto style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'], color: '#fff' }}>{clp(i.monto)}</Texto>
+              {estado.actual.gastos.map((g) => (
+                <View key={g.id_gasto} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: t.sidebarActive }}>
+                  <Texto style={{ flex: 1, color: t.sidebarInk }}>{g.concepto}{g.es_extraordinario ? ' · extraordinario' : ''}{g.estado_pago === 'Exento' ? ' · exento' : ''}</Texto>
+                  <Texto style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'], color: '#fff' }}>{clp(g.monto_total)}</Texto>
                 </View>
               ))}
               {estado.deudaAnterior > 0 && (
@@ -72,16 +74,16 @@ function Portada() {
               )}
               <Texto style={{ color: t.sidebarMuted, fontSize: 14, lineHeight: 20, paddingTop: 8 }}>
                 {alDia
-                  ? `Marcado como pagado por ${estado.actual.marcadoPor} el ${fecha(estado.actual.marcadoEn!)}.`
-                  : `${diasHasta(estado.actual.vence) >= 0 ? `Quedan ${diasHasta(estado.actual.vence)} días. ` : ''}EntreCasas no recibe pagos: se transfiere a la comunidad y la administración lo marca.`}
+                  ? (estado.actual.validadoPor ? `Marcado como pagado por ${estado.actual.validadoPor} el ${fecha(estado.actual.fecha_validacion!)}.` : 'Sin cobros pendientes este mes.')
+                  : `${diasHasta(estado.actual.fecha_vencimiento) >= 0 ? `Quedan ${diasHasta(estado.actual.fecha_vencimiento)} días. ` : ''}EntreCasas no recibe pagos: se transfiere a la comunidad y la administración lo marca.`}
               </Texto>
             </View>
           )}
 
-          {!alDia && avisoTransferencia && (
-            <Texto style={{ color: t.sidebarInk }}>Avisaste una transferencia de {clp(avisoTransferencia.monto)} el {fecha(avisoTransferencia.fecha)}. La administración la está revisando.</Texto>
+          {!alDia && aviso && (
+            <Texto style={{ color: t.sidebarInk }}>Avisaste una transferencia de {clp(aviso.monto)} el {fecha(aviso.fecha_pago)}. La administración la está revisando.</Texto>
           )}
-          {!alDia && <Boton tipo="portada" texto={avisoTransferencia ? 'Ver datos de transferencia' : 'Cómo pagar'} icono="card-outline" onPress={() => router.push('/transferencia')} />}
+          {!alDia && <Boton tipo="portada" texto={aviso ? 'Ver datos de transferencia' : 'Cómo pagar'} icono="card-outline" onPress={() => router.push('/transferencia')} />}
 
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
             <Pressable onPress={() => setDetalle((v) => !v)} hitSlop={10} accessibilityRole="button" accessibilityState={{ expanded: detalle }}>
@@ -97,26 +99,49 @@ function Portada() {
   );
 }
 
+// Alguien llegó a portería sin invitación: el residente decide si pasa. Va primero porque la persona está esperando.
+function EnPorteria() {
+  const t = useTema();
+  const { enPorteria, tiene, acciones } = useApp();
+  if (!tiene('conserjeria')) return null;
+  return enPorteria.map((v) => (
+    <Tarjeta key={v.id_acceso} acento={t.signal}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Ionicons name="notifications" size={20} color={t.oscuro ? t.signal : t.signalInk} />
+        <Texto v="etiqueta" style={{ flex: 1 }}>En portería ahora · {hace(v.fecha_ingreso)}</Texto>
+      </View>
+      <View style={{ gap: 2 }}>
+        <Texto v="subtitulo">{v.persona}</Texto>
+        <Texto v="suave">{v.categoria} sin invitación{v.patente ? ` · patente ${v.patente}` : ''}. Conserjería pregunta si puede pasar.</Texto>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Boton texto="Dejar pasar" style={{ flex: 1 }} onPress={() => acciones.responderPorteria(v.id_acceso, true)} accessibilityLabel={`Dejar pasar a ${v.persona}`} />
+        <Boton tipo="secundario" texto="No autorizo" style={{ flex: 1 }} onPress={() => acciones.responderPorteria(v.id_acceso, false)} accessibilityLabel={`No autorizar a ${v.persona}`} />
+      </View>
+    </Tarjeta>
+  ));
+}
+
 // Inicio centrado en la propia vivienda: la placa y lo que debe abren la pantalla; después, los accesos, lo que la comunidad decide y las visitas.
 export default function Inicio() {
   const t = useTema();
-  const { cuenta, unidad, comunidad, cargo, tiene, misInvitaciones, misReservas, votaciones, miVoto, publicaciones } = useApp();
+  const { cuenta, unidad, comunidad, cargo, tiene, misInvitaciones, misReservas, espacioDe, votaciones, miVoto, publicaciones } = useApp();
   if (!cuenta || !unidad || !comunidad) return null;
 
   const proximasVisitas = misInvitaciones
-    .filter((i) => i.estado === 'esperada' || i.estado === 'adentro')
-    .filter((i) => diasHasta(i.desde) <= 1 && new Date(i.hasta) > new Date())
-    .sort((a, b) => a.desde.localeCompare(b.desde));
+    .filter((i) => i.estado === 'Esperada' || i.estado === 'Adentro')
+    .filter((i) => diasHasta(i.fecha_desde) <= 1 && new Date(i.fecha_hasta) > new Date())
+    .sort((a, b) => a.fecha_desde.localeCompare(b.fecha_desde));
   const proximaReserva = misReservas
-    .filter((r) => r.estado === 'confirmada' && diasHasta(r.fecha) >= 0)
-    .sort((a, b) => `${a.fecha}${a.desde}`.localeCompare(`${b.fecha}${b.desde}`))[0];
-  const porVotar = votaciones.filter((v) => v.estado === 'abierta' && !miVoto(v.id));
+    .filter((r) => r.estado_reserva === 'Aprobada' && diasHasta(r.fecha_reserva) >= 0)
+    .sort((a, b) => `${a.fecha_reserva}${a.hora_inicio}`.localeCompare(`${b.fecha_reserva}${b.hora_inicio}`))[0];
+  const porVotar = votaciones.filter((v) => v.estado === 'Abierta' && !miVoto(v.id_votacion));
   const oficial = publicaciones.filter((p) => p.oficial).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
   const accesos = [
     tiene('invitaciones_qr') && { clave: 'i', icono: 'qr-code' as const, titulo: 'Invitar una visita', detalle: 'Comparte un código QR para portería', ruta: '/invitar' as const },
-    tiene('reservas') && comunidad.espacios.length > 0 && {
+    tiene('reservas') && espaciosActivos(comunidad).length > 0 && {
       clave: 'r', icono: 'calendar' as const, titulo: 'Reservar un espacio', ruta: '/reservar' as const,
-      detalle: proximaReserva ? `Tienes el ${proximaReserva.espacio.toLowerCase()} ${cuando(proximaReserva.fecha)}, de ${proximaReserva.desde} a ${proximaReserva.hasta}` : comunidad.espacios.map((e) => e.nombre).join(', '),
+      detalle: proximaReserva ? `Tienes el ${espacioDe(proximaReserva.id_espacio).toLowerCase()} ${cuando(proximaReserva.fecha_reserva)}, de ${hora(proximaReserva.hora_inicio)} a ${hora(proximaReserva.hora_fin)}` : espaciosActivos(comunidad).map((e) => e.nombre).join(', '),
     },
     tiene('muro') && { clave: 'p', icono: 'create' as const, titulo: 'Publicar en el muro', detalle: 'Avisos, ventas y búsquedas entre vecinos', ruta: '/publicar' as const },
   ].filter((a) => !!a).map((a, n) => (
@@ -126,16 +151,17 @@ export default function Inicio() {
   return (
     <Pantalla>
       <Portada />
+      <EnPorteria />
 
       {accesos.length > 0 && <Tarjeta style={{ paddingVertical: 4 }}>{accesos}</Tarjeta>}
 
       {porVotar.map((v) => (
-        <Tarjeta key={v.id} acento={t.patina}>
+        <Tarjeta key={v.id_votacion} acento={t.patina}>
           <View style={{ gap: 4 }}>
-            <Texto v="etiqueta" color={t.patina}>{v.tipo === 'votacion' ? 'Votación abierta' : 'Encuesta'} · cierra {cuando(v.cierre)}</Texto>
+            <Texto v="etiqueta" color={t.patina}>{v.tipo === 'Votación' ? 'Votación abierta' : 'Encuesta'} · cierra {cuando(v.fecha_cierre)}</Texto>
             <Texto v="subtitulo">{v.titulo}</Texto>
           </View>
-          <Boton tipo="secundario" texto={v.tipo === 'votacion' ? 'Votar' : 'Responder'} onPress={() => router.push({ pathname: '/votacion/[id]', params: { id: v.id } })} />
+          <Boton tipo="secundario" texto={v.tipo === 'Votación' ? 'Votar' : 'Responder'} onPress={() => router.push({ pathname: '/votacion/[id]', params: { id: String(v.id_votacion) } })} />
         </Tarjeta>
       ))}
 
@@ -148,10 +174,10 @@ export default function Inicio() {
           {proximasVisitas.length === 0 && <Texto v="suave">No esperas visitas. Invita a alguien y comparte su código QR.</Texto>}
           {proximasVisitas.map((i, n) => (
             <Fila
-              key={i.id} borde={n > 0} titulo={i.visitante}
-              detalle={i.estado === 'adentro' ? 'Ya ingresó' : `${cuando(i.desde)}, de ${horaMinuto(i.desde)} a ${horaMinuto(i.hasta)}`}
+              key={i.id_invitacion} borde={n > 0} titulo={i.visitante}
+              detalle={i.estado === 'Adentro' ? 'Ya ingresó' : `${cuando(i.fecha_desde)}, de ${horaMinuto(i.fecha_desde)} a ${horaMinuto(i.fecha_hasta)}`}
               derecha={<Chip texto={i.codigo} tono="senal" codigo />}
-              onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: i.id } })}
+              onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: String(i.id_invitacion) } })}
             />
           ))}
         </Tarjeta>

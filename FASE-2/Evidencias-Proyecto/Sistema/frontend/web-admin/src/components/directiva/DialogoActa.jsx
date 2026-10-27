@@ -4,20 +4,20 @@ import {
 } from '@mui/material';
 import { Add as AddIcon, DeleteOutlined as QuitarIcon } from '@mui/icons-material';
 import { useDirectiva } from '../../context/DirectivaContext';
+import { lineas } from '../../utils/formato';
 
 const TIPOS_ACTA = ['Reunión de directiva', 'Asamblea ordinaria', 'Asamblea extraordinaria'];
 
-const lineas = (texto) => texto.split('\n').map((l) => l.trim()).filter(Boolean);
 const acuerdoVacio = { texto: '', responsable: '', plazo: '' };
 
 function desdeActa(acta) {
-  if (!acta) return { tipo: TIPOS_ACTA[0], fecha: new Date().toISOString().slice(0, 10), lugar: '', unidadesPresentes: '', asistentes: '', temas: '', acuerdos: [acuerdoVacio] };
+  if (!acta) return { tipo: TIPOS_ACTA[0], fecha: new Date().toISOString().slice(0, 10), lugar: '', unidades_presentes: '', asistentes: '', temas: '', acuerdos: [acuerdoVacio] };
   return {
-    ...acta,
-    unidadesPresentes: acta.unidadesPresentes ?? '',
-    asistentes: acta.asistentes.join('\n'),
-    temas: acta.temas.join('\n'),
-    acuerdos: acta.acuerdos.length ? acta.acuerdos : [acuerdoVacio],
+    tipo: acta.tipo, fecha: acta.fecha, lugar: acta.lugar ?? '',
+    unidades_presentes: acta.unidades_presentes ?? '',
+    asistentes: acta.asistentes ?? '',
+    temas: acta.temas ?? '',
+    acuerdos: acta.acuerdos.length ? acta.acuerdos.map((a) => ({ texto: a.texto, responsable: a.responsable ?? '', plazo: a.plazo ?? '' })) : [acuerdoVacio],
   };
 }
 
@@ -35,14 +35,14 @@ export default function DialogoActa({ open, acta, onClose }) {
   const guardar = (e) => {
     e.preventDefault();
     if (!valido) return;
+    // Fila de `actas` (asistentes y temas, uno por línea) y sus filas de `acta_acuerdos`
     acciones.guardarActa({
-      ...(acta ?? {}),
+      ...(acta ? { id_acta: acta.id_acta } : {}),
       tipo: form.tipo, fecha: form.fecha, lugar: form.lugar.trim(),
-      unidadesPresentes: esAsamblea && form.unidadesPresentes !== '' ? Number(form.unidadesPresentes) : undefined,
-      asistentes: lineas(form.asistentes),
-      temas: lineas(form.temas),
-      acuerdos: form.acuerdos.filter((a) => a.texto.trim()).map((a) => ({ ...a, texto: a.texto.trim(), responsable: a.responsable.trim() })),
-    });
+      unidades_presentes: esAsamblea && form.unidades_presentes !== '' ? Number(form.unidades_presentes) : null,
+      asistentes: lineas(form.asistentes).join('\n') || null,
+      temas: lineas(form.temas).join('\n'),
+    }, form.acuerdos.filter((a) => a.texto.trim()).map((a) => ({ texto: a.texto.trim(), responsable: a.responsable.trim() || null, plazo: a.plazo || null })));
     onClose();
   };
 
@@ -59,7 +59,7 @@ export default function DialogoActa({ open, acta, onClose }) {
         </Box>
         {esAsamblea && (
           <TextField
-            label="Unidades presentes" name="unidadesPresentes" type="number" value={form.unidadesPresentes} onChange={cambiar}
+            label="Unidades presentes" name="unidades_presentes" type="number" value={form.unidades_presentes} onChange={cambiar}
             helperText={`De ${totalUnidades} unidades. Sirve para dejar constancia del quórum.`}
             slotProps={{ htmlInput: { min: 0, max: totalUnidades } }} sx={{ maxWidth: 280 }}
           />

@@ -1,6 +1,6 @@
-// Datos de ejemplo de finanzas y directiva, con la forma del modelo propuesto:
-// categorias_gasto, cobros, cobro_unidades, exenciones, egresos, notificaciones_enviadas,
-// muro_publicaciones (por aprobar) y bitacora_auditoria.
+// Datos de ejemplo de finanzas con las filas de la base (bd/entrecasas_db_v2.sql):
+// categorias_cobro, cobros, gastos_comunes (lo que debe cada unidad por cada cobro), pagos,
+// exenciones, egresos y correos_enviados. Los comunicados y normas están en muroMock; la bitácora se ajusta en su módulo.
 import { comunidades } from './mock';
 
 const NOMBRES = [
@@ -14,144 +14,188 @@ const NOMBRES = [
 // Las unidades de la directiva tienen nombres fijos para que calcen con el directorio.
 export const residentes = {
   ...Object.fromEntries(
-    comunidades.flatMap((c) => c.unidades.map((u, i) => [u.id, NOMBRES[(i * 5 + c.id) % NOMBRES.length]]))
+    comunidades.flatMap((c) => c.unidades.map((u, i) => [u.id_unidad, NOMBRES[(i * 5 + c.id_red) % NOMBRES.length]]))
   ),
-  c2: 'Andrea Lagos', c5: 'Luis Muñoz', c11: 'Marta Rivas',
-  vA12: 'Sonia Fuentealba', vB16: 'Jorge Silva', vD5: 'Paula Reyes',
+  1002: 'Andrea Lagos', 1005: 'Luis Muñoz', 1011: 'Marta Rivas',
+  2012: 'Sonia Fuentealba', 2040: 'Jorge Silva', 2077: 'Paula Reyes',
 };
 
-const PERIODO = '2026-10';
-const EMISION = '2026-10-01';
-const VENCE = '2026-11-05';
+// Mes en curso de la demo. Los meses anteriores con gastos sin pagar quedan Atrasado.
+export const PERIODO_ACTUAL = { mes: 10, anio: 2026 };
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+export const nombreMes = (mes) => MESES[mes - 1];
 
-function cobroUnidades(unidades, pendientes) {
-  return Object.fromEntries(
-    unidades.map((u) => [
-      u.id,
-      pendientes.includes(u.id)
-        ? { estado: 'pendiente' }
-        : { estado: 'pagado', marcadoPor: 'Carlos Ibáñez · Administrador', marcadoEn: '2026-10-0' + (3 + (u.numero.length % 6)) + 'T10:30:00' },
-    ])
-  );
+const dosDigitos = (n) => String(n).padStart(2, '0');
+// Emisión el día 1 y vencimiento el 5 del mes siguiente
+const fechasDe = (mes, anio) => ({
+  fecha_emision: `${anio}-${dosDigitos(mes)}-01`,
+  fecha_vencimiento: mes === 12 ? `${anio + 1}-01-05` : `${anio}-${dosDigitos(mes + 1)}-05`,
+});
+
+// Arma las filas de una comunidad. `cobros` lleva, además de sus columnas, a quién se le
+// debe (`debe`), quién está exento (`exentas`) y quién avisó una transferencia sin validar
+// (`avisos`); con eso se generan `gastos_comunes` y `pagos` como los tendría la base.
+function armar(id_red, unidades, { categorias, cobros, validador, avisos = [], exenciones = [], egresos = [], correos = [] }) {
+  const categorias_cobro = categorias.map(([id_categoria, nombre, activa = 1]) => ({ id_categoria, id_red, nombre, activa }));
+  const filasCobros = [];
+  const gastos_comunes = [];
+  const pagos = [];
+  cobros.forEach(({ debe = [], exentas = [], ...c }, i) => {
+    const cobro = { id_cobro: id_red * 100 + i + 1, id_red, ...fechasDe(c.mes, c.anio), es_extraordinario: 0, id_usuario_emite: validador, ...c };
+    filasCobros.push(cobro);
+    const vencido = cobro.mes < PERIODO_ACTUAL.mes || cobro.anio < PERIODO_ACTUAL.anio;
+    unidades.forEach((u) => {
+      // Ids fijos para que el panel y la app usen los mismos: id_cobro × 1000 + número de la unidad
+      const id_gasto = cobro.id_cobro * 1000 + (u.id_unidad % 1000);
+      const estado_pago = exentas.includes(u.id_unidad) ? 'Exento' : debe.includes(u.id_unidad) ? (vencido ? 'Atrasado' : 'Pendiente') : 'Pagado';
+      gastos_comunes.push({
+        id_gasto, id_cobro: cobro.id_cobro, id_unidad: u.id_unidad, mes: cobro.mes, anio: cobro.anio, monto_total: cobro.monto_por_unidad,
+        fecha_emision: cobro.fecha_emision, fecha_vencimiento: cobro.fecha_vencimiento, estado_pago, descripcion: cobro.concepto,
+      });
+      if (estado_pago === 'Pagado') {
+        // Pago registrado en el panel: nace Validado y sin residente que lo avisara
+        const fecha = `${cobro.fecha_emision.slice(0, 8)}${dosDigitos(Number(cobro.fecha_emision.slice(8)) + 1 + (u.id_unidad % 6))}T10:30:00`;
+        pagos.push({
+          id_pago: id_gasto * 10 + 1, id_gasto, id_usuario: null, monto_pagado: cobro.monto_por_unidad, fecha_pago: fecha, metodo_pago: 'Transferencia',
+          comprobante_url: null, observacion: null, estado_validacion: 'Validado', id_validador: validador, fecha_validacion: fecha,
+        });
+      }
+    });
+  });
+  // Transferencias que el residente avisó desde la app y esperan validación
+  avisos.forEach(({ id_unidad, id_usuario, fecha_pago, observacion }) => {
+    gastos_comunes
+      .filter((g) => g.id_unidad === id_unidad && g.mes === PERIODO_ACTUAL.mes && g.anio === PERIODO_ACTUAL.anio && g.estado_pago === 'Pendiente')
+      .forEach((g) => {
+        pagos.push({
+          id_pago: g.id_gasto * 10 + 2, id_gasto: g.id_gasto, id_usuario, monto_pagado: g.monto_total, fecha_pago, metodo_pago: 'Transferencia',
+          comprobante_url: `comprobantes/${id_unidad}-${fecha_pago.slice(0, 10)}.jpg`, observacion,
+          estado_validacion: 'Pendiente', id_validador: null, fecha_validacion: null,
+        });
+      });
+  });
+  const gastoDe = (id_cobro, id_unidad) => gastos_comunes.find((g) => g.id_cobro === id_cobro && g.id_unidad === id_unidad).id_gasto;
+  return {
+    categorias_cobro,
+    cobros: filasCobros,
+    gastos_comunes,
+    pagos,
+    exenciones: exenciones.map(([id_exencion, id_cobro, id_unidad, motivo, id_solicitante, fecha_solicitud, estado = 'Pendiente', id_resuelve = null, fecha_resolucion = null]) => ({
+      id_exencion, id_gasto: gastoDe(id_cobro, id_unidad), motivo, id_solicitante, fecha_solicitud, estado, id_resuelve, fecha_resolucion,
+    })),
+    egresos: egresos.map((e) => ({
+      id_red, id_categoria: null, proveedor: null, id_usuario_registra: validador, requiere_visado: 0, estado_visado: null,
+      id_visador: null, fecha_visado: null, comprobante_url: null, ...e,
+    })),
+    correos_enviados: correos.map(([id_correo, tipo, asunto, id_cobro, fecha_envio, extra]) => ({
+      id_correo, id_red, tipo, asunto, id_cobro, id_votacion: null, destinatarios: unidades.length, id_usuario_envia: validador, fecha_envio, ...extra,
+    })),
+  };
 }
+
+const porUnidad = (unidades, cada, resto) => unidades.filter((_, i) => i % cada === resto).map((u) => u.id_unidad);
 
 function lasPalmas(c) {
-  const pendientes = ['c3', 'c5', 'c7', 'c9', 'c12', 'c14'];
-  return {
-    periodoActual: PERIODO,
-    nombrePeriodo: 'Octubre 2026',
-    categorias: [
-      { id: 'cat1', nombre: 'Gasto común', activa: true },
-      { id: 'cat2', nombre: 'Fondo de reserva', activa: true },
-      { id: 'cat3', nombre: 'Mantención', activa: true },
-      { id: 'cat4', nombre: 'Multas', activa: false },
-    ],
+  const octubre = [1003, 1005, 1007, 1009, 1012, 1014];
+  const mes = (m, extra = {}) => [
+    { id_categoria: 1, concepto: `Gasto común ${nombreMes(m)}`, monto_por_unidad: 68400, mes: m, anio: 2026, ...extra.gc },
+    { id_categoria: 2, concepto: `Fondo de reserva ${nombreMes(m)}`, monto_por_unidad: 8000, mes: m, anio: 2026, ...extra.fr },
+  ];
+  return armar(1, c.unidades, {
+    // Ids de usuario: 101 Carlos Ibáñez (administrador), 102 Luis Muñoz (presidente),
+    // 103 Marta Rivas (tesorera), 104 Andrea Lagos (secretaria)
+    validador: 101,
+    categorias: [[1, 'Gasto común'], [2, 'Fondo de reserva'], [3, 'Mantención'], [4, 'Multas', 0]],
     cobros: [
-      { id: 'cb0', idCategoria: 'cat1', concepto: 'Gasto común septiembre', montoPorUnidad: 68400, periodo: '2026-09', emision: '2026-09-01', vencimiento: '2026-10-05', extraordinario: false },
-      { id: 'cb1', idCategoria: 'cat1', concepto: 'Gasto común octubre', montoPorUnidad: 68400, periodo: PERIODO, emision: EMISION, vencimiento: VENCE, extraordinario: false },
-      { id: 'cb2', idCategoria: 'cat2', concepto: 'Fondo de reserva octubre', montoPorUnidad: 8000, periodo: PERIODO, emision: EMISION, vencimiento: VENCE, extraordinario: false },
-      { id: 'cb3', idCategoria: 'cat3', concepto: 'Mantención portón eléctrico', montoPorUnidad: 28000, periodo: PERIODO, emision: '2026-10-12', vencimiento: VENCE, extraordinario: true },
+      ...mes(8, { gc: { debe: [1003, 1014] }, fr: { debe: [1003, 1014] } }),
+      ...mes(9, { gc: { debe: [1003, 1009, 1012], exentas: [1013] }, fr: { debe: [1003, 1009] } }),
+      ...mes(10, { gc: { debe: octubre }, fr: { debe: octubre } }),
+      { id_categoria: 3, concepto: 'Mantención portón eléctrico', monto_por_unidad: 28000, mes: 10, anio: 2026, fecha_emision: '2026-10-12', es_extraordinario: 1, debe: octubre },
     ],
-    cobroUnidades: {
-      cb0: { ...cobroUnidades(c.unidades, ['c3', 'c9']), c13: { estado: 'exento' } },
-      cb1: cobroUnidades(c.unidades, pendientes),
-      cb2: cobroUnidades(c.unidades, pendientes),
-      cb3: cobroUnidades(c.unidades, pendientes),
-    },
-    // Deuda de meses anteriores (suma $350.000 en 4 unidades)
-    deudaAnterior: { c3: 104400, c9: 104400, c12: 68400, c14: 72800 },
+    // Luis Muñoz avisó desde la app que transfirió lo de octubre
+    avisos: [{ id_unidad: 1005, id_usuario: 102, fecha_pago: '2026-10-26T20:14:00', observacion: 'Transferencia desde Banco Estado' }],
     exenciones: [
-      { id: 'ex1', idCobro: 'cb3', idUnidad: 'c7', motivo: 'Unidad deshabitada por remodelación hasta diciembre', solicitadaPor: 'Marta Rivas', fecha: '2026-10-22', estado: 'pendiente' },
-      { id: 'ex0', idCobro: 'cb0', idUnidad: 'c13', motivo: 'Adulto mayor con pensión básica solidaria (septiembre)', solicitadaPor: 'Andrea Lagos', fecha: '2026-09-04', estado: 'aprobada', resueltaPor: 'Luis Muñoz', resueltaEn: '2026-09-06' },
+      [1, 107, 1007, 'Unidad deshabitada por remodelación hasta diciembre', 103, '2026-10-22T11:00:00'],
+      [2, 103, 1013, 'Adulto mayor con pensión básica solidaria (septiembre)', 104, '2026-09-04T09:30:00', 'Aprobada', 102, '2026-09-06T18:00:00'],
     ],
     egresos: [
-      { id: 'eg1', descripcion: 'Reparación motor del portón eléctrico', categoria: 'Mantención', monto: 420000, fecha: '2026-10-20', solicitadoPor: 'Administración', requiereVisado: true, estadoVisado: 'pendiente', proveedor: 'Automatismos Sur SpA' },
-      { id: 'eg2', descripcion: 'Aseo áreas comunes octubre', categoria: 'Gasto común', monto: 380000, fecha: '2026-10-05', solicitadoPor: 'Administración', requiereVisado: false },
-      { id: 'eg3', descripcion: 'Consumo eléctrico áreas comunes', categoria: 'Gasto común', monto: 142300, fecha: '2026-10-08', solicitadoPor: 'Administración', requiereVisado: false },
-      { id: 'eg4', descripcion: 'Poda de árboles del pasaje', categoria: 'Mantención', monto: 260000, fecha: '2026-09-18', solicitadoPor: 'Administración', requiereVisado: true, estadoVisado: 'aprobado', visadoPor: 'Luis Muñoz' },
+      { id_egreso: 101, id_categoria: 3, descripcion: 'Reparación motor del portón eléctrico', proveedor: 'Automatismos Sur SpA', monto: 420000, fecha: '2026-10-20', requiere_visado: 1, estado_visado: 'Pendiente' },
+      { id_egreso: 102, id_categoria: 1, descripcion: 'Aseo áreas comunes octubre', proveedor: 'Limpiezas del Sur Ltda.', monto: 380000, fecha: '2026-10-05' },
+      { id_egreso: 103, id_categoria: 1, descripcion: 'Consumo eléctrico áreas comunes', proveedor: 'Frontel', monto: 142300, fecha: '2026-10-08' },
+      { id_egreso: 104, id_categoria: 3, descripcion: 'Poda de árboles del pasaje', proveedor: 'Jardines del Sur', monto: 260000, fecha: '2026-09-18', requiere_visado: 1, estado_visado: 'Aprobado', id_visador: 102, fecha_visado: '2026-09-17T19:20:00' },
     ],
-    umbralVisado: 300000,
-    fondoReserva: { saldo: 3200000, meta: 4000000 },
-    notificaciones: [
-      { id: 'n1', tipo: 'cobro', detalle: 'Mantención portón eléctrico', destinatarios: 15, fecha: '2026-10-12T09:14:00' },
-      { id: 'n2', tipo: 'cobro', detalle: 'Gasto común y fondo de reserva octubre', destinatarios: 15, fecha: '2026-10-01T08:00:00' },
+    // Correos que mandó el sistema al emitir los cobros de octubre
+    correos: [
+      [101, 'Nuevo cobro', 'Gasto común octubre', 105, '2026-10-01T08:00:00'],
+      [102, 'Nuevo cobro', 'Fondo de reserva octubre', 106, '2026-10-01T08:00:00'],
+      [103, 'Nuevo cobro', 'Mantención portón eléctrico', 107, '2026-10-12T09:14:00'],
+      // P6: recordatorios de votación que envió Secretaría (104) a las casas que no habían votado
+      [104, 'Recordatorio de votación', 'Poda de árboles del pasaje', null, '2026-09-19T19:00:00', { id_votacion: 103, destinatarios: 8, id_usuario_envia: 104 }],
+      [105, 'Recordatorio de votación', 'Poda de árboles del pasaje', null, '2026-09-23T19:00:00', { id_votacion: 103, destinatarios: 4, id_usuario_envia: 104 }],
+      [106, 'Recordatorio de votación', 'Cambio de empresa de seguridad', null, '2026-10-24T19:00:00', { id_votacion: 101, destinatarios: 7, id_usuario_envia: 104 }],
     ],
-    porAprobar: [
-      { id: 'pa1', tipo: 'Comunicado', titulo: 'Corte de agua programado el sábado 31', autor: 'Secretaría', fecha: '2026-10-25', texto: 'Aguas Andinas realizará trabajos en la matriz. El sábado 31 de octubre no habrá agua entre 9:00 y 15:00. Les recomendamos guardar agua el viernes.', estado: 'pendiente' },
-      { id: 'pa2', tipo: 'Norma', titulo: 'Horario de uso del quincho', autor: 'Secretaría', fecha: '2026-10-24', texto: 'El quincho se podrá usar de domingo a jueves hasta las 23:00 y viernes y sábado hasta la 01:00. Cada reserva debe dejar el espacio limpio para la entrega en conserjería.', estado: 'pendiente' },
-      { id: 'pa0', tipo: 'Comunicado', titulo: 'Poda de árboles del pasaje', autor: 'Secretaría', fecha: '2026-10-09', texto: 'El martes 14 se podarán los árboles del pasaje entre 9:00 y 13:00. Por favor no estacionar bajo los árboles ese día.', estado: 'aprobada' },
-      { id: 'pn0', tipo: 'Norma', titulo: 'Tenencia responsable de mascotas', autor: 'Secretaría', fecha: '2026-08-02', texto: 'Las mascotas deben circular con correa por el pasaje y sus dueños deben recoger los desechos. Los reclamos se registran en el muro.', estado: 'aprobada' },
-    ],
-  };
+  });
 }
 
-function generico(c, { categorias, montos, pendientesCada, deuda = {} }) {
-  const pendientes = c.unidades.filter((_, i) => i % pendientesCada === 2).map((u) => u.id);
-  const cobros = montos.map(([concepto, idCategoria, monto], i) => ({
-    id: `cb${c.id}${i}`, idCategoria, concepto, montoPorUnidad: monto, periodo: PERIODO, emision: EMISION, vencimiento: VENCE, extraordinario: false,
-  }));
-  return {
-    periodoActual: PERIODO,
-    nombrePeriodo: 'Octubre 2026',
-    categorias,
-    cobros,
-    cobroUnidades: Object.fromEntries(cobros.map((cb) => [cb.id, cobroUnidades(c.unidades, pendientes)])),
-    deudaAnterior: deuda,
-    exenciones: [],
-    egresos: [],
-    umbralVisado: 300000,
-    fondoReserva: null,
-    notificaciones: [],
-    porAprobar: [],
-  };
+function losCopihues(c) {
+  const octubre = porUnidad(c.unidades, 3, 2);
+  const atrasadas = [2015, 2033, 2058];
+  const cuota = (m, debe) => ({ id_categoria: 21, concepto: `Cuota social ${nombreMes(m)}`, monto_por_unidad: 5000, mes: m, anio: 2026, debe });
+  return armar(2, c.unidades, {
+    // 105 Sonia Fuentealba (presidenta), 106 Jorge Silva (tesorero)
+    validador: 106,
+    categorias: [[21, 'Cuota social'], [22, 'Seguridad']],
+    cobros: [cuota(8, atrasadas.slice(0, 1)), cuota(9, atrasadas), cuota(10, octubre)],
+    exenciones: [[21, 203, 2042, 'Adulto mayor que vive sola', 106, '2026-10-21T10:00:00']],
+    egresos: [
+      { id_egreso: 201, id_categoria: 22, descripcion: 'Reparación del portón de acceso', proveedor: 'Herrería Don Raúl', monto: 380000, fecha: '2026-10-23', requiere_visado: 1, estado_visado: 'Pendiente' },
+    ],
+  });
+}
+
+function torreAndes(c) {
+  const octubre = porUnidad(c.unidades, 7, 2);
+  const mes = (m, debe) => [
+    { id_categoria: 31, concepto: `Gasto común ${nombreMes(m)}`, monto_por_unidad: 95000, mes: m, anio: 2026, debe },
+    { id_categoria: 32, concepto: `Fondo de reserva ${nombreMes(m)}`, monto_por_unidad: 10000, mes: m, anio: 2026, debe },
+  ];
+  // 3603 debe agosto y septiembre: $210.000
+  return armar(3, c.unidades, {
+    // 107 Patricia Olave (administradora)
+    validador: 107,
+    categorias: [[31, 'Gasto común'], [32, 'Fondo de reserva']],
+    cobros: [...mes(8, [3603]), ...mes(9, [3603]), ...mes(10, octubre)],
+  });
 }
 
 export function finanzasIniciales() {
-  return {
-    1: lasPalmas(comunidades.find((c) => c.id === 1)),
-    2: {
-      ...generico(comunidades.find((c) => c.id === 2), {
-        categorias: [{ id: 'v1', nombre: 'Cuota social', activa: true }, { id: 'v2', nombre: 'Seguridad', activa: true }],
-        montos: [['Cuota social octubre', 'v1', 5000]],
-        pendientesCada: 3,
-      }),
-      egresos: [
-        { id: 'veg1', descripcion: 'Reparación del portón de acceso', categoria: 'Seguridad', monto: 380000, fecha: '2026-10-23', solicitadoPor: 'Tesorería', requiereVisado: true, estadoVisado: 'pendiente', proveedor: 'Herrería Don Raúl' },
-      ],
-      exenciones: [
-        { id: 'vex1', idCobro: 'cb20', idUnidad: 'vB17', motivo: 'Adulto mayor que vive sola', solicitadaPor: 'Tesorería', fecha: '2026-10-21', estado: 'pendiente' },
-      ],
-      porAprobar: [
-        { id: 'vpa1', tipo: 'Comunicado', titulo: 'Corte de agua el sábado', autor: 'Secretaría', fecha: '2026-10-25', texto: 'El sábado 31 no habrá agua entre 9:00 y 15:00 por trabajos en la matriz.', estado: 'pendiente' },
-      ],
-    },
-    3: generico(comunidades.find((c) => c.id === 3), {
-      categorias: [{ id: 'e1', nombre: 'Gasto común', activa: true }, { id: 'e2', nombre: 'Fondo de reserva', activa: true }],
-      montos: [['Gasto común octubre', 'e1', 95000], ['Fondo de reserva octubre', 'e2', 10000]],
-      pendientesCada: 7,
-      deuda: { d603: 210000 },
-    }),
-  };
+  const red = (id) => comunidades.find((c) => c.id_red === id);
+  return { 1: lasPalmas(red(1)), 2: losCopihues(red(2)), 3: torreAndes(red(3)) };
 }
 
-// Acciones del administrador que audita el Presidente (bitacora_auditoria)
+// Filas de `bitacora`: quién hizo qué en cada comunidad. El cargo no se guarda: la API lo saca de
+// `membresias` (el Presidente audita las acciones de Administración).
+const bitacora = (id_bitacora, id_red, id_usuario, accion, detalle, fecha) => ({ id_bitacora, id_red, id_usuario, accion, detalle, fecha });
 export const bitacoraInicial = {
   1: [
-    { id: 'b1', fecha: '2026-10-25T18:42:00', usuario: 'Carlos Ibáñez', cargo: 'administrador', accion: 'Eliminó una publicación del muro', detalle: '«Vendo entradas» de Casa 9, por infringir la norma de comercio en el muro' },
-    { id: 'b2', fecha: '2026-10-24T11:05:00', usuario: 'Carlos Ibáñez', cargo: 'administrador', accion: 'Registró un egreso', detalle: 'Reparación motor del portón eléctrico · $420.000 · enviado a visado' },
-    { id: 'b3', fecha: '2026-10-22T16:20:00', usuario: 'Carlos Ibáñez', cargo: 'administrador', accion: 'Asignó un cargo', detalle: 'Marta Rivas como Tesorera desde el 22 de octubre' },
-    { id: 'b4', fecha: '2026-10-20T09:31:00', usuario: 'Carlos Ibáñez', cargo: 'administrador', accion: 'Desactivó un usuario', detalle: 'Ex arrendatario de Casa 6' },
-    { id: 'b5', fecha: '2026-10-18T10:12:00', usuario: 'Carlos Ibáñez', cargo: 'administrador', accion: 'Cambió los módulos', detalle: 'Activó Invitaciones QR' },
-    { id: 'b6', fecha: '2026-10-05T12:48:00', usuario: 'Carlos Ibáñez', cargo: 'administrador', accion: 'Marcó un pago', detalle: 'Casa 4 · Gasto común octubre' },
+    bitacora(101, 1, 101, 'Ocultó una publicación', '«Vendo entradas para el concierto del sábado.» de Casa 9', '2026-10-25T18:42:00'),
+    bitacora(102, 1, 101, 'Registró un egreso', 'Reparación motor del portón eléctrico · $420.000 · enviado a visado', '2026-10-24T11:05:00'),
+    bitacora(103, 1, 101, 'Asignó un cargo', 'Marta Rivas como Tesorera desde el 22 de octubre', '2026-10-22T16:20:00'),
+    bitacora(104, 1, 101, 'Desactivó un usuario', 'Ex arrendatario de Casa 6', '2026-10-20T09:31:00'),
+    bitacora(105, 1, 101, 'Cambió los módulos', 'Activó Invitaciones QR', '2026-10-18T10:12:00'),
+    bitacora(107, 1, 101, 'Creó un cobro', 'Mantención portón eléctrico · $28.000 por unidad · aviso a 15 unidades', '2026-10-12T09:14:00'),
+    bitacora(106, 1, 101, 'Marcó un pago', 'Casa 4 · Gasto común octubre', '2026-10-05T12:48:00'),
+    bitacora(108, 1, 101, 'Creó un cobro', 'Gasto común y fondo de reserva octubre · aviso a 15 unidades', '2026-10-01T08:00:00'),
   ],
   2: [],
   3: [],
 };
 
-// Una comunidad recién creada desde la plataforma parte sin cobros ni movimientos
-export const finanzasVacia = () => ({
-  periodoActual: PERIODO, nombrePeriodo: 'Octubre 2026',
-  categorias: [{ id: 'g1', nombre: 'Gasto común', activa: true }, { id: 'g2', nombre: 'Fondo de reserva', activa: true }],
-  cobros: [], cobroUnidades: {}, deudaAnterior: {}, exenciones: [], egresos: [],
-  umbralVisado: 300000, fondoReserva: null, notificaciones: [], porAprobar: [],
+// Una comunidad recién creada desde la plataforma parte con las dos categorías básicas y sin movimientos
+export const finanzasVacia = (id_red) => ({
+  categorias_cobro: [
+    { id_categoria: id_red * 100 + 1, id_red, nombre: 'Gasto común', activa: 1 },
+    { id_categoria: id_red * 100 + 2, id_red, nombre: 'Fondo de reserva', activa: 1 },
+  ],
+  cobros: [], gastos_comunes: [], pagos: [], exenciones: [], egresos: [], correos_enviados: [],
 });

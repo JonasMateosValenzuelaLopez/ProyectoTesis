@@ -12,28 +12,28 @@ import { Barras, resultado } from '@/components/ec/TarjetaVotacion';
 export default function Votar() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { votaciones, miVoto, unidad, acciones } = useApp();
-  const v = votaciones.find((x) => x.id === id);
+  const v = votaciones.find((x) => x.id_votacion === Number(id));
   const [eleccion, setEleccion] = useState<string | null>(null);
   if (!v || !unidad) return <Hoja titulo="Votación"><Texto>No encontramos esta votación.</Texto></Hoja>;
-  const voto = miVoto(v.id);
+  const voto = miVoto(v.id_votacion);
   const r = resultado(v);
 
-  if (voto || v.estado === 'cerrada') {
+  if (voto || v.estado === 'Cerrada') {
     return (
-      <Hoja titulo={v.tipo === 'votacion' ? 'Votación' : 'Encuesta'} abajo={<Boton texto="Listo" onPress={() => router.back()} />}>
+      <Hoja titulo={v.tipo} abajo={<Boton texto="Listo" onPress={() => router.back()} />}>
         <Texto v="titulo">{v.titulo}</Texto>
         <Barras v={v} marcada={voto} />
-        <Texto v="suave">{r.votos} de {v.totalUnidades} viviendas votaron ({r.participacion}%).{v.quorum ? ` Se necesita ${v.quorum}% para que el resultado valga.` : ''}</Texto>
+        <Texto v="suave">{r.votos} de {v.total_unidades} viviendas votaron ({r.participacion}%).{v.quorum ? ` Se necesita ${v.quorum}% para que el resultado valga.` : ''}</Texto>
       </Hoja>
     );
   }
 
   return (
-    <Hoja titulo={v.tipo === 'votacion' ? 'Votar' : 'Responder encuesta'} abajo={<Boton texto="Enviar mi voto" disabled={!eleccion} onPress={() => eleccion && acciones.votar(v.id, eleccion)} />}>
+    <Hoja titulo={v.tipo === 'Votación' ? 'Votar' : 'Responder encuesta'} abajo={<Boton texto="Enviar mi voto" disabled={!eleccion} onPress={() => eleccion && acciones.votar(v.id_votacion, Number(eleccion))} />}>
       <Texto v="titulo">{v.titulo}</Texto>
-      <Texto>{v.descripcion}</Texto>
-      <Texto v="suave">Cierra el {fechaLargaTexto(v.cierre)}. Votas por {nombreUnidad(unidad)}: un voto por vivienda, y no se puede cambiar después.</Texto>
-      <Opciones valor={eleccion} onCambio={setEleccion} opciones={v.opciones.map((o) => ({ valor: o.id, texto: o.texto }))} />
+      {v.descripcion && <Texto>{v.descripcion}</Texto>}
+      <Texto v="suave">Cierra el {fechaLargaTexto(v.fecha_cierre)}. Votas por {nombreUnidad(unidad)}: un voto por vivienda, y no se puede cambiar después.</Texto>
+      <Opciones valor={eleccion} onCambio={setEleccion} opciones={v.opciones.map((o) => ({ valor: String(o.id_opcion), texto: o.texto }))} />
     </Hoja>
   );
 }

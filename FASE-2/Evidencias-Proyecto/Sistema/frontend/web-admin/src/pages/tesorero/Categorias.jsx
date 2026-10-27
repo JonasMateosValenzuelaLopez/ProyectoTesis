@@ -10,8 +10,8 @@ export default function Categorias() {
   const { datos, acciones } = useFinanzas();
   const [nueva, setNueva] = useState('');
   const [editando, setEditando] = useState(null);
-  const usos = (id) => datos.cobros.filter((c) => c.idCategoria === id).length;
-  const repetida = (nombre, id) => datos.categorias.some((c) => c.id !== id && c.nombre.toLowerCase() === nombre.trim().toLowerCase());
+  const usos = (id) => datos.cobros.filter((c) => c.id_categoria === id).length;
+  const repetida = (nombre, id) => datos.categorias_cobro.some((c) => c.id_categoria !== id && c.nombre.toLowerCase() === nombre.trim().toLowerCase());
 
   const agregar = (e) => {
     e.preventDefault();
@@ -20,8 +20,8 @@ export default function Categorias() {
     setNueva('');
   };
   const guardarEdicion = () => {
-    if (editando.nombre.trim() && !repetida(editando.nombre, editando.id)) {
-      acciones.guardarCategoria({ id: editando.id, nombre: editando.nombre.trim() });
+    if (editando.nombre.trim() && !repetida(editando.nombre, editando.id_categoria)) {
+      acciones.guardarCategoria({ id_categoria: editando.id_categoria, nombre: editando.nombre.trim() });
     }
     setEditando(null);
   };
@@ -30,7 +30,7 @@ export default function Categorias() {
     <Box sx={{ maxWidth: 760 }}>
       <Encabezado
         contexto={comunidad.nombre}
-        titulo="Categorías de gasto"
+        titulo="Categorías de cobro"
         descripcion="Cada cobro pertenece a una categoría. Una categoría inactiva no aparece al crear cobros, pero sus cobros anteriores se mantienen."
       />
 
@@ -45,9 +45,9 @@ export default function Categorias() {
       </Paper>
 
       <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
-        {datos.categorias.map((c, i) => (
-          <Box key={c.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
-            {editando?.id === c.id ? (
+        {datos.categorias_cobro.map((c, i) => (
+          <Box key={c.id_categoria} sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
+            {editando?.id_categoria === c.id_categoria ? (
               <>
                 <TextField
                   size="small" autoFocus fullWidth value={editando.nombre}
@@ -61,14 +61,14 @@ export default function Categorias() {
               <>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 700, color: c.activa ? 'text.primary' : 'text.secondary' }}>{c.nombre}</Typography>
-                  <Typography variant="body2" color="text.secondary">{usos(c.id) === 1 ? '1 cobro' : `${usos(c.id)} cobros`}{!c.activa && ' · inactiva, no aparece al crear cobros'}</Typography>
+                  <Typography variant="body2" color="text.secondary">{usos(c.id_categoria) === 1 ? '1 cobro' : `${usos(c.id_categoria)} cobros`}{!c.activa && ' · inactiva, no aparece al crear cobros'}</Typography>
                 </Box>
                 <Tooltip title="Cambiar nombre">
-                  <IconButton aria-label={`Cambiar nombre de ${c.nombre}`} onClick={() => setEditando({ id: c.id, nombre: c.nombre })}><EditIcon /></IconButton>
+                  <IconButton aria-label={`Cambiar nombre de ${c.nombre}`} onClick={() => setEditando({ id_categoria: c.id_categoria, nombre: c.nombre })}><EditIcon /></IconButton>
                 </Tooltip>
                 <Switch
-                  checked={c.activa} inputProps={{ 'aria-label': `${c.nombre} activa` }}
-                  onChange={(e) => acciones.guardarCategoria({ id: c.id, nombre: c.nombre, activa: e.target.checked })}
+                  checked={Boolean(c.activa)} slotProps={{ input: { 'aria-label': `${c.nombre} activa` } }}
+                  onChange={(e) => acciones.guardarCategoria({ id_categoria: c.id_categoria, nombre: c.nombre, activa: e.target.checked ? 1 : 0 })}
                 />
               </>
             )}

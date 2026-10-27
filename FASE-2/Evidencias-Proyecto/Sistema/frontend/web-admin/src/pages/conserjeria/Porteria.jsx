@@ -9,6 +9,7 @@ import VisitasHoy from '../../components/conserjeria/VisitasHoy';
 import MonitorAccesos from '../../components/conserjeria/MonitorAccesos';
 import BusquedaRapida from '../../components/conserjeria/BusquedaRapida';
 import DialogoIngreso from '../../components/conserjeria/DialogoIngreso';
+import PorAutorizar from '../../components/conserjeria/PorAutorizar';
 
 const horaSeg = new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
 
@@ -29,7 +30,7 @@ function Reloj() {
 // y a la izquierda; el registro en vivo a la derecha.
 export default function Porteria() {
   const { comunidad } = useSesion();
-  const { esperadas, adentro } = useConserjeria();
+  const { esperadas, adentro, porAutorizar } = useConserjeria();
   const [ingreso, setIngreso] = useState(false);
 
   return (
@@ -38,13 +39,15 @@ export default function Porteria() {
         <Box>
           <Typography color="text.secondary" variant="body2">{comunidad.nombre} · {hoyTexto()}</Typography>
           <Typography variant="h4" component="h1">Garita</Typography>
-          <Typography color="text.secondary">{esperadas.length} visitas por llegar · {adentro.length} adentro</Typography>
+          <Typography color="text.secondary">{esperadas.length} visitas por llegar · {adentro.length} adentro{porAutorizar.length ? ` · ${porAutorizar.length} esperando autorización` : ''}</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           <Button variant="outlined" size="large" startIcon={<IngresoIcon />} onClick={() => setIngreso(true)}>Ingreso sin invitación</Button>
           <Reloj />
         </Box>
       </Box>
+
+      {porAutorizar.length > 0 && <Box sx={{ mb: 2.5 }}><PorAutorizar /></Box>}
 
       <Box sx={{ mb: 2.5 }}><BusquedaRapida /></Box>
 

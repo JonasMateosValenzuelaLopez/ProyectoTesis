@@ -10,14 +10,13 @@ import Encabezado from '../../components/ui/Encabezado';
 
 const MAXIMO = 40;
 const COLUMNAS = 'minmax(0, 1.1fr) minmax(0, 1fr) 40px';
-const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
 const FILTROS = {
   todas: (p) => p,
   cargo: (p) => p.comunidades.some((c) => c.cargos.length > 0),
   bloqueadas: (p) => p.bloqueado,
 };
 
-const papel = (c) => (c.cargos.length ? c.cargos.map((x) => roles[x].label).join(', ') : RELACION[c.relacion] ?? 'Residente');
+const papel = (c) => (c.cargos.length ? c.cargos.map((x) => roles[x].label).join(', ') : c.relacion ?? 'Residente');
 const soloDigitos = (s) => s.replace(/[^0-9kK]/g, '').toLowerCase();
 
 // Búsqueda de una persona en todas las comunidades, para atenderla cuando escribe a soporte.
@@ -75,9 +74,9 @@ export default function Personas() {
             </Box>
             <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' }, gridRow: { xs: 2, md: 'auto' }, minWidth: 0, display: 'grid', gap: 0.25 }}>
               {p.comunidades.map((c) => (
-                <Typography key={c.idRed} variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                <Typography key={c.id_red} variant="body2" sx={{ overflowWrap: 'anywhere' }}>
                   {c.red} <Box component="span" sx={{ color: 'text.secondary' }}>· {papel(c)}</Box>
-                  {c.estado === 'invitado' && <Box component="span" sx={{ color: 'warning.main', fontWeight: 700 }}> · invitación pendiente</Box>}
+                  {c.estado === 'Invitado' && <Box component="span" sx={{ color: 'warning.main', fontWeight: 700 }}> · invitación pendiente</Box>}
                 </Typography>
               ))}
               {p.comunidades.length === 0 && <Typography variant="body2" color="text.secondary">Sin comunidad</Typography>}

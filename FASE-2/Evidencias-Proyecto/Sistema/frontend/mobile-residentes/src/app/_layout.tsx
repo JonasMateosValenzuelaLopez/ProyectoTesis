@@ -42,7 +42,7 @@ export default function RootLayout() {
               <Stack.Screen name="login" />
               <Stack.Screen name="solicitar-acceso" />
               <Stack.Screen name="(tabs)" />
-              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos'].map((n) => (
+              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos', 'actas', 'acta/[id]'].map((n) => (
                 <Stack.Screen key={n} name={n} options={{ presentation: 'modal' }} />
               ))}
             </Stack>

@@ -3,9 +3,9 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/App';
 import { useTema } from '@/constants/tema';
-import { COMUNIDADES, UNIDADES } from '@/data/demo';
+import { UNIDADES, comunidadPorId, tipoUnidad } from '@/data/demo';
 import { roles } from '@/constants/tokens';
-import { nombreUnidad } from '@/utils/formato';
+import { nombreCompleto, nombreUnidad, telefono } from '@/utils/formato';
 import Pantalla from '@/components/ec/Pantalla';
 import Texto from '@/components/ec/Texto';
 import Tarjeta from '@/components/ec/Tarjeta';
@@ -15,23 +15,23 @@ import Chip from '@/components/ec/Chip';
 import PlacaUnidad from '@/components/ec/PlacaUnidad';
 import SelloCargo from '@/components/ec/SelloCargo';
 
-const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
 
 // Perfil: datos de la cuenta, viviendas (una persona puede vivir o tener más de una) y salida.
 export default function Perfil() {
   const t = useTema();
   const { cuenta, unidad, comunidad, cargo, relacion, tiene, acciones } = useApp();
   if (!cuenta || !unidad || !comunidad) return null;
+  const viviendas = cuenta.residencias.filter((r) => r.estado === 'Activa');
   const icono = (n: keyof typeof Ionicons.glyphMap) => <Ionicons name={n} size={22} color={t.accion} />;
 
   return (
     <Pantalla titulo="Perfil">
       <Tarjeta>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} />
+          <PlacaUnidad tipo={tipoUnidad(unidad)} numero={unidad.numero_identificador} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Texto v="subtitulo">{cuenta.nombre} {cuenta.apellido}</Texto>
-            <Texto v="suave">{relacion ? RELACION[relacion] : ''} · {comunidad.nombre}</Texto>
+            <Texto v="subtitulo">{nombreCompleto(cuenta)}</Texto>
+            <Texto v="suave">{relacion ?? ''} · {comunidad.nombre}</Texto>
           </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
@@ -41,19 +41,19 @@ export default function Perfil() {
         {cargo && <Texto v="chico">Como {roles[cargo].label.toLowerCase()} usas el panel web para tus tareas de cargo. En la app eres un vecino más.</Texto>}
       </Tarjeta>
 
-      {cuenta.residencias.length > 1 && (
+      {viviendas.length > 1 && (
         <Tarjeta style={{ gap: 0 }}>
           <Texto v="subtitulo" style={{ marginBottom: 6 }}>Mis viviendas</Texto>
-          {cuenta.residencias.map((r, n) => {
-            const u = UNIDADES[r.idUnidad];
-            const red = COMUNIDADES.find((c) => c.id === u.idRed)!;
-            const activa = r.idUnidad === unidad.id;
+          {viviendas.map((r, n) => {
+            const u = UNIDADES[r.id_unidad];
+            const red = comunidadPorId(u.id_red)!;
+            const activa = r.id_unidad === unidad.id_unidad;
             return (
               <Fila
-                key={r.idUnidad} borde={n > 0} izquierda={<PlacaUnidad tipo="" numero={u.numero} size="sm" />}
-                titulo={`${nombreUnidad(u)} · ${red.nombre}`} detalle={RELACION[r.relacion]}
+                key={r.id_unidad} borde={n > 0} izquierda={<PlacaUnidad tipo="" numero={u.numero_identificador} size="sm" />}
+                titulo={`${nombreUnidad(u)} · ${red.nombre}`} detalle={r.relacion}
                 derecha={activa ? <Chip texto="Viendo" tono="accion" /> : undefined}
-                onPress={activa ? undefined : () => { acciones.cambiarUnidad(r.idUnidad); router.navigate('/(tabs)'); }}
+                onPress={activa ? undefined : () => { acciones.cambiarUnidad(r.id_unidad); router.navigate('/(tabs)'); }}
               />
             );
           })}
@@ -63,12 +63,13 @@ export default function Perfil() {
       <Tarjeta style={{ gap: 0 }}>
         {tiene('invitaciones_qr') && <Fila borde={false} izquierda={icono('qr-code-outline')} titulo="Mis invitaciones" detalle="Códigos QR vigentes y anteriores" onPress={() => router.push('/invitaciones')} />}
         <Fila borde={tiene('invitaciones_qr')} izquierda={icono('call-outline')} titulo="Contactos de la comunidad" detalle="Administración, conserjería y emergencias" onPress={() => router.push('/contactos')} />
+        {tiene('votaciones') && <Fila izquierda={icono('book-outline')} titulo="Libro de actas" detalle="Reuniones y asambleas publicadas por Secretaría" onPress={() => router.push('/actas')} />}
       </Tarjeta>
 
       <Tarjeta style={{ gap: 0 }}>
         <Fila borde={false} titulo="RUT" detalle={cuenta.rut} />
         <Fila titulo="Correo" detalle={cuenta.correo} />
-        <Fila titulo="Teléfono" detalle={cuenta.telefono} />
+        <Fila titulo="Teléfono" detalle={telefono(cuenta.telefono) || 'Sin teléfono'} />
       </Tarjeta>
 
       <Boton tipo="peligro" texto="Cerrar sesión" icono="log-out-outline" onPress={() => { acciones.cerrarSesion(); router.replace('/login'); }} />

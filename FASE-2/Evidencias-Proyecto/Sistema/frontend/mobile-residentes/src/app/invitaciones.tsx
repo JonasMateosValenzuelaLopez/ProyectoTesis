@@ -12,13 +12,13 @@ import Chip from '@/components/ec/Chip';
 export default function Invitaciones() {
   const { misInvitaciones } = useApp();
   const ahora = new Date();
-  const vigentes = misInvitaciones.filter((i) => (i.estado === 'esperada' || i.estado === 'adentro') && new Date(i.hasta) > ahora).sort((a, b) => a.desde.localeCompare(b.desde));
-  const pasadas = misInvitaciones.filter((i) => !vigentes.includes(i)).sort((a, b) => b.desde.localeCompare(a.desde));
+  const vigentes = misInvitaciones.filter((i) => (i.estado === 'Esperada' || i.estado === 'Adentro') && new Date(i.fecha_hasta) > ahora).sort((a, b) => a.fecha_desde.localeCompare(b.fecha_desde));
+  const pasadas = misInvitaciones.filter((i) => !vigentes.includes(i)).sort((a, b) => b.fecha_desde.localeCompare(a.fecha_desde));
   const fila = (i: (typeof misInvitaciones)[number], n: number, vigente: boolean) => (
     <Fila
-      key={i.id} borde={n > 0} titulo={i.visitante} detalle={`${cuando(i.desde)}, ${horaMinuto(i.desde)} a ${horaMinuto(i.hasta)}`}
-      derecha={vigente ? <Chip texto={i.estado === 'adentro' ? 'Ingresó' : i.codigo} tono={i.estado === 'adentro' ? 'ok' : 'senal'} codigo={i.estado !== 'adentro'} /> : <Chip texto={i.estado === 'cancelada' ? 'Cancelada' : i.estado === 'salio' ? 'Salió' : 'Vencida'} />}
-      onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: i.id } })}
+      key={i.id_invitacion} borde={n > 0} titulo={i.visitante} detalle={`${cuando(i.fecha_desde)}, ${horaMinuto(i.fecha_desde)} a ${horaMinuto(i.fecha_hasta)}`}
+      derecha={vigente ? <Chip texto={i.estado === 'Adentro' ? 'Ingresó' : i.codigo} tono={i.estado === 'Adentro' ? 'ok' : 'senal'} codigo={i.estado !== 'Adentro'} /> : <Chip texto={i.estado === 'Cancelada' || i.estado === 'Salió' ? i.estado : 'Vencida'} />}
+      onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: String(i.id_invitacion) } })}
     />
   );
   return (

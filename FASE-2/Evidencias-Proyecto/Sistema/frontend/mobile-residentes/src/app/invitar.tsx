@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useApp } from '@/context/App';
 import { useTema } from '@/constants/tema';
-import { diaISO, type Invitacion } from '@/data/demo';
+import { diaISO, fechaHoraLocal, type Invitacion } from '@/data/demo';
 import { fechaLargaTexto, nombreDia, nombreUnidad } from '@/utils/formato';
 import { formatearRut, rutValido } from '@/utils/rut';
 import Hoja from '@/components/ec/Hoja';
@@ -23,10 +23,10 @@ const DURACIONES = [{ valor: '2', texto: '2 horas' }, { valor: '4', texto: '4 ho
 // Crear una invitación: genera un código QR que la conserjería (o el guardia) valida en la entrada.
 export default function Invitar() {
   const t = useTema();
-  const { unidad, comunidad, acciones } = useApp();
+  const { unidad, comunidad, tiene, acciones } = useApp();
   const ahora = new Date();
   const horaSugerida = `${String(Math.min(Math.max(ahora.getHours() + 1, 7), 22)).padStart(2, '0')}:00`;
-  const [f, setF] = useState({ visitante: '', rut: '', tipo: 'visita' as Invitacion['tipo'], dia: HOY, hora: horaSugerida, duracion: '4', patente: '' });
+  const [f, setF] = useState({ visitante: '', rut: '', tipo: 'Visita' as Invitacion['tipo'], dia: HOY, hora: horaSugerida, duracion: '4', patente: '' });
   const [intento, setIntento] = useState(false);
   const [otroDia, setOtroDia] = useState(false);
   if (!unidad || !comunidad) return null;
@@ -37,20 +37,21 @@ export default function Invitar() {
     if (!f.visitante.trim() || rutMal) return;
     const desde = new Date(`${f.dia}T${f.hora}:00`);
     const hasta = f.duracion === 'dia' ? new Date(`${f.dia}T23:59:00`) : new Date(desde.getTime() + Number(f.duracion) * 3600000);
+    const patente = f.patente.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
     const inv = acciones.crearInvitacion({
-      visitante: f.visitante.trim(), rut: f.rut.trim() ? formatearRut(f.rut) : '', tipo: f.tipo,
-      desde: desde.toISOString(), hasta: hasta.toISOString(), patente: f.patente.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''),
+      nombre: f.visitante.trim().replace(/\s+/g, ' '), rut: f.rut.trim() ? formatearRut(f.rut) : null, tipo: f.tipo,
+      fecha_desde: fechaHoraLocal(desde), fecha_hasta: fechaHoraLocal(hasta), patente: patente || null,
     });
-    router.replace({ pathname: '/invitacion/[id]', params: { id: inv.id, nueva: '1' } });
+    router.replace({ pathname: '/invitacion/[id]', params: { id: String(inv.id_invitacion), nueva: '1' } });
   };
 
   return (
     <Hoja titulo="Invitar visita" abajo={<Boton tipo="senal" icono="qr-code" texto="Crear invitación" onPress={crear} />}>
-      <Texto v="suave">Tu visita muestra el código QR en {comunidad.modulos.includes('conserjeria') ? 'conserjería' : 'la entrada'} y queda registrada a nombre de {nombreUnidad(unidad)}.</Texto>
+      <Texto v="suave">Tu visita muestra el código QR en {tiene('conserjeria') ? 'conserjería' : 'la entrada'} y queda registrada a nombre de {nombreUnidad(unidad)}.</Texto>
       <Campo etiqueta="Nombre de la visita" value={f.visitante} onChangeText={(v) => setF({ ...f, visitante: v })} autoComplete="name" placeholder="Daniela Pino" error={intento && !f.visitante.trim() && 'Escribe el nombre'} />
       <Campo etiqueta="RUT (opcional)" value={f.rut} onChangeText={(v) => setF({ ...f, rut: v })} onBlur={() => rutValido(f.rut) && setF({ ...f, rut: formatearRut(f.rut) })} autoCapitalize="characters" error={rutMal && 'RUT no válido'} ayuda="Agiliza la entrada si la conserjería lo pide" />
       <Opciones etiqueta="Es" valor={f.tipo} onCambio={(v) => setF({ ...f, tipo: v })}
-        opciones={[{ valor: 'visita', texto: 'Visita' }, { valor: 'proveedor', texto: 'Proveedor' }, { valor: 'servicio', texto: 'Servicio' }]} />
+        opciones={[{ valor: 'Visita', texto: 'Visita' }, { valor: 'Proveedor', texto: 'Proveedor' }, { valor: 'Servicio', texto: 'Servicio' }]} />
       <Opciones
         etiqueta="Día" valor={otroDia ? 'otro' : f.dia === HOY ? 'hoy' : 'manana'}
         onCambio={(v) => {

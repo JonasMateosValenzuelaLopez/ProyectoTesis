@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Box, Paper, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Box, Paper, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
 import { LoginOutlined as EntraIcon, LogoutOutlined as SaleIcon } from '@mui/icons-material';
 import { useConserjeria } from '../../context/ConserjeriaContext';
 import { nombreUnidad } from '../../utils/formato';
 
-const CATEGORIA = { residente: 'Residente', visita: 'Visita', delivery: 'Delivery', proveedor: 'Proveedor' };
 const horaSeg = new Intl.DateTimeFormat('es-CL', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
 
 const resaltar = keyframes`
@@ -26,10 +25,9 @@ function hace(iso, ahora) {
   return `hace ${Math.floor(m / 60)} h`;
 }
 
-// Registro de accesos en vivo: lo último arriba, lo nuevo se resalta un momento.
+// Ingresos y salidas de visitas (`registro_accesos`): lo último arriba, lo nuevo se resalta un momento.
 export default function MonitorAccesos() {
   const { accesos, enVivo, unidadPorId } = useConserjeria();
-  const [filtro, setFiltro] = useState('todos');
   const [ahora, setAhora] = useState(() => Date.now());
 
   useEffect(() => {
@@ -37,7 +35,8 @@ export default function MonitorAccesos() {
     return () => clearInterval(t);
   }, []);
 
-  const lista = accesos.filter((a) => filtro === 'todos' || (filtro === 'visitas' ? a.categoria !== 'residente' : a.categoria === 'residente')).slice(0, 40);
+  // Lo de las últimas 24 horas; el historial completo queda en `registro_accesos`
+  const lista = accesos.filter((a) => ahora - new Date(a.fecha) < 86400000).slice(0, 40);
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 1.5, display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 0, overflow: 'hidden' }}>
@@ -51,20 +50,15 @@ export default function MonitorAccesos() {
             </Box>
           )}
         </Box>
-        <ToggleButtonGroup size="small" exclusive value={filtro} onChange={(_, v) => v && setFiltro(v)}>
-          <ToggleButton value="todos">Todos</ToggleButton>
-          <ToggleButton value="visitas">Visitas</ToggleButton>
-          <ToggleButton value="residentes">Residentes</ToggleButton>
-        </ToggleButtonGroup>
       </Box>
       <Box sx={{ overflowY: 'auto', maxHeight: { lg: 640 } }} aria-live="polite">
-        {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2.5 }}>Sin movimientos registrados hoy.</Typography>}
+        {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2.5 }}>Sin ingresos ni salidas de visitas en las últimas 24 horas.</Typography>}
         {lista.map((a, i) => {
           const entra = a.sentido === 'ingreso';
           const nuevo = ahora - new Date(a.fecha) < 20000;
           return (
             <Box
-              key={a.id}
+              key={a.clave}
               sx={(t) => ({
                 '--resalte': t.palette.marca.signalSoft,
                 display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', px: 2.5, py: 1.25,
@@ -79,7 +73,7 @@ export default function MonitorAccesos() {
               <Box sx={{ minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 700 }} noWrap>{a.persona}</Typography>
                 <Typography variant="body2" color="text.secondary" noWrap>
-                  {CATEGORIA[a.categoria]} · {nombreUnidad(unidadPorId[a.idUnidad])} · {a.metodo}{a.patente ? ` · ${a.patente}` : ''}
+                  {a.categoria} · {nombreUnidad(unidadPorId[a.id_unidad])} · {a.metodo}{a.patente ? ` · ${a.patente}` : ''}
                 </Typography>
               </Box>
               <Box sx={{ textAlign: 'right' }}>

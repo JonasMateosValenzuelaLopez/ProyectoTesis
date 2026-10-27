@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Box, Button, Chip, Typography } from '@mui/material';
 import { useSesion } from '../../context/SesionContext';
-import { useFinanzas } from '../../context/FinanzasContext';
+import { useMuro } from '../../context/MuroContext';
 import { useDirectiva } from '../../context/DirectivaContext';
 import { resultado } from '../../utils/votaciones';
 import { diasHasta, fecha, hoyTexto, saludo } from '../../utils/formato';
@@ -9,11 +9,12 @@ import Encabezado from '../../components/ui/Encabezado';
 import FranjaKpi from '../../components/ui/FranjaKpi';
 import Tarjeta from '../../components/ui/Tarjeta';
 import TarjetaVotacion from '../../components/directiva/TarjetaVotacion';
+import { tieneModulo } from '../../config/modulos';
 
 const ESTADO_PUBLICACION = {
-  pendiente: { texto: 'En revisión', color: 'warning' },
-  aprobada: { texto: 'Publicado', color: 'success' },
-  rechazada: { texto: 'Devuelto', color: 'error' },
+  Pendiente: { texto: 'En revisión', color: 'warning' },
+  Aprobada: { texto: 'Publicado', color: 'success' },
+  Rechazada: { texto: 'Devuelto', color: 'error' },
 };
 
 // Inicio de la Secretaría: votaciones en curso, actas por publicar, acuerdos que vencen
@@ -21,11 +22,13 @@ const ESTADO_PUBLICACION = {
 export default function InicioSecretario() {
   const navigate = useNavigate();
   const { usuario, comunidad } = useSesion();
-  const { datos } = useFinanzas();
+  const { oficiales } = useMuro();
   const { actas, votacionesAbiertas, actasBorrador, totalUnidades, acciones } = useDirectiva();
-  const conVotaciones = comunidad.modulos.includes('votaciones');
-  const comunicados = comunidad.modulos.includes('muro') ? datos.porAprobar.slice(0, 4) : [];
-  const enRevision = datos.porAprobar.filter((x) => x.estado === 'pendiente').length;
+  const conVotaciones = tieneModulo(comunidad, 'votaciones');
+  // Comunicados y normas que redactó esta persona, los más recientes primero
+  const enviados = oficiales.filter((x) => x.id_usuario === usuario.id_usuario);
+  const comunicados = tieneModulo(comunidad, 'muro') ? enviados.slice(0, 4) : [];
+  const enRevision = enviados.filter((x) => x.estado_aprobacion === 'Pendiente').length;
 
   const participacion = votacionesAbiertas.length
     ? votacionesAbiertas.reduce((s, v) => s + resultado(v, totalUnidades).participacion, 0) / votacionesAbiertas.length
@@ -44,7 +47,7 @@ export default function InicioSecretario() {
       { etiqueta: 'Actas en borrador', valor: actasBorrador.length, color: actasBorrador.length ? 'warning.main' : undefined, nota: actasBorrador.length ? 'falta publicarlas' : 'todo publicado' },
     );
   }
-  if (comunicados.length) kpis.push({ etiqueta: 'Comunicados en revisión', valor: enRevision, nota: 'esperan al Presidente' });
+  if (comunicados.length) kpis.push({ etiqueta: 'Comunicados en revisión', valor: enRevision, nota: 'esperan a la Presidencia' });
 
   return (
     <Box sx={{ maxWidth: 1400 }}>
@@ -67,7 +70,7 @@ export default function InicioSecretario() {
               <Tarjeta><Typography color="text.secondary">No hay votaciones abiertas.</Typography></Tarjeta>
             )}
             {votacionesAbiertas.slice(0, 2).map((v) => (
-              <TarjetaVotacion key={v.id} votacion={v} totalUnidades={totalUnidades} onRecordar={acciones.recordarVotacion} compacta />
+              <TarjetaVotacion key={v.id_votacion} votacion={v} totalUnidades={totalUnidades} onRecordar={acciones.recordarVotacion} compacta />
             ))}
           </Box>
         )}
@@ -95,12 +98,12 @@ export default function InicioSecretario() {
           {comunicados.length > 0 && (
             <Tarjeta titulo="Comunicados y normas enviados">
               {comunicados.map((x, i) => (
-                <Box key={x.id} sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 2, alignItems: 'center', py: 1, borderTop: i ? 1 : 0, borderColor: 'divider', mt: i ? 0 : -1 }}>
+                <Box key={x.id_publicacion} sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 2, alignItems: 'center', py: 1, borderTop: i ? 1 : 0, borderColor: 'divider', mt: i ? 0 : -1 }}>
                   <Box sx={{ minWidth: 0 }}>
                     <Typography sx={{ fontWeight: 700 }}>{x.titulo}</Typography>
-                    <Typography variant="body2" color="text.secondary">{x.tipo} · enviado el {fecha(x.fecha)}</Typography>
+                    <Typography variant="body2" color="text.secondary">{x.tipo} · enviado el {fecha(x.fecha_creacion)}</Typography>
                   </Box>
-                  <Chip size="small" variant="outlined" color={ESTADO_PUBLICACION[x.estado].color} label={ESTADO_PUBLICACION[x.estado].texto} />
+                  <Chip size="small" variant="outlined" color={ESTADO_PUBLICACION[x.estado_aprobacion].color} label={ESTADO_PUBLICACION[x.estado_aprobacion].texto} />
                 </Box>
               ))}
             </Tarjeta>

@@ -5,9 +5,11 @@ import { useSesion } from '../context/SesionContext';
 import { menuPara, puedeVer, TODAS_LAS_RUTAS } from '../config/navegacion';
 import { useFinanzas } from '../context/FinanzasContext';
 import { useAdmin } from '../context/AdminContext';
+import { useMuro } from '../context/MuroContext';
 import { useConserjeria } from '../context/ConserjeriaContext';
 import MarcoPanel from './MarcoPanel';
 import SelectorContexto from './SelectorContexto';
+import { nombreCorto } from '../utils/formato';
 
 export default function DashboardLayout() {
   const navigate = useNavigate();
@@ -16,13 +18,14 @@ export default function DashboardLayout() {
 
   const secciones = menuPara(cargo, comunidad);
   const { morosos, resumen } = useFinanzas();
-  const { solicitudesPendientes, reportadas } = useAdmin();
+  const { solicitudesPendientes } = useAdmin();
+  const { reportadas, publicacionesPorAprobar } = useMuro();
   const { esperadas } = useConserjeria();
   const contadores = {
     porteria: esperadas.length,
     morosidad: morosos.length,
     exenciones: resumen.exencionesPendientes,
-    aprobaciones: resumen.porAprobar,
+    aprobaciones: resumen.porAprobar + publicacionesPorAprobar.length,
     solicitudes: solicitudesPendientes.length,
     reportes: reportadas.length,
   };
@@ -48,7 +51,7 @@ export default function DashboardLayout() {
           <SelectorContexto />
           <Box sx={{ flexGrow: 1 }} />
           <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', md: 'block' } }}>
-            {usuario.nombre} {usuario.apellido}
+            {nombreCorto(usuario)}
           </Typography>
           <Tooltip title="Cerrar sesión">
             <IconButton aria-label="Cerrar sesión" onClick={handleLogout} sx={{ color: 'text.secondary' }}>

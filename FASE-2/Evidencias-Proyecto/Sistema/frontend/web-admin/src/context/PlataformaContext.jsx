@@ -4,6 +4,9 @@ import { useSesion } from './SesionContext';
 import { adminInicial, adminVacio } from '../data/adminMock';
 import { MODULOS } from '../config/modulos';
 import { roles } from '../tokens';
+import { cargosDe, esPlataforma, residenciasActivas } from '../config/roles';
+import { conModulo } from '../config/modulos';
+import { nombreCompleto } from '../utils/formato';
 
 // Lo que ve y hace el equipo EntreCasas sobre todas las comunidades: crearlas,
 // suspenderlas, cambiar módulos y atender a las personas. Cada acción queda en la
@@ -11,7 +14,6 @@ import { roles } from '../tokens';
 const PlataformaContext = createContext(null);
 
 const PRIORIDAD = ['administrador', 'presidente'];
-const nombreCompleto = (c) => `${c.nombre} ${c.apellido}`;
 
 export function PlataformaProvider({ children }) {
   const sesion = useSesion();
@@ -21,14 +23,14 @@ export function PlataformaProvider({ children }) {
   const [semilla] = useState(adminInicial);
 
   const valor = useMemo(() => {
-    const usuariosDe = (red) => (semilla[red.id] ?? adminVacio(red)).usuarios;
-    const redPorId = Object.fromEntries(redes.map((r) => [r.id, r]));
+    const usuariosDe = (red) => (semilla[red.id_red] ?? adminVacio(red)).usuarios;
+    const redPorId = Object.fromEntries(redes.map((r) => [r.id_red, r]));
 
     // Responsable visible de cada comunidad: el administrador o, si no hay, el presidente
     const responsableDe = (red) => {
       for (const cargo of PRIORIDAD) {
-        const u = usuariosDe(red).find((x) => x.estado !== 'desactivado' && x.cargos.some((c) => c.cargo === cargo));
-        if (u) return { nombre: u.nombre, rut: u.rut, correo: u.correo, cargo };
+        const u = usuariosDe(red).find((x) => x.estado !== 'Desactivado' && cargosDe(x, red.id_red).includes(cargo));
+        if (u) return { nombre: nombreCompleto(u), rut: u.rut, correo: u.correo, cargo };
       }
       return null;
     };
@@ -40,53 +42,53 @@ export function PlataformaProvider({ children }) {
       return porRut.get(rut);
     };
     redes.forEach((red) => usuariosDe(red).forEach((u) => {
-      const p = agregar(u.rut, { nombre: u.nombre, correo: u.correo });
+      const p = agregar(u.rut, { nombre: nombreCompleto(u), correo: u.correo });
       p.comunidades.push({
-        idRed: red.id, red: red.nombre, estado: u.estado,
-        cargos: u.cargos.map((c) => c.cargo), relacion: u.residencias[0]?.relacion ?? null,
+        id_red: red.id_red, red: red.nombre, estado: u.estado,
+        cargos: cargosDe(u, red.id_red), relacion: residenciasActivas(u)[0]?.relacion ?? null,
       });
     }));
     cuentas.forEach((c) => {
       const p = agregar(c.rut, { nombre: nombreCompleto(c), correo: c.correo });
       p.conClave = true;
-      if (c.plataforma) p.plataforma = true;
+      if (esPlataforma(c)) p.plataforma = true;
     });
     const personas = [...porRut.values()]
       .map((p) => ({ ...p, bloqueado: bloqueados.includes(p.rut) }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
 
-    const hecho = (accion, detalle, idRed, mensaje) => {
-      anotarPlataforma(accion, detalle, idRed);
+    const hecho = (accion, detalle, id_red, mensaje) => {
+      anotarPlataforma(accion, detalle, id_red);
       if (mensaje) setAviso(mensaje);
     };
 
     const acciones = {
       crear: (red, responsable) => {
         const id = crearComunidad(red, responsable);
-        hecho('Creó una comunidad', `${red.nombre} · ${red.unidades.length} unidades · ${roles[responsable.cargo].label.toLowerCase()} ${responsable.nombre} ${responsable.apellido}`, id,
+        hecho('Creó una comunidad', `${red.nombre} · ${red.unidades.length} unidades · ${roles[responsable.cargo].label.toLowerCase()} ${nombreCompleto(responsable)}`, id,
           `${red.nombre} quedó creada. Enviamos el acceso a ${responsable.correo}.`);
         return id;
       },
-      abrirFicha: (red) => anotarPlataforma('Abrió la ficha en modo soporte', red.nombre, red.id),
+      abrirFicha: (red) => anotarPlataforma('Abrió la ficha en modo soporte', red.nombre, red.id_red),
       cambiarModulo: (red, modulo, activo) => {
-        actualizarRed(red.id, (c) => ({ modulos: activo ? [...c.modulos, modulo] : c.modulos.filter((m) => m !== modulo) }));
-        hecho(activo ? 'Activó un módulo' : 'Desactivó un módulo', MODULOS[modulo], red.id, `${MODULOS[modulo]}: ${activo ? 'activado' : 'desactivado'} en ${red.nombre}.`);
+        actualizarRed(red.id_red, (c) => ({ red_modulos: conModulo(c, modulo, activo) }));
+        hecho(activo ? 'Activó un módulo' : 'Desactivó un módulo', MODULOS[modulo], red.id_red, `${MODULOS[modulo]}: ${activo ? 'activado' : 'desactivado'} en ${red.nombre}.`);
       },
       cambiarTipo: (red, tipo) => {
-        actualizarRed(red.id, { tipo });
-        hecho('Cambió el tipo de comunidad', `${red.tipo} a ${tipo}`, red.id, `${red.nombre} ahora es ${tipo.toLowerCase()}.`);
+        actualizarRed(red.id_red, { tipo });
+        hecho('Cambió el tipo de comunidad', `${red.tipo} a ${tipo}`, red.id_red, `${red.nombre} ahora es ${tipo.toLowerCase()}.`);
       },
       suspender: (red, motivo) => {
-        actualizarRed(red.id, { estado: 'suspendida', motivoSuspension: motivo });
-        hecho('Suspendió una comunidad', motivo, red.id, `${red.nombre} quedó suspendida. Nadie de la comunidad puede entrar.`);
+        actualizarRed(red.id_red, { estado: 'Suspendida', motivo_suspension: motivo });
+        hecho('Suspendió una comunidad', motivo, red.id_red, `${red.nombre} quedó suspendida. Nadie de la comunidad puede entrar.`);
       },
       reactivar: (red) => {
-        actualizarRed(red.id, { estado: 'activa', motivoSuspension: null });
-        hecho('Reactivó una comunidad', red.nombre, red.id, `${red.nombre} está activa otra vez.`);
+        actualizarRed(red.id_red, { estado: 'Activa', motivo_suspension: null });
+        hecho('Reactivó una comunidad', red.nombre, red.id_red, `${red.nombre} está activa otra vez.`);
       },
       reenviarAcceso: (persona) => {
-        const idRed = persona.comunidades[0]?.idRed ?? null;
-        hecho('Reenvió el acceso', `${persona.nombre}${idRed ? ` · ${redPorId[idRed].nombre}` : ''}`, idRed, `Enviamos un enlace de acceso a ${persona.correo}.`);
+        const id_red = persona.comunidades[0]?.id_red ?? null;
+        hecho('Reenvió el acceso', `${persona.nombre}${id_red ? ` · ${redPorId[id_red].nombre}` : ''}`, id_red, `Enviamos un enlace de acceso a ${persona.correo}.`);
       },
       bloquear: (persona, bloqueado) => {
         bloquear(persona.rut, bloqueado);
