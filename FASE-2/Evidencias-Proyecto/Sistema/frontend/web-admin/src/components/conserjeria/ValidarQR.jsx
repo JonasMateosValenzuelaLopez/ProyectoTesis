@@ -55,7 +55,7 @@ export default function ValidarQR() {
   const ejemplos = invitaciones.filter((i) => i.estado !== 'adentro').slice(0, 4);
 
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden', borderColor: 'marca.signal', borderWidth: 2 }}>
+    <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden', borderColor: 'marca.signal', borderWidth: 2 }}>
       <Box sx={{ bgcolor: 'marca.signal', color: 'marca.signalInk', px: 2.5, py: 1.25, display: 'flex', gap: 1, alignItems: 'center' }}>
         <QrIcon />
         <Typography sx={{ fontWeight: 800, fontFamily: 'Archivo, sans-serif' }}>Validar invitación</Typography>
@@ -80,7 +80,7 @@ export default function ValidarQR() {
         )}
 
         {r && (
-          <Box role="status" sx={{ borderRadius: 2.5, border: 2, borderColor: `${r.color}.main`, p: 2, display: 'grid', gap: 1.5 }}>
+          <Box role="status" sx={{ borderRadius: 1.5, border: 2, borderColor: `${r.color}.main`, p: 2, display: 'grid', gap: 1.5 }}>
             <Typography sx={{ fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800, fontSize: '1.5rem', color: `${r.color}.main` }}>{r.titulo}</Typography>
             {inv && (
               <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>

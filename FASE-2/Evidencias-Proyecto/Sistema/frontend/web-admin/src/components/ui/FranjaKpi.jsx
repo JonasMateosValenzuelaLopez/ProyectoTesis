@@ -6,7 +6,7 @@ export default function FranjaKpi({ items }) {
     <Paper
       variant="outlined"
       sx={{
-        display: 'grid', borderRadius: 2.5, mb: 3, overflow: 'hidden',
+        display: 'grid', borderRadius: 1.5, mb: 3, overflow: 'hidden',
         gridTemplateColumns: { xs: '1fr 1fr', md: `repeat(${items.length}, 1fr)` },
       }}
     >
@@ -17,7 +17,7 @@ export default function FranjaKpi({ items }) {
             {k.valor}
           </Typography>
           {k.progreso != null && (
-            <LinearProgress variant="determinate" value={k.progreso} color="success" sx={{ mt: 0.75, height: 5, borderRadius: 3, bgcolor: 'divider' }} />
+            <LinearProgress variant="determinate" value={k.progreso} color="success" sx={{ mt: 0.75, height: 5, borderRadius: 1.5, bgcolor: 'divider' }} />
           )}
           {k.nota && <Typography variant="caption" color="text.secondary">{k.nota}</Typography>}
         </Box>

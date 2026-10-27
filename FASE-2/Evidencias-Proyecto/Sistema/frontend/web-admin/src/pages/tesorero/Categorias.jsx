@@ -34,17 +34,17 @@ export default function Categorias() {
         descripcion="Cada cobro pertenece a una categoría. Una categoría inactiva no aparece al crear cobros, pero sus cobros anteriores se mantienen."
       />
 
-      <Paper variant="outlined" component="form" onSubmit={agregar} sx={{ p: 2, borderRadius: 3, display: 'flex', gap: 1.5, mb: 2, alignItems: 'flex-start' }}>
+      <Paper variant="outlined" component="form" onSubmit={agregar} sx={{ p: 2, borderRadius: 1.5, display: 'flex', gap: 1.5, mb: 2, alignItems: 'flex-start' }}>
         <TextField
           size="small" fullWidth label="Nueva categoría" value={nueva} onChange={(e) => setNueva(e.target.value)}
-          error={Boolean(nueva) && repetida(nueva)} helperText={nueva && repetida(nueva) ? 'Ya existe una categoría con ese nombre.' : ' '}
+          error={Boolean(nueva) && repetida(nueva)} helperText={nueva && repetida(nueva) ? 'Ya existe una categoría con ese nombre.' : undefined}
         />
-        <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={!nueva.trim() || repetida(nueva)} sx={{ flexShrink: 0, mt: 0.25 }}>
+        <Button type="submit" variant="contained" startIcon={<AddIcon />} disabled={!nueva.trim() || repetida(nueva)} sx={{ flexShrink: 0, height: 40 }}>
           Agregar
         </Button>
       </Paper>
 
-      <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
         {datos.categorias.map((c, i) => (
           <Box key={c.id} sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
             {editando?.id === c.id ? (
@@ -61,7 +61,7 @@ export default function Categorias() {
               <>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 700, color: c.activa ? 'text.primary' : 'text.secondary' }}>{c.nombre}</Typography>
-                  <Typography variant="body2" color="text.secondary">{usos(c.id) === 1 ? '1 cobro' : `${usos(c.id)} cobros`}</Typography>
+                  <Typography variant="body2" color="text.secondary">{usos(c.id) === 1 ? '1 cobro' : `${usos(c.id)} cobros`}{!c.activa && ' · inactiva, no aparece al crear cobros'}</Typography>
                 </Box>
                 <Tooltip title="Cambiar nombre">
                   <IconButton aria-label={`Cambiar nombre de ${c.nombre}`} onClick={() => setEditando({ id: c.id, nombre: c.nombre })}><EditIcon /></IconButton>

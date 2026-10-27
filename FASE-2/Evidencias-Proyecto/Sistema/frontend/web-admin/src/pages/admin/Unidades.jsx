@@ -100,12 +100,12 @@ export default function Unidades() {
         </ToggleButtonGroup>
       </Box>
 
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
-        <Table size="small" sx={{ minWidth: 640 }}>
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
+        <Table size="small" sx={{ minWidth: { xs: 0, sm: 640 } }}>
           <TableHead>
             <TableRow>
               <TableCell>Unidad</TableCell>
-              <TableCell>Ubicación</TableCell>
+              <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Ubicación</TableCell>
               <TableCell>Residentes</TableCell>
             </TableRow>
           </TableHead>
@@ -114,7 +114,7 @@ export default function Unidades() {
             {lista.map((u) => (
               <TableRow key={u.id} hover tabIndex={0} onClick={() => setUnidad(unidadPorId[u.id])} onKeyDown={(e) => e.key === 'Enter' && setUnidad(u)} sx={{ cursor: 'pointer' }}>
                 <TableCell sx={{ py: 1 }}><PlacaUnidad tipo={u.tipo} numero={u.numero} size="sm" /></TableCell>
-                <TableCell>{ubicacion(u)}</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{ubicacion(u)}</TableCell>
                 <TableCell>
                   {(ocupantes[u.id] ?? []).length === 0
                     ? <Typography variant="body2" color="text.secondary">Sin residentes</Typography>

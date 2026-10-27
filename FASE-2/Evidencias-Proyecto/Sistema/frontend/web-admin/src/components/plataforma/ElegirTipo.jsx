@@ -17,7 +17,7 @@ export default function ElegirTipo({ valor, onChange }) {
           <ButtonBase
             key={t.tipo} role="radio" aria-checked={elegido} onClick={() => onChange(t.tipo)}
             sx={{
-              display: 'grid', gap: 0.75, justifyItems: 'start', textAlign: 'left', p: 2, borderRadius: 3,
+              display: 'grid', gap: 0.75, justifyItems: 'start', textAlign: 'left', p: 2, borderRadius: 1.5,
               border: '1px solid', borderColor: elegido ? 'primary.main' : 'divider', bgcolor: 'background.paper',
               boxShadow: (t) => (elegido ? `inset 0 0 0 1px ${t.palette.primary.main}` : 'none'),
               transition: 'border-color 150ms ease, box-shadow 150ms ease',

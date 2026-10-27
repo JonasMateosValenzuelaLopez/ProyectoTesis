@@ -22,7 +22,7 @@ export default function Perfil() {
   const t = useTema();
   const { cuenta, unidad, comunidad, cargo, relacion, tiene, acciones } = useApp();
   if (!cuenta || !unidad || !comunidad) return null;
-  const icono = (n: keyof typeof Ionicons.glyphMap) => <Ionicons name={n} size={22} color={t.cobalt} />;
+  const icono = (n: keyof typeof Ionicons.glyphMap) => <Ionicons name={n} size={22} color={t.accion} />;
 
   return (
     <Pantalla titulo="Perfil">
@@ -52,7 +52,7 @@ export default function Perfil() {
               <Fila
                 key={r.idUnidad} borde={n > 0} izquierda={<PlacaUnidad tipo="" numero={u.numero} size="sm" />}
                 titulo={`${nombreUnidad(u)} · ${red.nombre}`} detalle={RELACION[r.relacion]}
-                derecha={activa ? <Chip texto="Viendo" tono="cobalto" /> : undefined}
+                derecha={activa ? <Chip texto="Viendo" tono="accion" /> : undefined}
                 onPress={activa ? undefined : () => { acciones.cambiarUnidad(r.idUnidad); router.navigate('/(tabs)'); }}
               />
             );
@@ -61,9 +61,8 @@ export default function Perfil() {
       )}
 
       <Tarjeta style={{ gap: 0 }}>
-        {tiene('cobros') && <Fila borde={false} izquierda={icono('receipt-outline')} titulo="Mis pagos" detalle="Gastos comunes y quién marcó cada pago" onPress={() => router.push('/pagos')} />}
-        {tiene('invitaciones_qr') && <Fila izquierda={icono('qr-code-outline')} titulo="Mis invitaciones" detalle="Códigos QR vigentes y anteriores" onPress={() => router.push('/invitaciones')} />}
-        <Fila borde={tiene('cobros') || tiene('invitaciones_qr')} izquierda={icono('call-outline')} titulo="Contactos de la comunidad" detalle="Administración, conserjería y emergencias" onPress={() => router.push('/contactos')} />
+        {tiene('invitaciones_qr') && <Fila borde={false} izquierda={icono('qr-code-outline')} titulo="Mis invitaciones" detalle="Códigos QR vigentes y anteriores" onPress={() => router.push('/invitaciones')} />}
+        <Fila borde={tiene('invitaciones_qr')} izquierda={icono('call-outline')} titulo="Contactos de la comunidad" detalle="Administración, conserjería y emergencias" onPress={() => router.push('/contactos')} />
       </Tarjeta>
 
       <Tarjeta style={{ gap: 0 }}>

@@ -19,7 +19,7 @@ export default function Contactos() {
   const { comunidad } = useApp();
   if (!comunidad) return null;
   const llamar = (tel: string) => Linking.openURL(`tel:${tel.replace(/\s/g, '')}`);
-  const icono = <Ionicons name="call" size={20} color={t.cobalt} />;
+  const icono = <Ionicons name="call" size={20} color={t.accion} />;
   return (
     <Hoja titulo="Contactos">
       <Tarjeta style={{ gap: 0 }}>

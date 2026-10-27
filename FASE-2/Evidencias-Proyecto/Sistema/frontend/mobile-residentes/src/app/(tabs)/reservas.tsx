@@ -21,7 +21,7 @@ export default function Reservas() {
   return (
     <Pantalla contexto={comunidad.nombre} titulo="Reservas">
       {proximas.length > 0 && (
-        <Tarjeta acento={t.cobalt}>
+        <Tarjeta>
           <Texto v="subtitulo">Tus próximas reservas</Texto>
           {proximas.map((r) => (
             <View key={r.id} style={{ gap: 8, paddingTop: 8, borderTopWidth: 1, borderColor: t.line }}>

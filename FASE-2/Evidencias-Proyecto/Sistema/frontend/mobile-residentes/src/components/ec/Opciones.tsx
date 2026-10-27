@@ -14,12 +14,12 @@ export default function Opciones<T extends string>({ opciones, valor, onCambio, 
         onPress={() => onCambio(o.valor)}
         style={{
           minHeight: 48, minWidth: 64, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, justifyContent: 'center', alignItems: 'center',
-          borderWidth: activo ? 2 : 1.5, borderColor: activo ? t.cobalt : t.line, backgroundColor: activo ? t.cobaltSoft : t.surface,
+          borderWidth: activo ? 2 : 1.5, borderColor: activo ? t.accion : t.lineStrong, backgroundColor: activo ? t.accionSoft : t.surface,
           opacity: o.deshabilitada ? 0.4 : 1,
         }}
       >
-        <Texto style={{ fontFamily: F.negrita, fontSize: 15, color: activo ? t.cobalt : t.ink, textDecorationLine: o.deshabilitada ? 'line-through' : 'none' }}>{o.texto}</Texto>
-        {!!o.detalle && <Texto v="chico" style={{ color: activo ? t.cobalt : t.ink2 }}>{o.detalle}</Texto>}
+        <Texto style={{ fontFamily: F.negrita, fontSize: 15, color: activo ? t.accion : t.ink, textDecorationLine: o.deshabilitada ? 'line-through' : 'none' }}>{o.texto}</Texto>
+        {!!o.detalle && <Texto v="chico" style={{ color: activo ? t.accion : t.ink2 }}>{o.detalle}</Texto>}
       </Pressable>
     );
   });
@@ -27,7 +27,8 @@ export default function Opciones<T extends string>({ opciones, valor, onCambio, 
     <View style={{ gap: 8 }}>
       {!!etiqueta && <Texto v="fuerte" style={{ fontSize: 15 }}>{etiqueta}</Texto>}
       {scroll
-        ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }} accessibilityRole="radiogroup">{fichas}</ScrollView>
+        // La fila sale hasta el borde de la pantalla, así la ficha cortada se lee como «hay más» y no como un error
+        ? <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -16 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 16 }} accessibilityRole="radiogroup">{fichas}</ScrollView>
         : <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{fichas}</View>}
     </View>
   );

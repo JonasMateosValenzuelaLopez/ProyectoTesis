@@ -27,7 +27,7 @@ export default function SelectorContexto() {
         aria-expanded={Boolean(ancla)}
         sx={{
           display: 'flex', alignItems: 'center', gap: 1.25, textAlign: 'left',
-          border: 1, borderColor: 'divider', borderRadius: 2, px: 1.5, py: 0.75,
+          border: 1, borderColor: 'divider', borderRadius: 1, px: 1.5, py: 0.75,
           transition: 'border-color 150ms ease',
           '&:hover': { borderColor: 'text.secondary' },
           '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },

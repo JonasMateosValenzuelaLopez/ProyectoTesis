@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Button, Chip, Typography } from '@mui/material';
+import { Box, Button, ButtonBase, Chip, Typography } from '@mui/material';
+import { ChevronRight as IrIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
 import { useFinanzas } from '../../context/FinanzasContext';
 import { clp, fecha, fechaHora, saludo, hoyTexto } from '../../utils/formato';
@@ -57,14 +58,26 @@ export default function InicioPresidente() {
             ) : (
               <Box sx={{ display: 'grid' }}>
                 {pendientes.slice(0, 5).map((p, i) => (
-                  <Box key={p.id} sx={{ py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider', display: 'grid', gap: 0.5 }}>
-                    <Chip size="small" label={p.tipo} sx={{ justifySelf: 'start', bgcolor: 'info.light', color: 'info.main' }} />
-                    <Typography sx={{ fontWeight: 700 }}>{p.titulo}</Typography>
-                    <Typography variant="body2" color="text.secondary">{p.detalle}</Typography>
-                  </Box>
+                  <ButtonBase key={p.id} onClick={() => navigate('/panel/aprobaciones')} sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 1, width: '100%', textAlign: 'left', py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
+                    <Box sx={{ display: 'grid', gap: 0.5, minWidth: 0 }}>
+                      <Chip size="small" label={p.tipo} sx={{ justifySelf: 'start', bgcolor: 'info.light', color: 'info.main' }} />
+                      <Typography sx={{ fontWeight: 700 }}>{p.titulo}</Typography>
+                      <Typography variant="body2" color="text.secondary">{p.detalle}</Typography>
+                    </Box>
+                    <IrIcon sx={{ color: 'text.secondary' }} />
+                  </ButtonBase>
                 ))}
               </Box>
             )}
+          </Tarjeta>
+
+        </Box>
+
+        {/* La columna derecha lleva el plano y lo que hizo el administrador, para que ambas columnas pesen parecido */}
+        <Box sx={{ display: 'grid', gap: 2.5, minWidth: 0 }}>
+          <Tarjeta titulo={`Plano de pagos · ${datos.nombrePeriodo}`} extra="Toca una unidad para ver su detalle">
+            <PlanoComunidad comunidad={comunidad} estados={estadosPlano} onSelect={setUnidad} />
+            <LeyendaPlano />
           </Tarjeta>
 
           {tieneAdministrador && (
@@ -80,11 +93,6 @@ export default function InicioPresidente() {
             </Tarjeta>
           )}
         </Box>
-
-        <Tarjeta titulo={`Plano de pagos · ${datos.nombrePeriodo}`} extra="Toca una unidad para ver su detalle">
-          <PlanoComunidad comunidad={comunidad} estados={estadosPlano} onSelect={setUnidad} />
-          <LeyendaPlano />
-        </Tarjeta>
       </Box>
 
       <DialogoUnidad unidad={unidad} onClose={() => setUnidad(null)} soloLectura={!puedeGestionarFinanzas(cargo, comunidad)} />

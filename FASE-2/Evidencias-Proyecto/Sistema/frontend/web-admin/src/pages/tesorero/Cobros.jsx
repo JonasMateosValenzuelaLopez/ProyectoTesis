@@ -28,7 +28,32 @@ export default function Cobros() {
         acciones={gestiona && <Button variant="contained" startIcon={<AddIcon />} onClick={() => setNuevo(true)}>Nuevo cobro</Button>}
       />
 
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
+      {/* En el celular cada cobro es un bloque: concepto, avance y recaudado; la tabla queda para pantallas anchas */}
+      <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden', mb: 3 }}>
+        {cobros.map((c, i) => {
+          const filas = Object.values(datos.cobroUnidades[c.id] ?? {});
+          const pagadas = filas.filter((f) => f.estado === 'pagado').length;
+          const cobrables = filas.filter((f) => f.estado !== 'exento').length;
+          return (
+            <Box key={c.id} sx={{ px: 2, py: 1.5, display: 'grid', gap: 0.75, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1.5, alignItems: 'baseline' }}>
+                <Typography sx={{ fontWeight: 700 }}>{c.concepto}</Typography>
+                <Typography sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{clp(c.montoPorUnidad)}</Typography>
+              </Box>
+              <Typography variant="body2" color="text.secondary">
+                {categoria(c.idCategoria)}{c.extraordinario ? ' · extraordinario' : ''} · vence {fecha(c.vencimiento)}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <LinearProgress variant="determinate" value={cobrables ? (pagadas / cobrables) * 100 : 0} color="success" sx={{ flex: 1, height: 5, borderRadius: 1.5, bgcolor: 'divider' }} />
+                <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}><b>{pagadas}/{cobrables}</b> · {clp(pagadas * c.montoPorUnidad)}</Typography>
+              </Box>
+            </Box>
+          );
+        })}
+        {cobros.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>Todavía no hay cobros. Crea el primero con «Nuevo cobro».</Typography>}
+      </Paper>
+
+      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 1.5, mb: 3 }}>
         <Table sx={{ minWidth: 760 }}>
           <TableHead>
             <TableRow>
@@ -55,7 +80,7 @@ export default function Cobros() {
                   <TableCell align="right">{clp(c.montoPorUnidad)}</TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LinearProgress variant="determinate" value={cobrables ? (pagadas / cobrables) * 100 : 0} color="success" sx={{ flex: 1, height: 5, borderRadius: 3, bgcolor: 'divider' }} />
+                      <LinearProgress variant="determinate" value={cobrables ? (pagadas / cobrables) * 100 : 0} color="success" sx={{ flex: 1, height: 5, borderRadius: 1.5, bgcolor: 'divider' }} />
                       <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 40, textAlign: 'right' }}>{pagadas}/{cobrables}</Typography>
                     </Box>
                   </TableCell>

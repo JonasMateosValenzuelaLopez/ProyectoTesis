@@ -1,7 +1,11 @@
-import { View } from 'react-native';
-import { router } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { setStatusBarStyle } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/App';
-import { useTema } from '@/constants/tema';
+import { F, useTema } from '@/constants/tema';
 import { clp, cuando, diasHasta, fecha, fechaLargaTexto, horaMinuto, saludo } from '@/utils/formato';
 import { resumenCuenta } from '@/utils/cuenta';
 import Pantalla from '@/components/ec/Pantalla';
@@ -10,62 +14,90 @@ import Tarjeta from '@/components/ec/Tarjeta';
 import Chip from '@/components/ec/Chip';
 import Boton from '@/components/ec/Boton';
 import PlacaUnidad from '@/components/ec/PlacaUnidad';
-import Atajo from '@/components/ec/Atajo';
 import Fila from '@/components/ec/Fila';
 import SelloCargo from '@/components/ec/SelloCargo';
 
-function GastoComun() {
+// Portada de la vivienda: la placa, el saludo y lo que debe la casa, sobre la pátina profunda.
+function Portada() {
   const t = useTema();
-  const { estado, avisoTransferencia, comunidad } = useApp();
-  if (!estado) return null;
-  const { actual, deudaAnterior } = estado;
-  const r = resumenCuenta(estado);
-  const nombreCuota = comunidad?.tipo === 'Villa' ? 'Cuota social' : 'Gastos comunes';
+  const insets = useSafeAreaInsets();
+  const { cuenta, unidad, comunidad, estado, avisoTransferencia, tiene } = useApp();
+  const [detalle, setDetalle] = useState(false);
+  // El encabezado es oscuro también en tema claro: la barra de estado va en claro mientras se ve esta pantalla.
+  useFocusEffect(useCallback(() => {
+    setStatusBarStyle('light');
+    return () => setStatusBarStyle(t.oscuro ? 'light' : 'dark');
+  }, [t.oscuro]));
+  if (!cuenta || !unidad || !comunidad) return null;
+  const cobros = tiene('cobros') && estado;
+  const r = estado ? resumenCuenta(estado) : null;
+  const alDia = !!r && r.pagado && !estado?.deudaAnterior;
+  const enlace = { fontFamily: F.negrita, fontSize: 15, color: t.bronzeOnSidebar };
+
   return (
-    <Tarjeta>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        <Texto v="subtitulo">{nombreCuota} {actual.nombre.split(' ')[0].toLowerCase()}</Texto>
-        <Chip texto={r.estado.texto} tono={r.estado.tono} />
+    <View style={{ backgroundColor: t.sidebar, marginHorizontal: -16, marginTop: -(insets.top + 12), paddingTop: insets.top + 24, paddingHorizontal: 20, paddingBottom: 24, gap: 20 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+        <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="lg" />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Texto style={{ color: t.sidebarInk }}>{comunidad.nombre}</Texto>
+          <Texto v="titulo" accessibilityRole="header" style={{ color: '#fff', fontSize: 24, lineHeight: 28 }}>{saludo()}, {cuenta.nombre}</Texto>
+        </View>
       </View>
-      <View>
-        <Texto v="chico">{r.pagado && !deudaAnterior ? 'Pagaste' : 'Total a pagar'}</Texto>
-        <Texto v="cifra" accessibilityLabel={clp(r.pagado && !deudaAnterior ? r.mes : r.total)}>{clp(r.pagado && !deudaAnterior ? r.mes : r.total)}</Texto>
-      </View>
-      <View>
-        {actual.items.map((i, n) => (
-          <View key={i.concepto} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: n ? 1 : 0, borderColor: t.line }}>
-            <Texto style={{ flex: 1 }}>{i.concepto}{i.extraordinario ? <Texto v="chico"> · extraordinario</Texto> : null}</Texto>
-            <Texto style={{ fontVariant: ['tabular-nums'] }}>{clp(i.monto)}</Texto>
+
+      {cobros && r && estado && (
+        <View style={{ gap: 16 }}>
+          <View style={{ gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <Texto style={{ color: t.sidebarInk, flex: 1 }}>
+                {alDia ? `Pagaste ${estado.actual.nombre.split(' ')[0].toLowerCase()}` : `Vence el ${fechaLargaTexto(estado.actual.vence)}`}
+              </Texto>
+              <Chip texto={r.estado.texto} tono={r.estado.tono} />
+            </View>
+            <Texto v="cifra" accessibilityLabel={clp(alDia ? r.mes : r.total)} style={{ color: '#fff', fontSize: 44, lineHeight: 50 }}>{clp(alDia ? r.mes : r.total)}</Texto>
           </View>
-        ))}
-        {deudaAnterior > 0 && (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: t.line }}>
-            <Texto v="fuerte" color={t.bad} style={{ flex: 1 }}>Deuda de meses anteriores</Texto>
-            <Texto v="fuerte" color={t.bad} style={{ fontVariant: ['tabular-nums'] }}>{clp(deudaAnterior)}</Texto>
-          </View>
-        )}
-      </View>
-      {r.pagado && !deudaAnterior ? (
-        <Texto v="suave">Marcado como pagado por {actual.marcadoPor} el {fecha(actual.marcadoEn!)}.</Texto>
-      ) : (
-        <>
-          <Texto v="suave">
-            Vence el {fechaLargaTexto(actual.vence)}{diasHasta(actual.vence) >= 0 ? ` (en ${diasHasta(actual.vence)} días)` : ''}. EntreCasas no recibe pagos: se transfiere a la comunidad y la administración lo marca.
-          </Texto>
-          {avisoTransferencia && (
-            <View style={{ backgroundColor: t.cobaltSoft, borderRadius: 12, padding: 12 }}>
-              <Texto>Avisaste una transferencia de {clp(avisoTransferencia.monto)} el {fecha(avisoTransferencia.fecha)}. La administración la está revisando.</Texto>
+
+          {detalle && (
+            <View>
+              {estado.actual.items.map((i) => (
+                <View key={i.concepto} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: t.sidebarActive }}>
+                  <Texto style={{ flex: 1, color: t.sidebarInk }}>{i.concepto}{i.extraordinario ? ' · extraordinario' : ''}</Texto>
+                  <Texto style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'], color: '#fff' }}>{clp(i.monto)}</Texto>
+                </View>
+              ))}
+              {estado.deudaAnterior > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: t.sidebarActive }}>
+                  <Texto v="fuerte" style={{ flex: 1, color: '#fff' }}>Deuda de meses anteriores</Texto>
+                  <Texto v="fuerte" style={{ fontFamily: F.etiqueta, fontVariant: ['tabular-nums'], color: '#fff' }}>{clp(estado.deudaAnterior)}</Texto>
+                </View>
+              )}
+              <Texto style={{ color: t.sidebarMuted, fontSize: 14, lineHeight: 20, paddingTop: 8 }}>
+                {alDia
+                  ? `Marcado como pagado por ${estado.actual.marcadoPor} el ${fecha(estado.actual.marcadoEn!)}.`
+                  : `${diasHasta(estado.actual.vence) >= 0 ? `Quedan ${diasHasta(estado.actual.vence)} días. ` : ''}EntreCasas no recibe pagos: se transfiere a la comunidad y la administración lo marca.`}
+              </Texto>
             </View>
           )}
-          <Boton texto={avisoTransferencia ? 'Ver datos de transferencia' : 'Cómo pagar'} icono="card-outline" onPress={() => router.push('/transferencia')} />
-        </>
+
+          {!alDia && avisoTransferencia && (
+            <Texto style={{ color: t.sidebarInk }}>Avisaste una transferencia de {clp(avisoTransferencia.monto)} el {fecha(avisoTransferencia.fecha)}. La administración la está revisando.</Texto>
+          )}
+          {!alDia && <Boton tipo="portada" texto={avisoTransferencia ? 'Ver datos de transferencia' : 'Cómo pagar'} icono="card-outline" onPress={() => router.push('/transferencia')} />}
+
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
+            <Pressable onPress={() => setDetalle((v) => !v)} hitSlop={10} accessibilityRole="button" accessibilityState={{ expanded: detalle }}>
+              <Texto style={enlace}>{detalle ? 'Ocultar detalle' : 'Ver detalle'}</Texto>
+            </Pressable>
+            <Pressable onPress={() => router.navigate('/finanzas')} hitSlop={10} accessibilityRole="link">
+              <Texto style={enlace}>Ver finanzas</Texto>
+            </Pressable>
+          </View>
+        </View>
       )}
-      <Boton tipo="texto" texto="Ver mis pagos anteriores" onPress={() => router.push('/pagos')} style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 40 }} />
-    </Tarjeta>
+    </View>
   );
 }
 
-// Inicio centrado en la propia vivienda: lo que debe, lo que tiene hoy y lo que la comunidad decide.
+// Inicio centrado en la propia vivienda: la placa y lo que debe abren la pantalla; después, los accesos, lo que la comunidad decide y las visitas.
 export default function Inicio() {
   const t = useTema();
   const { cuenta, unidad, comunidad, cargo, tiene, misInvitaciones, misReservas, votaciones, miVoto, publicaciones } = useApp();
@@ -80,30 +112,27 @@ export default function Inicio() {
     .sort((a, b) => `${a.fecha}${a.desde}`.localeCompare(`${b.fecha}${b.desde}`))[0];
   const porVotar = votaciones.filter((v) => v.estado === 'abierta' && !miVoto(v.id));
   const oficial = publicaciones.filter((p) => p.oficial).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
-  const atajos = [
-    tiene('invitaciones_qr') && <Atajo key="i" senal icono="qr-code" texto="Invitar visita" onPress={() => router.push('/invitar')} />,
-    tiene('reservas') && comunidad.espacios.length > 0 && <Atajo key="r" icono="calendar" texto="Reservar espacio" onPress={() => router.push('/reservar')} />,
-    tiene('muro') && <Atajo key="p" icono="create" texto="Publicar" onPress={() => router.push('/publicar')} />,
-  ].filter(Boolean);
+  const accesos = [
+    tiene('invitaciones_qr') && { clave: 'i', icono: 'qr-code' as const, titulo: 'Invitar una visita', detalle: 'Comparte un código QR para portería', ruta: '/invitar' as const },
+    tiene('reservas') && comunidad.espacios.length > 0 && {
+      clave: 'r', icono: 'calendar' as const, titulo: 'Reservar un espacio', ruta: '/reservar' as const,
+      detalle: proximaReserva ? `Tienes el ${proximaReserva.espacio.toLowerCase()} ${cuando(proximaReserva.fecha)}, de ${proximaReserva.desde} a ${proximaReserva.hasta}` : comunidad.espacios.map((e) => e.nombre).join(', '),
+    },
+    tiene('muro') && { clave: 'p', icono: 'create' as const, titulo: 'Publicar en el muro', detalle: 'Avisos, ventas y búsquedas entre vecinos', ruta: '/publicar' as const },
+  ].filter((a) => !!a).map((a, n) => (
+    <Fila key={a.clave} borde={n > 0} izquierda={<Ionicons name={a.icono} size={22} color={t.ink} />} titulo={a.titulo} detalle={a.detalle} onPress={() => router.push(a.ruta)} />
+  ));
 
   return (
     <Pantalla>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Texto v="suave">{comunidad.nombre}</Texto>
-          <Texto v="titulo" accessibilityRole="header">{saludo()}, {cuenta.nombre}</Texto>
-        </View>
-        <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} />
-      </View>
+      <Portada />
 
-      {tiene('cobros') && <GastoComun />}
-
-      {atajos.length > 0 && <View style={{ flexDirection: 'row', gap: 10 }}>{atajos}</View>}
+      {accesos.length > 0 && <Tarjeta style={{ paddingVertical: 4 }}>{accesos}</Tarjeta>}
 
       {porVotar.map((v) => (
-        <Tarjeta key={v.id} acento={t.cobalt}>
+        <Tarjeta key={v.id} acento={t.patina}>
           <View style={{ gap: 4 }}>
-            <Texto v="etiqueta" color={t.cobalt}>{v.tipo === 'votacion' ? 'Votación abierta' : 'Encuesta'} · cierra {cuando(v.cierre)}</Texto>
+            <Texto v="etiqueta" color={t.patina}>{v.tipo === 'votacion' ? 'Votación abierta' : 'Encuesta'} · cierra {cuando(v.cierre)}</Texto>
             <Texto v="subtitulo">{v.titulo}</Texto>
           </View>
           <Boton tipo="secundario" texto={v.tipo === 'votacion' ? 'Votar' : 'Responder'} onPress={() => router.push({ pathname: '/votacion/[id]', params: { id: v.id } })} />
@@ -121,18 +150,10 @@ export default function Inicio() {
             <Fila
               key={i.id} borde={n > 0} titulo={i.visitante}
               detalle={i.estado === 'adentro' ? 'Ya ingresó' : `${cuando(i.desde)}, de ${horaMinuto(i.desde)} a ${horaMinuto(i.hasta)}`}
-              derecha={<Chip texto={i.codigo} tono="senal" />}
+              derecha={<Chip texto={i.codigo} tono="senal" codigo />}
               onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: i.id } })}
             />
           ))}
-        </Tarjeta>
-      )}
-
-      {proximaReserva && (
-        <Tarjeta>
-          <Texto v="etiqueta">Tu próxima reserva</Texto>
-          <Texto v="subtitulo">{proximaReserva.espacio}, {cuando(proximaReserva.fecha)}</Texto>
-          <Texto v="suave">De {proximaReserva.desde} a {proximaReserva.hasta}{tiene('conserjeria') ? '. Retíralo en conserjería.' : '.'}</Texto>
         </Tarjeta>
       )}
 

@@ -50,7 +50,7 @@ export default function RedVecinal() {
         <Tarjeta titulo="General">
           <TextField required label="Nombre" name="nombre" value={form.nombre} onChange={cambiar} />
           <TextField required label="Dirección" name="direccion" value={form.direccion} onChange={cambiar} />
-          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2, bgcolor: 'background.default' }}>
+          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1, bgcolor: 'background.default' }}>
             <Typography variant="body2" color="text.secondary">Tipo de comunidad</Typography>
             <Typography sx={{ fontWeight: 700 }}>{comunidad.tipo} · {comunidad.unidades.length} unidades</Typography>
             <Typography variant="body2" color="text.secondary">El tipo define el plano y los módulos sugeridos. Solo el equipo de EntreCasas puede cambiarlo.</Typography>
@@ -82,8 +82,13 @@ export default function RedVecinal() {
           />
         </Tarjeta>
 
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', position: 'sticky', bottom: 16 }}>
-          {cambios && <Button onClick={() => setForm(original)} sx={{ bgcolor: 'background.paper' }}>Descartar cambios</Button>}
+        {/* Sin cambios el botón queda al final del formulario; con cambios, una barra fija recuerda guardarlos */}
+        <Box sx={{
+          display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap',
+          ...(cambios && { position: 'sticky', bottom: 16, zIndex: 1, bgcolor: 'background.paper', border: 1, borderColor: 'divider', borderRadius: 1.5, px: 2, py: 1.25 }),
+        }}>
+          {cambios && <Typography variant="body2" sx={{ fontWeight: 700, mr: 'auto' }}>Tienes cambios sin guardar</Typography>}
+          {cambios && <Button onClick={() => setForm(original)}>Descartar</Button>}
           <Button type="submit" variant="contained" disabled={!cambios || !valido}>Guardar cambios</Button>
         </Box>
       </Box>

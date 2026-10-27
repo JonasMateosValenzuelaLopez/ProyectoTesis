@@ -12,12 +12,12 @@ import Opciones from '@/components/ec/Opciones';
 // Publicar en el muro o poner un aviso en el mercado. Lo oficial lo publica la directiva desde el panel.
 export default function Publicar() {
   const { lugar: inicial } = useLocalSearchParams<{ lugar?: string }>();
-  const { unidad, tiene, acciones } = useApp();
+  const { cuenta, unidad, tiene, acciones } = useApp();
   const [lugar, setLugar] = useState<'muro' | 'mercado'>(inicial === 'mercado' ? 'mercado' : 'muro');
   const [texto, setTexto] = useState('');
   const [categoria, setCategoria] = useState<NonNullable<Publicacion['categoria']>>('Vendo');
   const [precio, setPrecio] = useState('');
-  if (!unidad) return null;
+  if (!unidad || !cuenta) return null;
 
   const valido = texto.trim().length >= 5;
   const enviar = () => {
@@ -42,6 +42,9 @@ export default function Publicar() {
         placeholder={lugar === 'mercado' ? 'Bicicleta aro 26 en buen estado…' : '¿Alguien perdió un gato gris?…'}
         style={{ minHeight: 140, paddingTop: 12, textAlignVertical: 'top' }} ayuda={`${texto.length}/500 · se publica como ${nombreUnidad(unidad)}`}
       />
+      {lugar === 'mercado' && (
+        <Texto v="suave">Tus vecinos verán tu nombre y {nombreUnidad(unidad)}. Tu teléfono {cuenta.telefono} solo se comparte con quienes aceptes cuando te pidan contacto.</Texto>
+      )}
       <Texto v="chico">Las publicaciones se moderan según las normas de la comunidad. No compartas datos personales de otros vecinos.</Texto>
     </Hoja>
   );

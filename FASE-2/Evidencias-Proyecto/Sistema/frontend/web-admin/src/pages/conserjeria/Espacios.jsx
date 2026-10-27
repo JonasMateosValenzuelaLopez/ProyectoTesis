@@ -75,12 +75,12 @@ export default function Espacios() {
     <Box sx={{ maxWidth: 1200 }}>
       <Encabezado contexto={`${comunidad.nombre} · ${hoyTexto()}`} titulo="Espacios del día" descripcion="Entrega el espacio al residente que lo reservó y recíbelo al terminar, revisando que quede en orden." />
       <Box sx={{ display: 'grid', gap: 2.5 }}>
-        {espacios.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}><Typography color="text.secondary">La comunidad no tiene espacios comunes registrados.</Typography></Paper>}
+        {espacios.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">La comunidad no tiene espacios comunes registrados.</Typography></Paper>}
         {espacios.map((esp) => {
           const lista = reservasHoy.filter((r) => r.espacio === esp).sort((a, b) => a.desde.localeCompare(b.desde));
           const enUso = lista.find((r) => r.estado === 'entregado');
           return (
-            <Paper key={esp} variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: 'grid', gap: 2.5 }}>
+            <Paper key={esp} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 2.5 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, alignItems: 'baseline', flexWrap: 'wrap' }}>
                 <Typography variant="h6" component="h2">{esp}</Typography>
                 <Typography variant="body2" sx={{ fontWeight: 700, color: enUso ? 'info.main' : 'text.secondary' }}>

@@ -4,7 +4,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFonts, Archivo_600SemiBold, Archivo_800ExtraBold } from '@expo-google-fonts/archivo';
+import { useFonts, Archivo_500Medium, Archivo_600SemiBold, Archivo_800ExtraBold } from '@expo-google-fonts/archivo';
 import {
   AtkinsonHyperlegibleNext_400Regular, AtkinsonHyperlegibleNext_500Medium, AtkinsonHyperlegibleNext_700Bold,
 } from '@expo-google-fonts/atkinson-hyperlegible-next';
@@ -17,7 +17,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const t = useTema();
   const [listas, error] = useFonts({
-    Archivo_600SemiBold, Archivo_800ExtraBold,
+    Archivo_500Medium, Archivo_600SemiBold, Archivo_800ExtraBold,
     AtkinsonHyperlegibleNext_400Regular, AtkinsonHyperlegibleNext_500Medium, AtkinsonHyperlegibleNext_700Bold,
   });
 
@@ -29,7 +29,7 @@ export default function RootLayout() {
 
   // El tema de navegación sigue al de la app, para que la barra de pestañas no salga negra sobre fondo claro
   const base = t.oscuro ? DarkTheme : DefaultTheme;
-  const tema = { ...base, colors: { ...base.colors, primary: t.cobalt, background: t.paper, card: t.surface, text: t.ink, border: t.line } };
+  const tema = { ...base, colors: { ...base.colors, primary: t.accion, background: t.paper, card: t.surface, text: t.ink, border: t.line } };
 
   return (
     <SafeAreaProvider>
@@ -42,7 +42,7 @@ export default function RootLayout() {
               <Stack.Screen name="login" />
               <Stack.Screen name="solicitar-acceso" />
               <Stack.Screen name="(tabs)" />
-              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'pagos', 'invitaciones', 'contactos'].map((n) => (
+              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos'].map((n) => (
                 <Stack.Screen key={n} name={n} options={{ presentation: 'modal' }} />
               ))}
             </Stack>

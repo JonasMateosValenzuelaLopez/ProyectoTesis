@@ -1,7 +1,7 @@
 import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  COMUNIDADES, UNIDADES, estadoCuentaInicial, invitacionesIniciales, publicacionesIniciales, reservasIniciales, votacionesIniciales,
-  type Cuenta, type EstadoCuenta, type Invitacion, type Modulo, type Publicacion, type Reserva,
+  COMUNIDADES, UNIDADES, estadoCuentaInicial, invitacionesIniciales, publicacionesIniciales, reservasIniciales, solicitudesIniciales, votacionesIniciales,
+  type Cuenta, type EstadoCuenta, type Invitacion, type Modulo, type Publicacion, type Reserva, type SolicitudContacto,
 } from '@/data/demo';
 
 // Estado de la app del residente: quién entró, con qué vivienda está actuando y los datos
@@ -25,6 +25,7 @@ function useValor() {
   const [invitaciones, setInvitaciones] = useState(invitacionesIniciales);
   const [reservas, setReservas] = useState(reservasIniciales);
   const [publicaciones, setPublicaciones] = useState(publicacionesIniciales);
+  const [solicitudes, setSolicitudes] = useState(solicitudesIniciales);
   const [votaciones, setVotaciones] = useState(votacionesIniciales);
   const [misVotos, setMisVotos] = useState<Record<string, string>>({});
   const [aviso, setAviso] = useState<string | null>(null);
@@ -71,7 +72,7 @@ function useValor() {
         avisar('Reserva cancelada. El espacio quedó libre para otros vecinos.');
       },
       publicar: (p: Pick<Publicacion, 'lugar' | 'texto' | 'precio' | 'categoria'>) => {
-        setPublicaciones((x) => [{ ...p, id: nuevoId('m'), idRed: comunidad!.id, autor, idUnidad: idUnidad!, fecha: new Date().toISOString() }, ...x]);
+        setPublicaciones((x) => [{ ...p, id: nuevoId('m'), idRed: comunidad!.id, autor, idUnidad: idUnidad!, fecha: new Date().toISOString(), ...(p.lugar === 'mercado' && cuenta ? { telefono: cuenta.telefono } : {}) }, ...x]);
         avisar(p.lugar === 'mercado' ? 'Tu aviso ya está en el mercado.' : 'Publicado en el muro.');
       },
       eliminarPublicacion: (id: string) => {
@@ -82,6 +83,25 @@ function useValor() {
         setPublicaciones((x) => x.map((p) => (p.id === id ? { ...p, reportadaPorMi: true } : p)));
         avisar('Gracias. La administración revisará la publicación.');
       },
+      // Contacto en el mercado: la API notificará a quien publicó y, al responder, al interesado
+      pedirContacto: (idPublicacion: string) => {
+        if (!idUnidad) return;
+        const nueva: SolicitudContacto = { id: nuevoId('s'), idPublicacion, idUnidad, nombre: autor, estado: 'pendiente', fecha: new Date().toISOString() };
+        setSolicitudes((x) => [nueva, ...x]);
+        const p = publicaciones.find((x) => x.id === idPublicacion);
+        avisar(`Le avisamos a ${p?.autor.split(' ')[0] ?? 'tu vecino'} que te interesa su aviso.`);
+      },
+      cancelarSolicitud: (id: string) => {
+        setSolicitudes((x) => x.filter((s) => s.id !== id));
+        avisar('Solicitud cancelada.');
+      },
+      responderSolicitud: (id: string, acepta: boolean) => {
+        const s = solicitudes.find((x) => x.id === id);
+        setSolicitudes((x) => x.map((y) => (y.id === id ? { ...y, estado: acepta ? 'aceptada' : 'rechazada', respondida: new Date().toISOString(), vista: false } : y)));
+        const nombre = s?.nombre.split(' ')[0] ?? 'tu vecino';
+        avisar(acepta ? `Le enviamos tu teléfono a ${nombre}.` : `Le avisamos a ${nombre} que ya no está disponible.`);
+      },
+      marcarRespuestaVista: (id: string) => setSolicitudes((x) => x.map((y) => (y.id === id ? { ...y, vista: true } : y))),
       votar: (idVotacion: string, idOpcion: string) => {
         setVotaciones((x) => x.map((v) => (v.id === idVotacion ? { ...v, opciones: v.opciones.map((o) => (o.id === idOpcion ? { ...o, votos: o.votos + 1 } : o)) } : v)));
         setMisVotos((x) => ({ ...x, [`${idVotacion}:${idUnidad}`]: idOpcion }));
@@ -89,6 +109,12 @@ function useValor() {
       },
       avisar,
     };
+
+    // Solicitudes de avisos que siguen publicados: las que hice desde esta vivienda y las que me llegaron
+    const avisosMios = new Set(publicaciones.filter((p) => p.lugar === 'mercado' && p.idUnidad === idUnidad).map((p) => p.id));
+    const vigentes = solicitudes.filter((s) => publicaciones.some((p) => p.id === s.idPublicacion));
+    const misSolicitudes = vigentes.filter((s) => s.idUnidad === idUnidad);
+    const solicitudesRecibidas = vigentes.filter((s) => avisosMios.has(s.idPublicacion));
 
     return {
       cuenta, unidad, comunidad, cargo, relacion, tiene, aviso,
@@ -99,10 +125,15 @@ function useValor() {
       misReservas: reservas.filter((r) => r.idUnidad === idUnidad),
       publicaciones: publicaciones.filter((p) => p.idRed === comunidad?.id),
       votaciones: votaciones.filter((v) => v.idRed === comunidad?.id),
+      misSolicitudes,
+      solicitudesRecibidas,
+      solicitudDe: (idPublicacion: string) => misSolicitudes.find((s) => s.idPublicacion === idPublicacion) ?? null,
+      // Globo de la pestaña Mercado: vecinos esperando mi respuesta y respuestas que aún no veo
+      pendientesMercado: solicitudesRecibidas.filter((s) => s.estado === 'pendiente').length + misSolicitudes.filter((s) => s.estado !== 'pendiente' && !s.vista).length,
       miVoto: (idVotacion: string) => misVotos[`${idVotacion}:${idUnidad}`] ?? null,
       acciones,
     };
-  }, [cuenta, idUnidad, estados, avisos, invitaciones, reservas, publicaciones, votaciones, misVotos, aviso]);
+  }, [cuenta, idUnidad, estados, avisos, invitaciones, reservas, publicaciones, solicitudes, votaciones, misVotos, aviso]);
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {

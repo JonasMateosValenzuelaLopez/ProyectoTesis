@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/App';
 import { useTema } from '@/constants/tema';
 import { UNIDADES, type Publicacion } from '@/data/demo';
@@ -13,34 +14,56 @@ import SelloCargo from './SelloCargo';
 
 // Una publicación del muro o del mercado. Lo oficial lleva el sello de la directiva;
 // lo de vecinos lleva la placa de su vivienda y se puede reportar.
-export default function TarjetaPublicacion({ p }: { p: Publicacion }) {
+// Con `alTocar` (avisos del mercado) toda la tarjeta abre la ficha del aviso; abajo se ve
+// en qué va el contacto: pedirlo, esperando respuesta, aceptado o no disponible.
+export default function TarjetaPublicacion({ p, alTocar }: { p: Publicacion; alTocar?: () => void }) {
   const t = useTema();
-  const { unidad, acciones } = useApp();
+  const { unidad, acciones, solicitudDe, solicitudesRecibidas } = useApp();
   const [confirmar, setConfirmar] = useState<'reportar' | 'eliminar' | null>(null);
   const u = p.idUnidad ? UNIDADES[p.idUnidad] : undefined;
   const mia = !!unidad && p.idUnidad === unidad.id;
+  const s = alTocar && !mia ? solicitudDe(p.id) : null;
+  const interesados = mia ? solicitudesRecibidas.filter((x) => x.idPublicacion === p.id && x.estado === 'pendiente').length : 0;
+  type Icono = keyof typeof Ionicons.glyphMap;
+  const [icono, etiqueta, color]: [Icono, string, string] = !s ? ['chatbubble-ellipses-outline', 'Contactar', t.accion]
+    : s.estado === 'pendiente' ? ['time-outline', 'Solicitud enviada', t.ink2]
+      : s.estado === 'aceptada' ? ['logo-whatsapp', 'Ver contacto', t.ok]
+        : ['close-circle-outline', 'No disponible', t.ink2];
 
-  return (
-    <Tarjeta acento={p.oficial ? t.cobalt : undefined}>
+  const tarjeta = (
+    <Tarjeta acento={p.oficial ? t.patina : undefined}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         {p.oficial ? <SelloCargo cargo={p.oficial.cargo} size={30} /> : u ? <PlacaUnidad tipo="" numero={u.numero} size="sm" /> : null}
         <View style={{ flex: 1 }}>
           <Texto v="fuerte">{p.oficial ? `${p.oficial.tipo} oficial` : mia ? 'Tú' : p.autor}</Texto>
           <Texto v="chico">{p.oficial ? `Aprobado por ${p.oficial.aprobadoPor}` : `${nombreUnidad(u)} · ${hace(p.fecha)}`}</Texto>
         </View>
-        {p.categoria && <Chip texto={p.categoria} tono={p.categoria === 'Vendo' ? 'cobalto' : p.categoria === 'Busco' ? 'senal' : 'neutro'} />}
+        {p.categoria && <Chip texto={p.categoria} tono={p.categoria === 'Vendo' ? 'accion' : p.categoria === 'Busco' ? 'senal' : 'neutro'} />}
       </View>
       {!!p.titulo && <Texto v="subtitulo">{p.titulo}</Texto>}
       <Texto>{p.texto}</Texto>
       {p.precio != null && <Texto v="cifra" style={{ fontSize: 22, lineHeight: 26 }}>{clp(p.precio)}</Texto>}
 
       {!p.oficial && !confirmar && (
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, marginTop: -8, marginBottom: -8 }}>
+          {alTocar && !mia && (
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name={icono} size={18} color={color} />
+              <Texto v="fuerte" color={color}>{etiqueta}</Texto>
+              <Ionicons name="chevron-forward" size={16} color={color} />
+            </View>
+          )}
+          {alTocar && mia && (
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Texto v="fuerte" color={interesados ? t.accion : t.ink2}>{interesados ? `${interesados} ${interesados === 1 ? 'vecino interesado' : 'vecinos interesados'}` : 'Sin solicitudes nuevas'}</Texto>
+              {!!interesados && <Ionicons name="chevron-forward" size={16} color={t.accion} />}
+            </View>
+          )}
           {mia
             ? <Boton tipo="texto" texto="Eliminar" onPress={() => setConfirmar('eliminar')} style={{ minHeight: 40 }} />
             : p.reportadaPorMi
               ? <Texto v="chico" style={{ paddingVertical: 10 }}>Reportaste esta publicación</Texto>
-              : <Boton tipo="texto" texto="Reportar" onPress={() => setConfirmar('reportar')} style={{ minHeight: 40 }} />}
+              : <Boton tipo="sutil" texto="Reportar" onPress={() => setConfirmar('reportar')} style={{ minHeight: 40 }} />}
         </View>
       )}
       {confirmar && (
@@ -54,5 +77,11 @@ export default function TarjetaPublicacion({ p }: { p: Publicacion }) {
         </View>
       )}
     </Tarjeta>
+  );
+  if (!alTocar || confirmar) return tarjeta;
+  return (
+    <Pressable onPress={alTocar} accessibilityRole="button" accessibilityLabel={`Ver aviso de ${p.autor}`} style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}>
+      {tarjeta}
+    </Pressable>
   );
 }

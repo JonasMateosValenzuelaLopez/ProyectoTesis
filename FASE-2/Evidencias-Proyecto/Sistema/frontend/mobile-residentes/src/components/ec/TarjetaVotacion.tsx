@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useApp } from '@/context/App';
-import { useTema } from '@/constants/tema';
+import { F, useTema } from '@/constants/tema';
 import type { Votacion } from '@/data/demo';
 import { cuando, fecha } from '@/utils/formato';
 import Tarjeta from './Tarjeta';
@@ -28,10 +28,10 @@ export function Barras({ v, marcada }: { v: Votacion; marcada?: string | null })
           <View key={o.id} style={{ gap: 4 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Texto v={o.id === marcada ? 'fuerte' : 'cuerpo'}>{o.texto}{o.id === marcada ? ' · tu voto' : ''}</Texto>
-              <Texto v="suave" style={{ fontVariant: ['tabular-nums'] }}>{o.votos} · {pct}%</Texto>
+              <Texto v="suave" style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'] }}>{o.votos} · {pct}%</Texto>
             </View>
             <View style={{ height: 8, borderRadius: 4, backgroundColor: t.line, overflow: 'hidden' }}>
-              <View style={{ width: `${pct}%`, height: 8, borderRadius: 4, backgroundColor: o.id === marcada ? t.cobalt : t.ink2 }} />
+              <View style={{ width: `${pct}%`, height: 8, borderRadius: 4, backgroundColor: o.id === marcada ? t.accion : t.ink2 }} />
             </View>
           </View>
         );
@@ -47,10 +47,10 @@ export default function TarjetaVotacion({ v }: { v: Votacion }) {
   const r = resultado(v);
   const abierta = v.estado === 'abierta';
   return (
-    <Tarjeta acento={abierta && !voto ? t.cobalt : undefined}>
+    <Tarjeta acento={abierta && !voto ? t.patina : undefined}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <Texto v="etiqueta">{v.tipo === 'votacion' ? 'Votación' : 'Encuesta'} · {abierta ? `cierra ${cuando(v.cierre)}` : `cerró el ${fecha(v.cierre)}`}</Texto>
-        {abierta ? (voto ? <Chip texto="Votaste" tono="ok" /> : <Chip texto="Abierta" tono="cobalto" />) : <Chip texto="Cerrada" />}
+        {abierta ? (voto ? <Chip texto="Votaste" tono="ok" /> : <Chip texto="Abierta" tono="accion" />) : <Chip texto="Cerrada" />}
       </View>
       <Texto v="subtitulo">{v.titulo}</Texto>
       {(voto || !abierta) && <Barras v={v} marcada={voto} />}

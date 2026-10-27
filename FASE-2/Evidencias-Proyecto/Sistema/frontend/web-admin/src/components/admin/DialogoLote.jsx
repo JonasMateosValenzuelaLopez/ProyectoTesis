@@ -62,7 +62,7 @@ export default function DialogoLote({ onClose }) {
           </Box>
         )}
 
-        <Box sx={{ display: 'grid', gap: 1.25, p: 2, bgcolor: 'background.default', borderRadius: 2 }}>
+        <Box sx={{ display: 'grid', gap: 1.25, p: 2, bgcolor: 'background.default', borderRadius: 1 }}>
           <Typography sx={{ fontWeight: 700 }}>
             {nuevas.length === 0 ? 'Ninguna unidad nueva con estos datos' : nuevas.length === 1 ? 'Se creará 1 unidad' : `Se crearán ${nuevas.length} unidades`}
           </Typography>

@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import {
-  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, TextField, ToggleButton, ToggleButtonGroup, Typography,
+  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Menu, MenuItem, Paper, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
+import { MoreVert as MasIcon } from '@mui/icons-material';
 import { usePlataforma } from '../../context/PlataformaContext';
 import { useSesion } from '../../context/SesionContext';
 import { roles } from '../../tokens';
 import Encabezado from '../../components/ui/Encabezado';
 
 const MAXIMO = 40;
+const COLUMNAS = 'minmax(0, 1.1fr) minmax(0, 1fr) 40px';
 const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
 const FILTROS = {
   todas: (p) => p,
@@ -25,6 +27,7 @@ export default function Personas() {
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState('todas');
   const [confirmar, setConfirmar] = useState(null);
+  const [menu, setMenu] = useState(null);
 
   const texto = busqueda.trim().toLowerCase();
   const digitos = soloDigitos(busqueda);
@@ -38,7 +41,6 @@ export default function Personas() {
   return (
     <Box sx={{ maxWidth: 1100 }}>
       <Encabezado
-        contexto="Plataforma EntreCasas"
         titulo="Personas"
         descripcion="Busca a quien escribe a soporte por RUT, nombre o correo. Bloquear una cuenta le impide entrar a todas sus comunidades."
       />
@@ -54,34 +56,48 @@ export default function Personas() {
         {lista.length > MAXIMO ? `Mostrando ${MAXIMO} de ${lista.length.toLocaleString('es-CL')}. Escribe para acotar.` : `${lista.length} ${lista.length === 1 ? 'persona' : 'personas'}`}
       </Typography>
 
-      <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
+        {/* Encabezado de columnas solo en pantallas anchas; en el celular cada persona es una fila apilada */}
+        <Box aria-hidden sx={{ display: { xs: 'none', md: 'grid' }, gridTemplateColumns: COLUMNAS, gap: 2, px: 2.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+          {['Persona', 'Comunidades', ''].map((t) => (
+            <Typography key={t} variant="caption" sx={{ fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'text.secondary' }}>{t}</Typography>
+          ))}
+        </Box>
         {lista.slice(0, MAXIMO).map((p, i) => (
-          <Box key={p.rut} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr auto' }, gap: 1.5, alignItems: 'center', px: 2.5, py: 1.75, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
-            <Box sx={{ minWidth: 0, display: 'grid', gap: 0.75 }}>
+          <Box key={p.rut} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: COLUMNAS }, gap: { xs: 0.75, md: 2 }, alignItems: 'center', px: { xs: 2, md: 2.5 }, py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
+            <Box sx={{ minWidth: 0 }}>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                 <Typography sx={{ fontWeight: 700 }}>{p.nombre}</Typography>
                 {p.plataforma && <Chip size="small" label="Equipo EntreCasas" sx={{ bgcolor: 'marca.signal', color: 'marca.signalInk', fontWeight: 700 }} />}
                 {p.bloqueado && <Chip size="small" color="error" label="Bloqueada" />}
               </Box>
               <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>{p.rut} · {p.correo}</Typography>
-              {p.comunidades.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                  {p.comunidades.map((c) => (
-                    <Chip key={c.idRed} size="small" variant="outlined" label={`${c.red} · ${papel(c)}${c.estado === 'invitado' ? ' · invitación pendiente' : ''}`} />
-                  ))}
-                </Box>
-              )}
             </Box>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              <Button size="small" variant="outlined" onClick={() => acciones.reenviarAcceso(p)}>Reenviar acceso</Button>
-              {p.rut !== usuario.rut && (p.bloqueado
-                ? <Button size="small" onClick={() => acciones.bloquear(p, false)}>Desbloquear</Button>
-                : <Button size="small" color="error" onClick={() => setConfirmar(p)}>Bloquear</Button>)}
+            <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' }, gridRow: { xs: 2, md: 'auto' }, minWidth: 0, display: 'grid', gap: 0.25 }}>
+              {p.comunidades.map((c) => (
+                <Typography key={c.idRed} variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                  {c.red} <Box component="span" sx={{ color: 'text.secondary' }}>· {papel(c)}</Box>
+                  {c.estado === 'invitado' && <Box component="span" sx={{ color: 'warning.main', fontWeight: 700 }}> · invitación pendiente</Box>}
+                </Typography>
+              ))}
+              {p.comunidades.length === 0 && <Typography variant="body2" color="text.secondary">Sin comunidad</Typography>}
+            </Box>
+            <Box sx={{ gridColumn: { xs: 2, md: 'auto' }, gridRow: { xs: 1, md: 'auto' }, justifySelf: 'end' }}>
+              <IconButton aria-label={`Acciones para ${p.nombre}`} onClick={(e) => setMenu({ ancla: e.currentTarget, persona: p })}>
+                <MasIcon />
+              </IconButton>
             </Box>
           </Box>
         ))}
         {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 3 }}>Nadie calza con la búsqueda.</Typography>}
       </Paper>
+
+      <Menu anchorEl={menu?.ancla} open={!!menu} onClose={() => setMenu(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
+        {menu && <MenuItem onClick={() => { acciones.reenviarAcceso(menu.persona); setMenu(null); }}>Reenviar acceso</MenuItem>}
+        {menu && menu.persona.rut !== usuario.rut && (menu.persona.bloqueado
+          ? <MenuItem onClick={() => { acciones.bloquear(menu.persona, false); setMenu(null); }}>Desbloquear</MenuItem>
+          : <MenuItem onClick={() => { setConfirmar(menu.persona); setMenu(null); }} sx={{ color: 'error.main' }}>Bloquear cuenta…</MenuItem>)}
+      </Menu>
 
       {confirmar && (
         <Dialog open onClose={() => setConfirmar(null)} maxWidth="xs" fullWidth>

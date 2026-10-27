@@ -19,5 +19,5 @@ export default function Fila({ izquierda, titulo, detalle, derecha, onPress, bor
     </View>
   );
   if (!onPress) return cuerpo;
-  return <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>{cuerpo}</Pressable>;
+  return <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => ({ backgroundColor: pressed ? t.paper : 'transparent', marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 8 })}>{cuerpo}</Pressable>;
 }

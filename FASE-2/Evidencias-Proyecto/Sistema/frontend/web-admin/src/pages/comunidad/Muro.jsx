@@ -55,7 +55,7 @@ function DialogoRedactar({ onClose }) {
 function Publicacion({ pub, unidad, moderar, onModerar }) {
   const oculta = pub.estado === 'oculta';
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'grid', gap: 1.5, opacity: oculta ? 0.75 : 1, borderColor: pub.reportes.length && !oculta ? 'warning.main' : 'divider' }}>
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, display: 'grid', gap: 1.5, opacity: oculta ? 0.75 : 1, borderColor: pub.reportes.length && !oculta ? 'warning.main' : 'divider' }}>
       <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
         {unidad && <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="sm" />}
         <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -66,7 +66,7 @@ function Publicacion({ pub, unidad, moderar, onModerar }) {
       </Box>
       <Typography sx={{ textDecoration: oculta ? 'line-through' : 'none', textDecorationColor: 'currentColor' }}>{pub.texto}</Typography>
       {pub.reportes.length > 0 && (
-        <Box sx={{ display: 'grid', gap: 0.5, p: 1.25, borderRadius: 2, bgcolor: 'warning.light' }}>
+        <Box sx={{ display: 'grid', gap: 0.5, p: 1.25, borderRadius: 1, bgcolor: 'warning.light' }}>
           {pub.reportes.map((r, i) => (
             <Typography key={i} variant="body2" sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
               <ReporteIcon sx={{ fontSize: 16 }} /> <b>{r.motivo}</b> · reportado por {r.por}
@@ -130,9 +130,9 @@ export default function Muro({ lugar }) {
 
       {pestana === 'oficiales' ? (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
-          {oficiales.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}><Typography color="text.secondary">Todavía no hay publicaciones oficiales.</Typography></Paper>}
+          {oficiales.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">Todavía no hay publicaciones oficiales.</Typography></Paper>}
           {oficiales.map((x) => (
-            <Paper key={x.id} variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: 'grid', gap: 1, borderLeft: 4, borderLeftColor: x.estado === 'aprobada' ? 'info.main' : 'divider' }}>
+            <Paper key={x.id} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 1, borderWidth: x.estado === 'aprobada' ? 1.5 : 1, borderColor: x.estado === 'aprobada' ? 'info.main' : 'divider' }}>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                 <Chip size="small" label={x.tipo} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
                 <Typography variant="body2" color="text.secondary">{x.autor} · {fecha(x.fecha)}</Typography>
@@ -146,7 +146,7 @@ export default function Muro({ lugar }) {
       ) : (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
           {lista.length === 0 && (
-            <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+            <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}>
               <Typography color="text.secondary">{pestana === 'reportadas' ? 'No hay publicaciones reportadas. Todo en orden.' : 'Todavía no hay publicaciones.'}</Typography>
             </Paper>
           )}

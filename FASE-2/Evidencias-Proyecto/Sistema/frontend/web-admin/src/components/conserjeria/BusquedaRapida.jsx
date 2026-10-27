@@ -34,7 +34,7 @@ export default function BusquedaRapida() {
         sx={{ '& .MuiInputBase-root': { bgcolor: 'background.paper', fontSize: '1.05rem' } }}
       />
       {q.length >= 2 && (
-        <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+        <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
           {resultados.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>Nada coincide con «{texto}».</Typography>}
           {resultados.map((u, i) => {
             const personas = ocupantes[u.id] ?? [];

@@ -28,7 +28,7 @@ function Dato({ etiqueta, valor }: { etiqueta: string; valor: string }) {
         <Texto v="chico">{etiqueta}</Texto>
         <Texto v="fuerte" selectable>{valor}</Texto>
       </View>
-      <Ionicons name="copy-outline" size={20} color={t.cobalt} />
+      <Ionicons name="copy-outline" size={20} color={t.accion} />
     </Pressable>
   );
 }
@@ -95,7 +95,7 @@ export default function Transferencia() {
         <Dato etiqueta="Correo para el comprobante" valor={tr.correo} />
       </Tarjeta>
       {avisoTransferencia && (
-        <View style={{ backgroundColor: t.cobaltSoft, borderRadius: 12, padding: 12 }}>
+        <View style={{ backgroundColor: t.accionSoft, borderRadius: 12, padding: 12 }}>
           <Texto>Ya avisaste una transferencia de {clp(avisoTransferencia.monto)}. Cuando la administración la marque, el estado cambia a Pagado.</Texto>
         </View>
       )}

@@ -51,14 +51,14 @@ export default function Reservas() {
         )}
       />
 
-      {dias.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}><Typography color="text.secondary">No hay reservas próximas.</Typography></Paper>}
+      {dias.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">No hay reservas próximas.</Typography></Paper>}
       <Box sx={{ display: 'grid', gap: 2.5 }}>
         {dias.map((dia) => (
           <Box key={dia} sx={{ display: 'grid', gap: 1 }}>
             <Typography variant="overline" component="h2" color="text.secondary">
               {dia === hoy ? 'Hoy' : diaSemana.format(new Date(`${dia}T12:00:00`))} · {fechaCompleta(dia)}
             </Typography>
-            <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+            <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
               {proximas.filter((r) => r.fecha === dia).map((r, i) => {
                 const u = unidadPorId[r.idUnidad];
                 return (

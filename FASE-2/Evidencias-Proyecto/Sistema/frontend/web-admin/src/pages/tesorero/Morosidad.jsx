@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+  Box, Button, ButtonBase, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
 } from '@mui/material';
 import { NotificationsActiveOutlined as RecordarIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
@@ -36,7 +36,24 @@ export default function Morosidad() {
       />
 
       {morosos.length > 0 && (
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
+        <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden' }}>
+          {morosos.map((m, i) => (
+            <ButtonBase key={m.unidad.id} onClick={() => setUnidad(m.unidad)} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', width: '100%', textAlign: 'left', px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', '&:active': { bgcolor: 'action.hover' } }}>
+              <PlacaUnidad tipo={m.unidad.tipo} numero={m.unidad.numero} size="sm" />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700 }}>{residentes[m.unidad.id]}</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  <Box component="span" sx={{ color: 'error.main', fontWeight: 700 }}>{clp(m.deudaAnterior)}</Box> anterior · {clp(m.pendienteMes)} este mes
+                </Typography>
+              </Box>
+              <Typography sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>{clp(m.total)}</Typography>
+            </ButtonBase>
+          ))}
+        </Paper>
+      )}
+
+      {morosos.length > 0 && (
+        <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 1.5 }}>
           <Table sx={{ minWidth: 680 }}>
             <TableHead>
               <TableRow>

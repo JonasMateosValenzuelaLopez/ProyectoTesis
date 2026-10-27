@@ -23,7 +23,7 @@ const estiloUnidad = (estado) => {
         background: (t) => `repeating-linear-gradient(45deg, ${t.palette.info.light} 0 5px, transparent 5px 10px)`,
       };
     case 'ocupada':
-      return { borderColor: 'text.primary', color: 'text.primary' };
+      return { borderColor: 'marca.lineStrong', color: 'text.primary' };
     case 'arrendada':
       return { borderColor: 'bronce.main', bgcolor: 'bronce.light', color: 'bronce.main' };
     case 'vacia':
@@ -43,11 +43,14 @@ function Unidad({ unidad, estado, onSelect, mini = false, sx }) {
         disabled={!onSelect}
         sx={{
           border: mini ? 1.5 : 2, borderStyle: 'solid', borderRadius: mini ? '3px' : '6px',
-          fontFamily: 'Archivo, sans-serif', fontStretch: '115%', fontWeight: 800,
-          fontSize: mini ? 0 : '0.95rem', fontVariantNumeric: 'tabular-nums',
+          fontFamily: 'Archivo, sans-serif', fontStretch: { xs: '100%', sm: '115%' }, fontWeight: 800,
+          // En la villa el número se ve desde tablet: el tooltip no existe al tocar
+          // En el celular las casillas son angostas: el número baja de tamaño para no tocar el borde
+          fontSize: mini ? { xs: 0, md: '0.62rem' } : { xs: '0.8rem', sm: '0.95rem' }, fontVariantNumeric: 'tabular-nums',
           minWidth: 0, aspectRatio: mini ? '1' : 'auto', minHeight: mini ? 0 : 44,
-          transition: 'transform 150ms ease',
-          '&:not(.Mui-disabled):hover': { transform: 'translateY(-1px)' },
+          // Al marcar un pago el color cambia con una transición corta; el hover solo con mouse
+          transition: 'transform 150ms ease, background-color 200ms ease, border-color 200ms ease, color 200ms ease',
+          '@media (hover: hover) and (pointer: fine)': { '&:not(.Mui-disabled):hover': { transform: 'translateY(-1px)' } },
           '&.Mui-focusVisible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
           '&.Mui-disabled': { color: 'inherit' },
           ...estiloUnidad(estado),
@@ -82,7 +85,8 @@ function Espacio({ nombre }) {
       sx={{
         display: 'grid', placeItems: 'center', minHeight: 44, border: '2px dashed', borderColor: 'divider',
         borderRadius: '6px', color: 'text.secondary', fontFamily: 'Archivo, sans-serif', fontStretch: '80%',
-        fontWeight: 700, fontSize: '0.62rem', letterSpacing: '0.06em', textTransform: 'uppercase',
+        fontWeight: 700, fontSize: { xs: '0.5rem', sm: '0.62rem' }, letterSpacing: { xs: 0, sm: '0.06em' }, textTransform: 'uppercase',
+        minWidth: 0, overflow: 'hidden', px: 0.25, textAlign: 'center', overflowWrap: 'anywhere',
       }}
     >
       {nombre}
@@ -96,7 +100,7 @@ function PlanoCondominio({ comunidad, estados, onSelect }) {
   const hileras = sectores.map((s) => comunidad.unidades.filter((u) => u.sector === s));
   const columnas = Math.max(...hileras.map((h) => h.length)) + (comunidad.espaciosComunes?.length ? 1 : 0);
   const fila = (unidades, conEspacios) => (
-    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))`, gap: 0.75 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))`, gap: { xs: 0.5, sm: 0.75 } }}>
       {unidades.map((u) => <Unidad key={u.id} unidad={u} estado={estados[u.id]} onSelect={onSelect} />)}
       {conEspacios && comunidad.espaciosComunes?.map((e) => <Espacio key={e} nombre={e} />)}
     </Box>
@@ -165,7 +169,7 @@ export function LeyendaPlano({ estados = ['pagado', 'pendiente', 'moroso', 'exen
 export default function PlanoComunidad({ comunidad, estados = {}, onSelect }) {
   const props = { comunidad, estados, onSelect };
   if (!comunidad.unidades.length) {
-    return <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 2 }}>Todavía no hay unidades para dibujar.</Typography>;
+    return <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center', border: '2px dashed', borderColor: 'divider', borderRadius: 1 }}>Todavía no hay unidades para dibujar.</Typography>;
   }
   if (comunidad.tipo === 'Edificio') return <PlanoEdificio {...props} />;
   if (comunidad.tipo === 'Villa') return <PlanoVilla {...props} />;

@@ -55,7 +55,7 @@ function PasoModulos({ tipo, modulos, setModulos, espacios, setEspacios }) {
   };
   return (
     <Box sx={{ display: 'grid', gap: 2.5 }}>
-      <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
         {Object.entries(MODULOS).map(([clave, nombre], i) => (
           <Box key={clave} component="label" sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 2, alignItems: 'center', px: 2.5, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', cursor: 'pointer' }}>
             <Box sx={{ minWidth: 0 }}>
@@ -149,7 +149,7 @@ export default function NuevaComunidad() {
     const r = creada.responsable;
     return (
       <Box sx={{ maxWidth: 720 }}>
-        <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 3, display: 'grid', gap: 2.5 }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 4 }, borderRadius: 1.5, display: 'grid', gap: 2.5 }}>
           <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', '& svg': { fontSize: 36, color: 'success.main' } }}>
             <ListoIcon />
             <Typography variant="h4" component="h1">{creada.red.nombre} quedó creada</Typography>
@@ -157,7 +157,7 @@ export default function NuevaComunidad() {
           <Typography color="text.secondary">
             {creada.red.unidades.length.toLocaleString('es-CL')} unidades y {creada.red.modulos.length} módulos. Enviamos a {r.correo} el enlace para que {r.nombre} defina su clave y empiece a invitar a los vecinos.
           </Typography>
-          <Box sx={{ display: 'grid', gap: 1, p: 2, borderRadius: 2, bgcolor: 'marca.signalSoft', color: 'marca.signalInk' }}>
+          <Box sx={{ display: 'grid', gap: 1, p: 2, borderRadius: 1, bgcolor: 'marca.signalSoft', color: 'marca.signalInk' }}>
             <Typography sx={{ fontWeight: 700 }}>Para probarlo en la demo</Typography>
             <Typography>Cierra sesión y entra con el RUT <b>{r.rut}</b> y la clave <b>{CLAVE_PRUEBA}</b>. Verás el panel de {roles[r.cargo].label.toLowerCase()} de la comunidad recién creada, sin datos.</Typography>
           </Box>
@@ -172,7 +172,7 @@ export default function NuevaComunidad() {
 
   return (
     <Box sx={{ maxWidth: 1000 }}>
-      <Encabezado contexto="Plataforma EntreCasas" titulo="Nueva comunidad" descripcion="Se crea con sus unidades y su primer responsable. Él invita después a la directiva y a los vecinos." />
+      <Encabezado titulo="Nueva comunidad" descripcion="Se crea con sus unidades y su primer responsable. Él invita después a la directiva y a los vecinos." />
       <Stepper activeStep={paso} alternativeLabel sx={{ mb: 3 }}>
         {PASOS.map((p) => <Step key={p}><StepLabel>{p}</StepLabel></Step>)}
       </Stepper>
@@ -196,7 +196,7 @@ export default function NuevaComunidad() {
         {paso === 2 && <PasoModulos tipo={tipo} modulos={modulos} setModulos={setModulos} espacios={espacios} setEspacios={setEspacios} />}
         {paso === 3 && (
           <Box sx={{ display: 'grid', gap: 2.5 }}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', gap: 1.5, alignItems: 'center' }}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, display: 'flex', gap: 1.5, alignItems: 'center' }}>
               <SelloCargo cargo={cargo} size={32} />
               <Typography>
                 {cargo === 'administrador'
@@ -215,7 +215,7 @@ export default function NuevaComunidad() {
               />
               <TextField label="Correo" name="correo" type="email" value={resp.correo} onChange={cambiarResp} error={marcar(!correoValido(resp.correo))} helperText={marcar(!correoValido(resp.correo)) ? 'Revisa el correo' : 'Aquí le llega el enlace para definir su clave'} />
             </Box>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, bgcolor: 'background.default' }}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, bgcolor: 'background.default' }}>
               <Typography sx={{ fontWeight: 700 }}>{datos.nombre || 'Comunidad sin nombre'} · {tipo}</Typography>
               <Typography variant="body2" color="text.secondary">
                 {datos.direccion} · {unidades.length.toLocaleString('es-CL')} unidades · {modulos.length} módulos · {espacios.length ? espacios.join(', ') : 'sin espacios comunes'}

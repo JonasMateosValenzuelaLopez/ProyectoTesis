@@ -12,9 +12,10 @@ const resaltar = keyframes`
   from { background-color: var(--resalte); }
   to { background-color: transparent; }
 `;
+// El anillo crece con transform y se apaga con opacity: no repinta en cada cuadro como box-shadow.
 const pulso = keyframes`
-  0% { box-shadow: 0 0 0 0 rgba(31, 138, 76, 0.5); }
-  100% { box-shadow: 0 0 0 8px rgba(31, 138, 76, 0); }
+  from { transform: scale(1); opacity: 0.5; }
+  to { transform: scale(3); opacity: 0; }
 `;
 
 function hace(iso, ahora) {
@@ -39,13 +40,13 @@ export default function MonitorAccesos() {
   const lista = accesos.filter((a) => filtro === 'todos' || (filtro === 'visitas' ? a.categoria !== 'residente' : a.categoria === 'residente')).slice(0, 40);
 
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 3, display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 0, overflow: 'hidden' }}>
+    <Paper variant="outlined" sx={{ borderRadius: 1.5, display: 'grid', gridTemplateRows: 'auto 1fr', minHeight: 0, overflow: 'hidden' }}>
       <Box sx={{ px: 2.5, pt: 2, pb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, flexWrap: 'wrap', borderBottom: 1, borderColor: 'divider' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
           <Typography variant="h6" component="h2">Accesos</Typography>
           {enVivo && (
             <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, color: 'success.main', fontWeight: 700, fontSize: '0.8rem' }}>
-              <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'success.main', animation: `${pulso} 1.6s ease-out infinite`, '@media (prefers-reduced-motion: reduce)': { animation: 'none' } }} />
+              <Box component="span" sx={{ position: 'relative', width: 8, height: 8, borderRadius: '50%', bgcolor: 'success.main', '&::after': { content: '""', position: 'absolute', inset: 0, borderRadius: '50%', bgcolor: 'success.main', animation: `${pulso} 1.6s ease-out infinite` }, '@media (prefers-reduced-motion: reduce)': { '&::after': { animation: 'none', opacity: 0 } } }} />
               En vivo
             </Box>
           )}
@@ -72,7 +73,7 @@ export default function MonitorAccesos() {
                 '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
               })}
             >
-              <Box sx={{ width: 34, height: 34, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: entra ? 'success.light' : 'action.hover', color: entra ? 'success.main' : 'text.secondary' }}>
+              <Box sx={{ width: 34, height: 34, borderRadius: 1, display: 'grid', placeItems: 'center', bgcolor: entra ? 'success.light' : 'action.hover', color: entra ? 'success.main' : 'text.secondary' }}>
                 {entra ? <EntraIcon fontSize="small" aria-label="Entra" /> : <SaleIcon fontSize="small" aria-label="Sale" />}
               </Box>
               <Box sx={{ minWidth: 0 }}>

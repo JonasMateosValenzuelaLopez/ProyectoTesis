@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import {
-  Box, Button, Chip, MenuItem, Paper, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
+  Box, Button, ButtonBase, Chip, MenuItem, Paper, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
 } from '@mui/material';
-import { PersonAddAlt1Outlined as InvitarIcon } from '@mui/icons-material';
+import { ChevronRight as IrIcon, PersonAddAlt1Outlined as InvitarIcon } from '@mui/icons-material';
+import { roles } from '../../tokens';
 import { useSesion } from '../../context/SesionContext';
 import { useAdmin } from '../../context/AdminContext';
 import { fecha, nombreUnidad } from '../../utils/formato';
@@ -24,7 +25,7 @@ const RELACION = { propietario: 'Propietario', arrendatario: 'Arrendatario' };
 function Solicitudes() {
   const { solicitudesPendientes, unidadPorId, ocupantes, acciones } = useAdmin();
   if (solicitudesPendientes.length === 0) {
-    return <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}><Typography color="text.secondary">No hay solicitudes de acceso pendientes.</Typography></Paper>;
+    return <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">No hay solicitudes de acceso pendientes.</Typography></Paper>;
   }
   return (
     <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr' }, alignItems: 'start' }}>
@@ -32,7 +33,7 @@ function Solicitudes() {
         const unidad = unidadPorId[s.idUnidad];
         const actuales = ocupantes[s.idUnidad] ?? [];
         return (
-          <Paper key={s.id} variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: 'grid', gap: 1.5 }}>
+          <Paper key={s.id} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 1.5 }}>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
               <PlacaUnidad tipo={unidad.tipo} numero={unidad.numero} size="sm" />
               <Box sx={{ minWidth: 0 }}>
@@ -100,7 +101,29 @@ export default function Residentes() {
             )}
           </Box>
 
-          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
+          {/* En el celular cada persona es una fila tocable; la tabla queda para pantallas anchas */}
+          <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden' }}>
+            {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>Nadie coincide con la búsqueda.</Typography>}
+            {lista.map((u, i) => (
+              <ButtonBase key={u.id} onClick={() => setSeleccion(u.id)} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', width: '100%', textAlign: 'left', px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', '&:active': { bgcolor: 'action.hover' } }}>
+                <Box sx={{ width: 52, display: 'grid', gap: 0.5, justifyItems: 'start' }}>
+                  {u.residencias.length === 0
+                    ? <Typography variant="caption" color="text.secondary">Personal</Typography>
+                    : u.residencias.map((r) => <PlacaUnidad key={r.idUnidad} tipo={unidadPorId[r.idUnidad].tipo} numero={unidadPorId[r.idUnidad].numero} size="sm" />)}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 700 }}>{u.nombre}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {[...u.residencias.map((r) => RELACION[r.relacion]), ...u.cargos.map((c) => roles[c.cargo].label)].join(' · ') || u.rut}
+                  </Typography>
+                  {u.estado === 'invitado' && <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 700 }}>Invitación pendiente</Typography>}
+                </Box>
+                <IrIcon sx={{ color: 'text.secondary' }} />
+              </ButtonBase>
+            ))}
+          </Paper>
+
+          <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 1.5 }}>
             <Table sx={{ minWidth: 820 }}>
               <TableHead>
                 <TableRow>
@@ -130,7 +153,7 @@ export default function Residentes() {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                        {u.cargos.length === 0 && <Typography variant="body2" color="text.secondary">Residente</Typography>}
+                        {u.cargos.length === 0 && <Typography variant="body2" color="text.secondary">Sin cargo</Typography>}
                         {u.cargos.map((c) => <SelloCargo key={c.cargo} cargo={c.cargo} conTexto sx={{ fontSize: '0.875rem' }} />)}
                       </Box>
                     </TableCell>

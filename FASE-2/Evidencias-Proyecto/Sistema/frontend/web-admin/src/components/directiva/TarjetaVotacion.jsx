@@ -7,8 +7,11 @@ const pct = (n) => `${Math.round(n)}%`;
 // Barra horizontal simple; `marca` dibuja la línea del quórum.
 function Barra({ valor, color = 'primary.main', marca, alto = 8 }) {
   return (
-    <Box sx={{ position: 'relative', height: alto, borderRadius: alto, bgcolor: 'divider' }}>
-      <Box sx={{ width: `${Math.min(valor, 100)}%`, height: '100%', borderRadius: alto, bgcolor: color, transition: 'width 300ms cubic-bezier(0.2, 0, 0, 1)' }} />
+    <Box sx={{ position: 'relative', height: alto }}>
+      {/* scaleX en vez de width: no recalcula el layout en cada cuadro */}
+      <Box sx={{ height: '100%', borderRadius: alto, bgcolor: 'divider', overflow: 'hidden' }}>
+        <Box sx={{ height: '100%', bgcolor: color, transformOrigin: 'left', transform: `scaleX(${Math.min(valor, 100) / 100})`, transition: 'transform 250ms var(--ease-out)' }} />
+      </Box>
       {marca != null && (
         <Box aria-hidden sx={{ position: 'absolute', top: -4, bottom: -4, left: `${marca}%`, width: 2, bgcolor: 'text.primary', borderRadius: 1 }} />
       )}
@@ -29,7 +32,7 @@ export default function TarjetaVotacion({ votacion, totalUnidades, onRecordar, o
   const lider = Math.max(...votacion.opciones.map((o) => o.votos));
 
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3, display: 'grid', gap: 2, alignContent: 'start' }}>
+    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 2, alignContent: 'start' }}>
       <Box sx={{ display: 'grid', gap: 0.75 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           <Chip size="small" label={votacion.tipo === 'votacion' ? 'Votación' : 'Encuesta'} sx={{ bgcolor: 'info.light', color: 'info.main' }} />

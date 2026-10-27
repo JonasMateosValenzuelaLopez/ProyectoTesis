@@ -16,13 +16,13 @@ export default function BitacoraPlataforma() {
 
   return (
     <Box sx={{ maxWidth: 1000 }}>
-      <Encabezado contexto="Plataforma EntreCasas" titulo="Bitácora" descripcion="Registro de las acciones del equipo EntreCasas sobre las comunidades y las cuentas." />
+      <Encabezado titulo="Bitácora" descripcion="Registro de las acciones del equipo EntreCasas sobre las comunidades y las cuentas." />
       <TextField select size="small" label="Comunidad" value={red} onChange={(e) => setRed(e.target.value)} sx={{ minWidth: 260, mb: 2 }}>
         <MenuItem value="todas">Todas</MenuItem>
         <MenuItem value="ninguna">Sin comunidad (cuentas)</MenuItem>
         {redes.map((r) => <MenuItem key={r.id} value={r.id}>{r.nombre}</MenuItem>)}
       </TextField>
-      <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
         {lista.map((b, i) => (
           <Box key={b.id} sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '150px 1fr' }, gap: { xs: 0.25, sm: 2 }, px: 2.5, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
             <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>{fechaHora(b.fecha)}</Typography>

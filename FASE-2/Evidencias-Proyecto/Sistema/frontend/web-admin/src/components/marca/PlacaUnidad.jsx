@@ -1,6 +1,7 @@
 import { Box } from '@mui/material';
 
 // Placa de bronce con el número de la vivienda: el elemento firma de EntreCasas.
+// El número reserva dos cifras para que las placas 1 a 99 midan lo mismo y los nombres queden alineados.
 const TAMANOS = {
   sm: { pad: '3px', radio: '7px', interior: '3px 8px 2px', borde: 1.5, radioInt: '4px', numero: '1.1rem', etiqueta: '0.5rem' },
   md: { pad: '6px', radio: '10px', interior: '6px 14px 4px', borde: 2, radioInt: '6px', numero: '2rem', etiqueta: '0.62rem' },
@@ -27,7 +28,7 @@ export default function PlacaUnidad({ tipo = 'Casa', numero, size = 'md', invert
             {etiqueta}
           </Box>
         )}
-        <Box component="span" sx={{ fontFamily: 'Archivo, sans-serif', fontStretch: '125%', fontWeight: 800, fontSize: t.numero, fontVariantNumeric: 'tabular-nums' }}>
+        <Box component="span" sx={{ fontFamily: 'Archivo, sans-serif', fontStretch: '125%', fontWeight: 800, fontSize: t.numero, fontVariantNumeric: 'tabular-nums', minWidth: '2ch', textAlign: 'center' }}>
           {numero}
         </Box>
       </Box>

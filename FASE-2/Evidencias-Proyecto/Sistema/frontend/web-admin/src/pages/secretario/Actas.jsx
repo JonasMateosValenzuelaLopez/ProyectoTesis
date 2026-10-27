@@ -42,7 +42,7 @@ function descargar(acta, comunidad) {
 
 function Seccion({ titulo, children }) {
   return (
-    <Box sx={{ display: 'grid', gap: 0.75 }}>
+    <Box sx={{ display: 'grid', gap: 0.75, alignContent: 'start' }}>
       <Typography variant="overline" color="text.secondary" component="h3" sx={{ lineHeight: 1.6 }}>{titulo}</Typography>
       {children}
     </Box>
@@ -53,7 +53,7 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
   const { comunidad } = useSesion();
   const borrador = acta.estado === 'borrador';
   return (
-    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 3, display: 'grid', gap: 2.5, alignContent: 'start' }}>
+    <Paper variant="outlined" sx={{ p: { xs: 2, sm: 3 }, borderRadius: 1.5, display: 'grid', gap: 2.5, alignContent: 'start' }}>
       <Box sx={{ display: 'grid', gap: 0.5 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Typography variant="body2" color="text.secondary">Acta N° {acta.numero}</Typography>
@@ -71,8 +71,8 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
           {acta.asistentes.length ? acta.asistentes.map((a) => <Typography key={a}>{a}</Typography>) : <Typography color="text.secondary">Sin registrar</Typography>}
         </Seccion>
         <Seccion titulo="Temas tratados">
-          <Box component="ol" sx={{ m: 0, pl: 2.5, display: 'grid', gap: 0.5 }}>
-            {acta.temas.map((t) => <li key={t}><Typography>{t}</Typography></li>)}
+          <Box component="ol" sx={{ m: 0, pl: 0, listStylePosition: 'inside', display: 'grid', gap: 0.75, '& li::marker': { color: 'text.secondary' } }}>
+            {acta.temas.map((t) => <Typography component="li" key={t}>{t}</Typography>)}
           </Box>
         </Seccion>
       </Box>
@@ -144,7 +144,7 @@ export default function Actas() {
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '320px 1fr' }, alignItems: 'start' }}>
         <Box sx={{ display: 'grid', gap: 1.5 }}>
           <TextField size="small" label="Buscar en temas y acuerdos" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
-          <Paper variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
+          <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
             {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>{actas.length ? 'Ninguna acta coincide.' : 'Todavía no hay actas.'}</Typography>}
             {lista.map((a, i) => {
               const activa = seleccionada?.id === a.id;

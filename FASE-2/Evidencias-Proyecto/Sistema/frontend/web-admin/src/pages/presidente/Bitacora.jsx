@@ -35,7 +35,22 @@ export default function Bitacora() {
         <TextField size="small" label="Buscar" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} sx={{ minWidth: 240 }} />
       </Box>
 
-      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3 }}>
+      {/* En el celular cada acción es un bloque: qué se hizo primero, quién y cuándo debajo */}
+      <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden' }}>
+        {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>No hay acciones que coincidan.</Typography>}
+        {lista.map((b, i) => (
+          <Box key={b.id} sx={{ px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', display: 'grid', gap: 0.5 }}>
+            <Typography sx={{ fontWeight: 700 }}>{b.accion}</Typography>
+            <Typography variant="body2" color="text.secondary">{b.detalle}</Typography>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <SelloCargo cargo={b.cargo} size={18} />
+              <Typography variant="body2"><b>{b.usuario}</b> · {fechaHora(b.fecha)}</Typography>
+            </Box>
+          </Box>
+        ))}
+      </Paper>
+
+      <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 1.5 }}>
         <Table sx={{ minWidth: 760 }}>
           <TableHead>
             <TableRow>

@@ -65,7 +65,7 @@ export default function Directorio() {
           ) : (
             <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' } }}>
               {directiva.map((m) => (
-                <Box key={`${m.cargo}-${m.idUsuario}`} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 2.5, display: 'grid', gap: 0.75, alignContent: 'start' }}>
+                <Box key={`${m.cargo}-${m.idUsuario}`} sx={{ p: 2, border: 1, borderColor: 'divider', borderRadius: 1.5, display: 'grid', gap: 0.75, alignContent: 'start' }}>
                   <SelloCargo cargo={m.cargo} conTexto sx={{ fontSize: '0.85rem', color: 'text.secondary' }} />
                   <Typography sx={{ fontWeight: 700, fontSize: '1.05rem' }}>{m.nombre}</Typography>
                   <Typography variant="body2" color="text.secondary">
@@ -110,7 +110,7 @@ export default function Directorio() {
         <Tarjeta titulo="Emergencias" extra="Siempre visibles en la app">
           <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr 1fr', md: 'repeat(4, 1fr)' } }}>
             {EMERGENCIAS.map((e) => (
-              <Paper key={e.telefono} variant="outlined" sx={{ p: 1.5, borderRadius: 2, display: 'grid' }}>
+              <Paper key={e.telefono} variant="outlined" sx={{ p: 1.5, borderRadius: 1, display: 'grid' }}>
                 <Typography sx={{ fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1.1 }}>{e.telefono}</Typography>
                 <Typography variant="body2" color="text.secondary">{e.nombre}</Typography>
               </Paper>

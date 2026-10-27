@@ -124,13 +124,15 @@ export function estadoCuentaInicial(idUnidad: string): EstadoCuenta {
   const { idRed } = UNIDADES[idUnidad];
   const debe = DEUDA[idUnidad] ?? 0;
   const dia = 3 + (idUnidad.length % 5);
+  const historial = [
+    periodo(idRed, idUnidad, '2026-09', 'Septiembre 2026', '2026-10-05', debe === 0, dia),
+    periodo(idRed, idUnidad, '2026-08', 'Agosto 2026', '2026-09-05', debe < 200000, dia + 1),
+  ];
   return {
     actual: periodo(idRed, idUnidad, '2026-10', 'Octubre 2026', '2026-11-05', !PENDIENTES.includes(idUnidad), dia),
-    deudaAnterior: debe,
-    historial: [
-      periodo(idRed, idUnidad, '2026-09', 'Septiembre 2026', '2026-10-05', debe === 0, dia),
-      periodo(idRed, idUnidad, '2026-08', 'Agosto 2026', '2026-09-05', debe < 200000, dia + 1),
-    ],
+    // La deuda es la suma de los meses anteriores sin pagar, así Finanzas y el Inicio muestran lo mismo
+    deudaAnterior: historial.filter((h) => h.estado === 'pendiente').reduce((s, h) => s + h.items.reduce((a, i) => a + i.monto, 0), 0),
+    historial,
   };
 }
 
@@ -177,6 +179,7 @@ export function reservasIniciales(): Reserva[] {
 export type Publicacion = {
   id: string; idRed: number; lugar: 'muro' | 'mercado'; oficial?: { tipo: 'Comunicado' | 'Norma'; aprobadoPor: string; cargo: 'presidente' | 'administrador' };
   autor: string; idUnidad?: string; titulo?: string; texto: string; fecha: string; precio?: number; categoria?: 'Vendo' | 'Servicio' | 'Busco';
+  telefono?: string; // Solo en el mercado: se comparte únicamente con los vecinos cuya solicitud de contacto acepta
   reportadaPorMi?: boolean;
 };
 
@@ -186,15 +189,35 @@ export function publicacionesIniciales(): Publicacion[] {
     { id: 'pn0', idRed: 1, lugar: 'muro', oficial: { tipo: 'Norma', aprobadoPor: 'Luis Muñoz · Presidente', cargo: 'presidente' }, autor: 'Secretaría', titulo: 'Tenencia responsable de mascotas', texto: 'Las mascotas deben circular con correa por el pasaje y sus dueños deben recoger los desechos. Los reclamos se registran en el muro.', fecha: '2026-08-02T10:00:00' },
     { id: 'm1', idRed: 1, lugar: 'muro', autor: 'Gabriel Ortiz', idUnidad: 'c4', texto: '¿Alguien perdió un gato gris? Está en mi patio desde anoche.', fecha: '2026-10-25T21:10:00' },
     { id: 'm5', idRed: 1, lugar: 'muro', autor: 'Diego Fuentes', idUnidad: 'c7', texto: 'Gracias a quien dejó el paquete de Correos en mi puerta, llegó perfecto.', fecha: '2026-10-23T19:40:00' },
-    { id: 'm3', idRed: 1, lugar: 'mercado', categoria: 'Vendo', precio: 45000, autor: 'Matías Contreras', idUnidad: 'c13', texto: 'Bicicleta aro 26 en buen estado. Se puede probar en el pasaje.', fecha: '2026-10-23T17:30:00' },
-    { id: 'm6', idRed: 1, lugar: 'mercado', categoria: 'Servicio', autor: 'Rodrigo Pizarro', idUnidad: 'c9', texto: 'Clases de matemáticas para básica y media. Primera clase sin costo.', fecha: '2026-10-21T12:00:00' },
-    { id: 'm7', idRed: 1, lugar: 'mercado', categoria: 'Busco', autor: 'Gabriel Ortiz', idUnidad: 'c4', texto: 'Busco quien me preste una escalera de 3 metros el fin de semana.', fecha: '2026-10-24T09:15:00' },
+    { id: 'm3', idRed: 1, lugar: 'mercado', categoria: 'Vendo', precio: 45000, autor: 'Matías Contreras', idUnidad: 'c13', telefono: '+56 9 7412 3313', texto: 'Bicicleta aro 26 en buen estado. Se puede probar en el pasaje.', fecha: '2026-10-23T17:30:00' },
+    { id: 'm6', idRed: 1, lugar: 'mercado', categoria: 'Servicio', autor: 'Rodrigo Pizarro', idUnidad: 'c9', telefono: '+56 9 8530 2209', texto: 'Clases de matemáticas para básica y media. Primera clase sin costo.', fecha: '2026-10-21T12:00:00' },
+    { id: 'm7', idRed: 1, lugar: 'mercado', categoria: 'Busco', autor: 'Gabriel Ortiz', idUnidad: 'c4', telefono: '+56 9 6271 0404', texto: 'Busco quien me preste una escalera de 3 metros el fin de semana.', fecha: '2026-10-24T09:15:00' },
+    { id: 'm8', idRed: 1, lugar: 'mercado', categoria: 'Vendo', precio: 60000, autor: 'Luis Muñoz', idUnidad: 'c5', telefono: '+56 9 6123 4505', texto: 'Coche de bebé plegable, poco uso. Incluye cubre lluvia.', fecha: '2026-10-25T11:00:00' },
+    { id: 'm9', idRed: 1, lugar: 'mercado', categoria: 'Vendo', precio: 80000, autor: 'Diego Fuentes', idUnidad: 'c7', telefono: '+56 9 6123 4507', texto: 'Mesa de ping-pong plegable con paletas y pelotas.', fecha: '2026-10-19T16:00:00' },
     { id: 'vm1', idRed: 2, lugar: 'muro', autor: 'Valentina Castro', idUnidad: 'vB2', texto: 'Este sábado hacemos limpieza de la plaza de la manzana B. ¡Los esperamos a las 10!', fecha: '2026-10-24T10:00:00' },
     { id: 'vm2', idRed: 2, lugar: 'muro', oficial: { tipo: 'Comunicado', aprobadoPor: 'Sonia Fuentealba · Presidenta', cargo: 'presidente' }, autor: 'Secretaría', titulo: 'Asamblea ordinaria de octubre', texto: 'El acta de la asamblea del 4 de octubre ya está disponible. Se aprobó cotizar una alarma comunitaria; la votación está abierta en la app.', fecha: '2026-10-06T09:00:00' },
-    { id: 'vm3', idRed: 2, lugar: 'mercado', categoria: 'Vendo', precio: 3500, autor: 'Paula Reyes', idUnidad: 'vD5', texto: 'Empanadas de pino los domingos. Pedidos hasta el sábado.', fecha: '2026-10-22T18:00:00' },
+    { id: 'vm3', idRed: 2, lugar: 'mercado', categoria: 'Vendo', precio: 3500, autor: 'Paula Reyes', idUnidad: 'vD5', telefono: '+56 9 5188 4605', texto: 'Empanadas de pino los domingos. Pedidos hasta el sábado.', fecha: '2026-10-22T18:00:00' },
     { id: 'em1', idRed: 3, lugar: 'muro', oficial: { tipo: 'Comunicado', aprobadoPor: 'Patricia Olave · Administradora', cargo: 'administrador' }, autor: 'Administración', titulo: 'Mantención de ascensores', texto: 'El jueves de 10:00 a 13:00 el ascensor A estará detenido por mantención preventiva.', fecha: '2026-10-22T09:00:00' },
     { id: 'em2', idRed: 3, lugar: 'muro', autor: 'Tomás Herrera', idUnidad: 'd104', texto: 'Se encontró un juego de llaves en el gimnasio. Están en conserjería.', fecha: '2026-10-25T08:20:00' },
-    { id: 'em3', idRed: 3, lugar: 'mercado', categoria: 'Vendo', precio: 120000, autor: 'Ricardo Molina', idUnidad: 'd302', texto: 'Escritorio blanco de 120 cm con cajonera. Retiro en el depto.', fecha: '2026-10-20T20:00:00' },
+    { id: 'em3', idRed: 3, lugar: 'mercado', categoria: 'Vendo', precio: 120000, autor: 'Ricardo Molina', idUnidad: 'd302', telefono: '+56 9 9043 3021', texto: 'Escritorio blanco de 120 cm con cajonera. Retiro en el depto.', fecha: '2026-10-20T20:00:00' },
+  ];
+}
+
+// ---------- Contacto en el mercado ----------
+// El interesado toca «Contactar» y quien publicó recibe la solicitud con su nombre y su vivienda.
+// Si la acepta, el interesado ve su teléfono; si la rechaza, ve que el aviso ya no está disponible.
+// `vista` indica si el interesado ya vio la respuesta (para el globo de la pestaña Mercado).
+export type SolicitudContacto = {
+  id: string; idPublicacion: string; idUnidad: string; nombre: string;
+  estado: 'pendiente' | 'aceptada' | 'rechazada'; fecha: string; respondida?: string; vista?: boolean;
+};
+
+export function solicitudesIniciales(): SolicitudContacto[] {
+  return [
+    { id: 's1', idPublicacion: 'm8', idUnidad: 'c1', nombre: 'Rosa Díaz', estado: 'pendiente', fecha: haceMin(45) },
+    { id: 's2', idPublicacion: 'm8', idUnidad: 'c7', nombre: 'Diego Fuentes', estado: 'pendiente', fecha: haceMin(180) },
+    { id: 's3', idPublicacion: 'm6', idUnidad: 'c5', nombre: 'Luis Muñoz', estado: 'aceptada', fecha: haceMin(1500), respondida: haceMin(1400), vista: false },
+    { id: 's4', idPublicacion: 'm9', idUnidad: 'c5', nombre: 'Luis Muñoz', estado: 'rechazada', fecha: haceMin(2900), respondida: haceMin(2600), vista: false },
   ];
 }
 

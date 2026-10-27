@@ -11,14 +11,14 @@ export default function Campo({ etiqueta, error, ayuda, style, ...rest }: TextIn
     <View style={{ gap: 6 }}>
       <Texto v="fuerte" style={{ fontSize: 15 }}>{etiqueta}</Texto>
       <TextInput
-        placeholderTextColor={t.ink2}
+        placeholderTextColor={t.placeholder}
         accessibilityLabel={etiqueta}
         {...rest}
         onFocus={(e) => { setFoco(true); rest.onFocus?.(e); }}
         onBlur={(e) => { setFoco(false); rest.onBlur?.(e); }}
         style={[{
           minHeight: 50, borderRadius: 12, borderWidth: foco ? 2 : 1.5, paddingHorizontal: foco ? 13.5 : 14,
-          borderColor: error ? t.bad : foco ? t.cobalt : t.line, backgroundColor: t.surface,
+          borderColor: error ? t.bad : foco ? t.accion : t.lineStrong, backgroundColor: t.surface,
           fontFamily: F.texto, fontSize: 17, color: t.ink,
         }, style]}
       />

@@ -16,7 +16,7 @@ export default function Modulos() {
         titulo="Módulos"
         descripcion="Activa solo lo que la comunidad usa. Al apagar un módulo desaparece del panel y de la app, pero sus datos se conservan."
       />
-      <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+      <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
         {Object.entries(MODULOS).map(([clave, nombre], i) => {
           const activo = comunidad.modulos.includes(clave);
           return (

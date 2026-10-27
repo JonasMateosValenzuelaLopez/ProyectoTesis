@@ -6,6 +6,8 @@ import { colors, status, radius } from './tokens';
 export const F = {
   cifra: 'Archivo_800ExtraBold',
   etiqueta: 'Archivo_600SemiBold',
+  // Montos, fechas y horas dentro de una fila: Archivo tabular, sin el cero tachado de Atkinson
+  numero: 'Archivo_500Medium',
   texto: 'AtkinsonHyperlegibleNext_400Regular',
   medio: 'AtkinsonHyperlegibleNext_500Medium',
   negrita: 'AtkinsonHyperlegibleNext_700Bold',

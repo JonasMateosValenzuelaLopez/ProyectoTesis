@@ -17,7 +17,7 @@ export default function VisitasHoy() {
   const { visitasHoy, unidadPorId, acciones } = useConserjeria();
   const ahora = new Date();
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 3 }}>
+    <Paper variant="outlined" sx={{ borderRadius: 1.5 }}>
       <Box sx={{ px: 2.5, pt: 2, pb: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2 }}>
         <Typography variant="h6" component="h2">Visitas de hoy</Typography>
         <Typography variant="body2" color="text.secondary">{visitasHoy.filter((v) => v.estado === 'esperada').length} por llegar · {visitasHoy.filter((v) => v.estado === 'adentro').length} adentro</Typography>

@@ -1,5 +1,5 @@
 import { createTheme } from '@mui/material/styles';
-import { panel, panelStatus, fonts, radius } from './tokens';
+import { panel, panelStatus, fonts, radius, motion } from './tokens';
 
 // Tema del panel construido desde los tokens compartidos (frontend/tokens/tokens.js).
 // Paleta "Hall de bronce": casi todo es grafito y granito; la pátina marca lo oficial,
@@ -8,7 +8,10 @@ const c = panel.light;
 const s = panelStatus.light;
 
 const display = `"${fonts.display}", "Arial Narrow", system-ui, sans-serif`;
-const body = `"${fonts.body}", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif`;
+// Las cifras van en Archivo tabular aunque el texto sea Atkinson: el cero de Atkinson viene tachado
+// y en montos y fechas se lee como código. "EC Cifras" solo trae los dígitos (unicode-range).
+const body = `"EC Cifras", "${fonts.body}", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif`;
+const curva = (c) => `cubic-bezier(${c.join(', ')})`;
 
 // Títulos en Archivo: un poco ancho para que se sienta como señalética.
 const titulo = (size, weight = 700, stretch = '105%') => ({
@@ -59,14 +62,37 @@ const theme = createTheme({
   shape: { borderRadius: radius.md },
   components: {
     MuiCssBaseline: {
-      styleOverrides: {
-        body: { fontVariantNumeric: 'tabular-nums' },
-      },
+      styleOverrides: `
+        @font-face {
+          font-family: "EC Cifras";
+          src: url("/fonts/archivo-latin.woff2") format("woff2");
+          font-weight: 400 800;
+          font-stretch: 62% 125%;
+          font-display: swap;
+          unicode-range: U+0030-0039;
+        }
+        :root {
+          --ease-out: ${curva(motion.ease.out)};
+          --ease-in-out: ${curva(motion.ease.inOut)};
+        }
+        body { font-variant-numeric: tabular-nums; }
+        .MuiButtonBase-root.Mui-focusVisible { outline: 2px solid ${c.ink}; outline-offset: 2px; }
+      `,
+    },
+    // Sin la onda de Material: la respuesta al presionar es una leve escala, igual que en la app.
+    MuiButtonBase: {
+      defaultProps: { disableRipple: true },
     },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
-        root: { borderRadius: radius.md, paddingInline: 14 },
+        root: {
+          borderRadius: radius.md,
+          paddingInline: 14,
+          transition: `background-color ${motion.fast}ms ease, border-color ${motion.fast}ms ease, color ${motion.fast}ms ease, transform 160ms var(--ease-out)`,
+          '&:active': { transform: 'scale(0.97)' },
+          '@media (prefers-reduced-motion: reduce)': { '&:active': { transform: 'none' } },
+        },
       },
     },
     // Las superficies se separan con bordes, no con sombras.
@@ -113,12 +139,47 @@ const theme = createTheme({
     },
     MuiOutlinedInput: {
       styleOverrides: {
-        root: { backgroundColor: c.surface },
-        notchedOutline: { borderColor: c.line },
+        root: {
+          backgroundColor: c.surface,
+          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: c.ink2 },
+        },
+        // Borde con 3:1 de contraste (WCAG 1.4.11) y ejemplo más claro que lo escrito
+        notchedOutline: { borderColor: c.lineStrong, transition: `border-color ${motion.fast}ms ease` },
+        input: { '&::placeholder': { color: c.placeholder, opacity: 1 } },
       },
     },
     MuiLink: {
       defaultProps: { color: 'bronce.main' },
+    },
+    // Interruptor encendido en pátina (lo que la comunidad tiene activo), apagado en gris con borde visible.
+    MuiSwitch: {
+      styleOverrides: {
+        switchBase: {
+          color: c.surface,
+          '&.Mui-checked': { color: c.surface },
+          '&.Mui-checked + .MuiSwitch-track': { backgroundColor: c.patina, opacity: 1 },
+        },
+        thumb: { boxShadow: `0 0 0 1px ${c.lineStrong}` },
+        track: { backgroundColor: c.lineStrong, opacity: 1, transition: `background-color ${motion.fast}ms ease` },
+      },
+    },
+    // Pasos: los pendientes con borde, el actual en grafito y los terminados en pátina con su check.
+    MuiStepIcon: {
+      styleOverrides: {
+        root: {
+          color: c.surface,
+          border: `1.5px solid ${c.lineStrong}`,
+          borderRadius: '50%',
+          '& .MuiStepIcon-text': { fill: c.ink2, fontWeight: 700 },
+          '&.Mui-active': { color: c.ink, borderColor: c.ink, '& .MuiStepIcon-text': { fill: c.surface } },
+          '&.Mui-completed': { color: c.patina, borderColor: c.patina },
+        },
+      },
+    },
+    MuiStepLabel: {
+      styleOverrides: {
+        label: { color: c.ink2, '&.Mui-active': { color: c.ink, fontWeight: 700 }, '&.Mui-completed': { color: c.ink } },
+      },
     },
     MuiTooltip: {
       styleOverrides: { tooltip: { backgroundColor: c.ink, fontSize: '0.75rem' } },

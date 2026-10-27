@@ -33,7 +33,7 @@ export default function Votaciones() {
       </Tabs>
 
       {lista.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}>
           <Typography color="text.secondary">{pestana === 'abierta' ? 'No hay votaciones en curso.' : 'Todavía no hay votaciones cerradas.'}</Typography>
         </Paper>
       ) : (

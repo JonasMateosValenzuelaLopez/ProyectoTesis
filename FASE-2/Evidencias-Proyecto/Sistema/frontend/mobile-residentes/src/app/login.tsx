@@ -31,7 +31,7 @@ function Marca() {
       <Texto style={{ fontFamily: F.cifra, fontSize: 32, lineHeight: 34, color: '#fff' }}>Tu comunidad,{'\n'}casa por casa.</Texto>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
         {Array.from({ length: 24 }, (_, i) => (
-          <View key={i} style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: ENCENDIDAS.has(i) ? t.cobalt : 'rgba(201,209,218,0.25)', backgroundColor: ENCENDIDAS.has(i) ? t.cobalt : 'transparent' }} />
+          <View key={i} style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: ENCENDIDAS.has(i) ? t.bronzeOnSidebar : 'rgba(199,210,205,0.25)', backgroundColor: ENCENDIDAS.has(i) ? t.bronzeOnSidebar : 'transparent' }} />
         ))}
       </View>
     </View>
@@ -50,13 +50,13 @@ function CuentasPrueba({ onElegir }: { onElegir: (c: Cuenta) => void }) {
         const u = UNIDADES[c.residencias[0].idUnidad];
         return (
           <Pressable key={c.id} onPress={() => onElegir(c)} accessibilityRole="button" accessibilityLabel={`Usar la cuenta de ${c.nombre} ${c.apellido}`}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderColor: t.line, backgroundColor: pressed ? t.cobaltSoft : t.surface })}>
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderColor: t.line, backgroundColor: pressed ? t.accionSoft : t.surface })}>
             <PlacaUnidad tipo="" numero={u.numero} size="sm" />
             <View style={{ flex: 1 }}>
               <Texto v="fuerte">{c.nombre} {c.apellido}</Texto>
               <Texto v="chico">{c.flujo}</Texto>
             </View>
-            <Texto v="chico" style={{ fontVariant: ['tabular-nums'] }}>{c.rut}</Texto>
+            <Texto v="chico" style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'] }}>{c.rut}</Texto>
           </Pressable>
         );
       })}
@@ -121,7 +121,7 @@ export default function Login() {
       {metodo === 'clave' && <Campo etiqueta="Clave" value={clave} onChangeText={setClave} secureTextEntry autoComplete="password" textContentType="password" onSubmitEditing={entrar} />}
       {metodo === 'codigo' && enviadoA && (
         <View style={{ gap: 12 }}>
-          <View style={{ backgroundColor: t.cobaltSoft, borderRadius: 12, padding: 12 }}>
+          <View style={{ backgroundColor: t.accionSoft, borderRadius: 12, padding: 12 }}>
             <Texto>Enviamos un código de 6 dígitos a {enviadoA}. Vence en 10 minutos.</Texto>
           </View>
           <Campo
@@ -131,7 +131,7 @@ export default function Login() {
         </View>
       )}
       {error === 'panel' && (
-        <View style={{ backgroundColor: t.cobaltSoft, borderRadius: 12, padding: 12 }}>
+        <View style={{ backgroundColor: t.accionSoft, borderRadius: 12, padding: 12 }}>
           <Texto>Tu cuenta es de la directiva, la administración o la conserjería, sin vivienda registrada. Entra al panel web desde un computador.</Texto>
         </View>
       )}

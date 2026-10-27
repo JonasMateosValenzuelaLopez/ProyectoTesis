@@ -40,7 +40,7 @@ export default function SolicitarAcceso() {
   if (enviada) {
     return (
       <Hoja titulo="Solicitud enviada" abajo={<Boton texto="Volver a entrar" onPress={() => router.back()} />}>
-        <Ionicons name="paper-plane-outline" size={44} color={t.cobalt} />
+        <Ionicons name="paper-plane-outline" size={44} color={t.accion} />
         <Texto v="titulo">Listo, {f.nombre.split(' ')[0]}</Texto>
         <Texto>
           {comunidad?.modulos.includes('administrador_externo') ? 'La administración' : 'La directiva'} de {comunidad?.nombre} revisará tu solicitud para {comunidad?.tipo === 'Edificio' ? 'el depto' : 'la casa'} {f.numero}. Te avisaremos a {f.correo.trim()} cuando puedas entrar.

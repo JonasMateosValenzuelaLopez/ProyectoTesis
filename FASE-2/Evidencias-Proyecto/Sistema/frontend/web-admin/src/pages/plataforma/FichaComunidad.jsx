@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, Link as RouterLink, useParams } from 'react-router-dom';
 import {
-  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, Switch, TextField, Typography,
+  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Link as MuiLink, MenuItem, Switch, TextField, Typography,
 } from '@mui/material';
 import { usePlataforma } from '../../context/PlataformaContext';
 import { MODULOS } from '../../config/modulos';
@@ -89,7 +89,7 @@ export default function FichaComunidad() {
   return (
     <Box sx={{ maxWidth: 1300 }}>
       <Encabezado
-        contexto={`Comunidades · ${red.tipo}`}
+        contexto={<><MuiLink component={RouterLink} to="/plataforma" color="inherit">Comunidades</MuiLink> · {red.tipo}</>}
         titulo={red.nombre}
         descripcion={red.direccion}
         acciones={suspendida
@@ -128,7 +128,7 @@ export default function FichaComunidad() {
               <Dato etiqueta="Tipo">
                 <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                   <Typography>{red.tipo}</Typography>
-                  <Button size="small" onClick={() => setDialogo('tipo')}>Cambiar</Button>
+                  <MuiLink component="button" type="button" onClick={() => setDialogo('tipo')} sx={{ fontWeight: 700 }}>Cambiar</MuiLink>
                 </Box>
               </Dato>
               <Dato etiqueta="En EntreCasas desde"><Typography>{fecha(red.creadaEn)}</Typography></Dato>
@@ -154,14 +154,14 @@ export default function FichaComunidad() {
           </Tarjeta>
 
           <Tarjeta titulo="Módulos" extra={`${red.modulos.length} activos`}>
-            <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+            <Box sx={{ mt: -0.5 }}>
               {Object.entries(MODULOS).map(([clave, nombre], i) => (
-                <Box key={clave} component="label" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, px: 1.5, py: 0.5, borderTop: i ? 1 : 0, borderColor: 'divider', cursor: 'pointer' }}>
+                <Box key={clave} component="label" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, py: 0.5, borderTop: i ? 1 : 0, borderColor: 'divider', cursor: 'pointer' }}>
                   <Typography variant="body2">{nombre}</Typography>
                   <Switch size="small" checked={red.modulos.includes(clave)} onChange={(e) => acciones.cambiarModulo(red, clave, e.target.checked)} inputProps={{ 'aria-label': nombre }} />
                 </Box>
               ))}
-            </Paper>
+            </Box>
           </Tarjeta>
         </Box>
       </Box>

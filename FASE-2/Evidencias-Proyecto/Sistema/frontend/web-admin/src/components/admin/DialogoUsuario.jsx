@@ -82,7 +82,7 @@ export default function DialogoUsuario({ idUsuario, onClose }) {
           <Typography variant="subtitle2" component="h3">Cargos en esta comunidad</Typography>
           {u.cargos.length === 0 && <Typography color="text.secondary">Sin cargos. Usa la app como residente.</Typography>}
           {u.cargos.map((c) => (
-            <Box key={c.cargo} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 2, px: 1.5, py: 1 }}>
+            <Box key={c.cargo} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, justifyContent: 'space-between', border: 1, borderColor: 'divider', borderRadius: 1, px: 1.5, py: 1 }}>
               <Box>
                 <SelloCargo cargo={c.cargo} conTexto />
                 <Typography variant="body2" color="text.secondary">Desde {fecha(c.desde)} {c.desde.slice(0, 4)}{c.hasta ? ` hasta ${fecha(c.hasta)} ${c.hasta.slice(0, 4)}` : ''}</Typography>
