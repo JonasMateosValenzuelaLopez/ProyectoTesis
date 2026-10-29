@@ -56,17 +56,25 @@ export class SolicitudAcceso extends EntidadAuditada {
   @Column({ type: 'varchar', length: 50 })
   nombre: string;
 
-  @Column({ name: 'apellido_paterno', type: 'varchar', length: 50 })
-  apellidoPaterno: string;
+  @Column({ name: 'primer_apellido', type: 'varchar', length: 50 })
+  primerApellido: string;
 
-  @Column({ name: 'apellido_materno', type: 'varchar', length: 50 })
-  apellidoMaterno: string;
+  @Column({
+    name: 'segundo_apellido',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  segundoApellido: string | null;
 
   @Column({ type: 'varchar', length: 100 })
   correo: string;
 
   @Column({ type: 'varchar', length: 15, nullable: true })
   telefono: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  mensaje: string | null;
 
   @Column({
     type: 'enum',

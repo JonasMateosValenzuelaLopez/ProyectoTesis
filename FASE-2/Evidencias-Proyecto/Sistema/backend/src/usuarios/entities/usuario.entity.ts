@@ -24,11 +24,16 @@ export class Usuario extends EntidadAuditada {
   @Column({ type: 'varchar', length: 50 })
   nombre: string;
 
-  @Column({ name: 'apellido_paterno', type: 'varchar', length: 50 })
-  apellidoPaterno: string;
+  @Column({ name: 'primer_apellido', type: 'varchar', length: 50 })
+  primerApellido: string;
 
-  @Column({ name: 'apellido_materno', type: 'varchar', length: 50 })
-  apellidoMaterno: string;
+  @Column({
+    name: 'segundo_apellido',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  segundoApellido: string | null;
 
   @Column({ type: 'varchar', length: 100, unique: true })
   correo: string;

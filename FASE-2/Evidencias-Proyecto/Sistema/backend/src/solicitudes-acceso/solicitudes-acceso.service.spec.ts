@@ -102,8 +102,8 @@ describe('SolicitudesAccesoService', () => {
       identificador: '12345678-5',
       pais: 'CL',
       nombre: 'Ana',
-      apellidoPaterno: 'Pérez',
-      apellidoMaterno: 'Soto',
+      primerApellido: 'Pérez',
+      segundoApellido: 'Soto',
       correo: 'ana@correo.cl',
       telefono: null,
       estado: EstadoSolicitudAcceso.PENDIENTE,
@@ -296,8 +296,8 @@ describe('SolicitudesAccesoService', () => {
       idRed: RED.idRed,
       identificador: '12345678-5',
       nombre: 'Ana',
-      apellidoPaterno: 'Pérez',
-      apellidoMaterno: 'Soto',
+      primerApellido: 'Pérez',
+      segundoApellido: 'Soto',
       correo: 'ana@correo.cl',
       numeroUnidad: 'A-101',
     } as CrearSolicitudAccesoDto;
@@ -323,11 +323,31 @@ describe('SolicitudesAccesoService', () => {
         identificador: '12345678-5',
         pais: 'CL',
         nombre: 'Ana',
-        apellidoPaterno: 'Pérez',
-        apellidoMaterno: 'Soto',
+        primerApellido: 'Pérez',
+        segundoApellido: 'Soto',
         correo: 'ana@correo.cl',
         telefono: null,
+        mensaje: null,
       });
+    });
+
+    it('debe guardar el segundo apellido en null cuando no se informa', async () => {
+      await target.crear({ ...dto, segundoApellido: undefined });
+
+      expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          primerApellido: 'Pérez',
+          segundoApellido: null,
+        }),
+      );
+    });
+
+    it('debe guardar el mensaje para la administración cuando se informa', async () => {
+      await target.crear({ ...dto, mensaje: 'Soy la nueva arrendataria' });
+
+      expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ mensaje: 'Soy la nueva arrendataria' }),
+      );
     });
 
     it('debe guardar idUnidad null cuando el número de unidad no coincide', async () => {
@@ -413,8 +433,8 @@ describe('SolicitudesAccesoService', () => {
         identificador: '12345678-5',
         pais: 'CL',
         nombre: 'Ana',
-        apellidoPaterno: 'Pérez',
-        apellidoMaterno: 'Soto',
+        primerApellido: 'Pérez',
+        segundoApellido: 'Soto',
         correo: 'ana@correo.cl',
         telefono: null,
         passwordHash: null,
@@ -477,6 +497,22 @@ describe('SolicitudesAccesoService', () => {
         tipo: TipoResidencia.ARRENDATARIO,
       });
       expect(resultado.tipoResidencia).toBe(TipoResidencia.ARRENDATARIO);
+    });
+
+    it('debe crear la cuenta sin segundo apellido cuando la solicitud no lo tiene', async () => {
+      configurarManager({
+        solicitud: crearSolicitud({ segundoApellido: null }),
+      });
+
+      await target.aprobar(80, RED, ID_RESOLUTOR, {});
+
+      expect(mockManager.create).toHaveBeenCalledWith(
+        Usuario,
+        expect.objectContaining({
+          primerApellido: 'Pérez',
+          segundoApellido: null,
+        }),
+      );
     });
 
     it('debe informar correoEnviado false cuando el correo de activación no sale', async () => {

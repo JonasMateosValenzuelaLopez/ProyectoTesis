@@ -6,8 +6,8 @@ const datosValidos = {
   idRed: 3,
   identificador: '12.345.678-5',
   nombre: ' Ana ',
-  apellidoPaterno: 'Pérez',
-  apellidoMaterno: 'Soto',
+  primerApellido: 'Pérez',
+  segundoApellido: 'Soto',
   correo: 'Ana@Correo.cl',
   numeroUnidad: 'A-101',
 };
@@ -47,6 +47,74 @@ describe('CrearSolicitudAccesoDto', () => {
       expect(dto.telefono).toBeUndefined();
     },
   );
+
+  it('debe exigir el primer apellido', async () => {
+    const { mensajes } = await validar({
+      ...datosValidos,
+      primerApellido: ' ',
+    });
+
+    expect(mensajes).toEqual(['El primer apellido es obligatorio']);
+  });
+
+  it.each([
+    ['ausente', undefined],
+    ['vacío', ''],
+    ['solo espacios', '   '],
+  ])(
+    'debe aceptar la solicitud con el segundo apellido %s',
+    async (_caso, segundoApellido) => {
+      const { dto, mensajes } = await validar({
+        ...datosValidos,
+        segundoApellido,
+      });
+
+      expect(mensajes).toEqual([]);
+      expect(dto.segundoApellido).toBeUndefined();
+    },
+  );
+
+  it('debe recortar el segundo apellido informado', async () => {
+    const { dto, mensajes } = await validar({
+      ...datosValidos,
+      segundoApellido: ' Soto ',
+    });
+
+    expect(mensajes).toEqual([]);
+    expect(dto.segundoApellido).toBe('Soto');
+  });
+
+  it.each([
+    ['ausente', undefined],
+    ['vacío', ''],
+    ['solo espacios', '   '],
+  ])('debe tratar el mensaje %s como no informado', async (_caso, mensaje) => {
+    const { dto, mensajes } = await validar({ ...datosValidos, mensaje });
+
+    expect(mensajes).toEqual([]);
+    expect(dto.mensaje).toBeUndefined();
+  });
+
+  it('debe aceptar un mensaje de 255 caracteres y recortarlo', async () => {
+    const mensaje = 'a'.repeat(255);
+
+    const { dto, mensajes } = await validar({
+      ...datosValidos,
+      mensaje: ` ${mensaje} `,
+    });
+
+    expect(mensajes).toEqual([]);
+    expect(dto.mensaje).toBe(mensaje);
+  });
+
+  it('debe rechazar un mensaje de más de 255 caracteres', async () => {
+    const { mensajes } = await validar({
+      ...datosValidos,
+      mensaje: 'a'.repeat(256),
+    });
+
+    expect(mensajes).toEqual(['El mensaje no puede superar 255 caracteres']);
+  });
 
   it('debe rechazar un teléfono con formato inválido', async () => {
     const { mensajes } = await validar({ ...datosValidos, telefono: '12ab' });

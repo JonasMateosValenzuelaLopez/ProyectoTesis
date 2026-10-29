@@ -20,6 +20,11 @@ import { TipoResidencia } from '../../usuarios/entities/residencia.entity';
 const recortar = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
+const recortarOpcional = ({ value }: { value: unknown }) => {
+  const recortado = recortar({ value });
+  return recortado === '' ? undefined : recortado;
+};
+
 export class CrearSolicitudAccesoDto {
   @IsInt({ message: 'Debes seleccionar tu comunidad' })
   @IsPositive({ message: 'Debes seleccionar tu comunidad' })
@@ -43,15 +48,15 @@ export class CrearSolicitudAccesoDto {
 
   @Transform(recortar)
   @IsString()
-  @IsNotEmpty({ message: 'El apellido paterno es obligatorio' })
+  @IsNotEmpty({ message: 'El primer apellido es obligatorio' })
   @MaxLength(50)
-  apellidoPaterno: string;
+  primerApellido: string;
 
-  @Transform(recortar)
+  @IsOptional()
+  @Transform(recortarOpcional)
   @IsString()
-  @IsNotEmpty({ message: 'El apellido materno es obligatorio' })
   @MaxLength(50)
-  apellidoMaterno: string;
+  segundoApellido?: string;
 
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
@@ -61,10 +66,7 @@ export class CrearSolicitudAccesoDto {
   correo: string;
 
   @IsOptional()
-  @Transform(({ value }) => {
-    const recortado = recortar({ value });
-    return recortado === '' ? undefined : recortado;
-  })
+  @Transform(recortarOpcional)
   @Matches(/^\+?\d{8,14}$/, { message: 'El teléfono no es válido' })
   telefono?: string;
 
@@ -79,4 +81,10 @@ export class CrearSolicitudAccesoDto {
     message: 'El tipo de residencia debe ser Propietario o Arrendatario',
   })
   tipoResidencia?: TipoResidencia;
+
+  @IsOptional()
+  @Transform(recortarOpcional)
+  @IsString()
+  @MaxLength(255, { message: 'El mensaje no puede superar 255 caracteres' })
+  mensaje?: string;
 }

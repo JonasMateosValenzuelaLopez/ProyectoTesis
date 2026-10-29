@@ -117,10 +117,11 @@ export class SolicitudesAccesoService {
         identificador,
         pais,
         nombre: dto.nombre,
-        apellidoPaterno: dto.apellidoPaterno,
-        apellidoMaterno: dto.apellidoMaterno,
+        primerApellido: dto.primerApellido,
+        segundoApellido: dto.segundoApellido ?? null,
         correo: dto.correo,
         telefono: dto.telefono ?? null,
+        mensaje: dto.mensaje ?? null,
       });
     }
 
@@ -193,8 +194,8 @@ export class SolicitudesAccesoService {
             identificador: solicitud.identificador,
             pais: solicitud.pais,
             nombre: solicitud.nombre,
-            apellidoPaterno: solicitud.apellidoPaterno,
-            apellidoMaterno: solicitud.apellidoMaterno,
+            primerApellido: solicitud.primerApellido,
+            segundoApellido: solicitud.segundoApellido,
             correo: solicitud.correo,
             telefono: solicitud.telefono,
             passwordHash: null,
