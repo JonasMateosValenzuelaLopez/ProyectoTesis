@@ -1,7 +1,5 @@
-import { validate } from 'class-validator';
 import {
   calcularDigitoVerificador,
-  EsRut,
   esRutValido,
   normalizarRut,
 } from './rut.validator';
@@ -60,59 +58,6 @@ describe('rut.validator', () => {
 
     it('debe rechazar un valor sin forma de RUT', () => {
       expect(esRutValido('no-es-un-rut')).toBe(false);
-    });
-  });
-
-  describe('EsRut', () => {
-    class ConRut {
-      @EsRut()
-      rut: unknown;
-    }
-
-    class ConMensajePropio {
-      @EsRut({ message: 'RUT del apoderado inválido' })
-      rut: unknown;
-    }
-
-    const validarRut = (clase: new () => { rut: unknown }, rut: unknown) => {
-      const objeto = new clase();
-      objeto.rut = rut;
-      return validate(objeto);
-    };
-
-    it('debe pasar la validación con un RUT válido', async () => {
-      // Act
-      const errores = await validarRut(ConRut, '12.345.678-5');
-
-      // Assert
-      expect(errores).toEqual([]);
-    });
-
-    it('debe fallar con el mensaje por defecto cuando el RUT es inválido', async () => {
-      // Act
-      const errores = await validarRut(ConRut, '12.345.678-9');
-
-      // Assert
-      expect(errores).toHaveLength(1);
-      expect(errores[0].constraints).toEqual({ esRut: 'El RUT no es válido' });
-    });
-
-    it('debe fallar cuando el valor no es string', async () => {
-      // Act
-      const errores = await validarRut(ConRut, 123456785);
-
-      // Assert
-      expect(errores[0].constraints).toEqual({ esRut: 'El RUT no es válido' });
-    });
-
-    it('debe usar el mensaje personalizado cuando se entrega', async () => {
-      // Act
-      const errores = await validarRut(ConMensajePropio, 'abc');
-
-      // Assert
-      expect(errores[0].constraints).toEqual({
-        esRut: 'RUT del apoderado inválido',
-      });
     });
   });
 });

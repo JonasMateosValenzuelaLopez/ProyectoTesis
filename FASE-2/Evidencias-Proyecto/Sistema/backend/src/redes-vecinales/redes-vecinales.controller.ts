@@ -16,10 +16,8 @@ import { RedesVecinalesService } from './redes-vecinales.service';
 import { CreateRedesVecinaleDto } from './dto/create-red-vecinal.dto';
 import { UpdateRedesVecinaleDto } from './dto/update-red-vecinal.dto';
 
-// Plantilla sin implementar: protegida por defecto hasta definir sus permisos.
-// Al implementarla, filtrar cada consulta por la comunidad de @RedActual().
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RolUsuario.ADMINISTRACION)
+@Roles(RolUsuario.ADMINISTRADOR)
 @Controller('redes-vecinales')
 export class RedesVecinalesController {
   constructor(private readonly redesVecinalesService: RedesVecinalesService) {}

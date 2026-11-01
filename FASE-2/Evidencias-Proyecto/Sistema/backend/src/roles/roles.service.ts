@@ -11,9 +11,6 @@ export class RolesService implements OnModuleInit {
     private readonly rolesRepository: Repository<Rol>,
   ) {}
 
-  // RolUsuario usa los ids autoincrementales de `roles`. Si en otra BD se
-  // sembraron en otro orden, Residente podría quedar con el id de
-  // Administración; mejor no arrancar que repartir permisos equivocados.
   async onModuleInit() {
     const roles = await this.rolesRepository.find();
     const nombrePorId = new Map(roles.map((rol) => [rol.idRol, rol.nombreRol]));

@@ -32,13 +32,11 @@ import { SolicitudesAccesoService } from './solicitudes-acceso.service';
 export class SolicitudesAccesoController {
   constructor(private readonly solicitudesService: SolicitudesAccesoService) {}
 
-  // Público: selector de comunidad del formulario "Solicita acceso".
   @Get('comunidades')
   listarComunidades() {
     return this.solicitudesService.listarComunidades();
   }
 
-  // Público: botón "Enviar Solicitud".
   @Post()
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   crear(@Body() dto: CrearSolicitudAccesoDto) {
@@ -47,7 +45,7 @@ export class SolicitudesAccesoController {
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolUsuario.ADMINISTRACION)
+  @Roles(RolUsuario.ADMINISTRADOR)
   listar(
     @RedActual() red: ContextoRed,
     @Query() filtro: ListarSolicitudesAccesoDto,
@@ -57,7 +55,7 @@ export class SolicitudesAccesoController {
 
   @Patch(':id/aprobar')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolUsuario.ADMINISTRACION)
+  @Roles(RolUsuario.ADMINISTRADOR)
   aprobar(
     @Param('id', ParseIntPipe) id: number,
     @RedActual() red: ContextoRed,
@@ -69,7 +67,7 @@ export class SolicitudesAccesoController {
 
   @Patch(':id/rechazar')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(RolUsuario.ADMINISTRACION)
+  @Roles(RolUsuario.ADMINISTRADOR)
   rechazar(
     @Param('id', ParseIntPipe) id: number,
     @RedActual() red: ContextoRed,
