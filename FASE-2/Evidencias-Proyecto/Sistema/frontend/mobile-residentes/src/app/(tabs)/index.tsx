@@ -1,7 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { setStatusBarStyle } from 'expo-status-bar';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/App';
@@ -17,19 +16,16 @@ import PlacaUnidad from '@/components/ec/PlacaUnidad';
 import { espaciosActivos, hora, tipoUnidad } from '@/data/demo';
 import Fila from '@/components/ec/Fila';
 import SelloCargo from '@/components/ec/SelloCargo';
+import Seccion from '@/components/ec/Seccion';
+import { FICHA, vencimiento } from '@/utils/hogar';
 
-// Portada de la vivienda: la placa, el saludo y lo que debe la casa, sobre la pátina profunda.
+// Portada de la vivienda: la placa, el saludo y lo que debe la casa, sobre el color del menú.
 function Portada() {
   const t = useTema();
   const insets = useSafeAreaInsets();
   const { cuenta, unidad, comunidad, estado, tiene } = useApp();
   const aviso = estado?.avisoPendiente;
   const [detalle, setDetalle] = useState(false);
-  // El encabezado es oscuro también en tema claro: la barra de estado va en claro mientras se ve esta pantalla.
-  useFocusEffect(useCallback(() => {
-    setStatusBarStyle('light');
-    return () => setStatusBarStyle(t.oscuro ? 'light' : 'dark');
-  }, [t.oscuro]));
   if (!cuenta || !unidad || !comunidad) return null;
   const cobros = tiene('cobros') && estado;
   const r = estado ? resumenCuenta(estado) : null;
@@ -42,7 +38,7 @@ function Portada() {
         <PlacaUnidad tipo={tipoUnidad(unidad)} numero={unidad.numero_identificador} size="lg" />
         <View style={{ flex: 1, gap: 2 }}>
           <Texto style={{ color: t.sidebarInk }}>{comunidad.nombre}</Texto>
-          <Texto v="titulo" accessibilityRole="header" style={{ color: '#fff', fontSize: 24, lineHeight: 28 }}>{saludo()}, {cuenta.nombre}</Texto>
+          <Texto v="titulo" accessibilityRole="header" style={{ color: t.sidebarStrong, fontSize: 24, lineHeight: 28 }}>{saludo()}, {cuenta.nombre}</Texto>
         </View>
       </View>
 
@@ -55,7 +51,7 @@ function Portada() {
               </Texto>
               <Chip texto={r.estado.texto} tono={r.estado.tono} />
             </View>
-            <Texto v="cifra" accessibilityLabel={clp(alDia ? r.mes : r.total)} style={{ color: '#fff', fontSize: 44, lineHeight: 50 }}>{clp(alDia ? r.mes : r.total)}</Texto>
+            <Texto v="cifra" accessibilityLabel={clp(alDia ? r.mes : r.total)} style={{ color: t.sidebarStrong, fontSize: 44, lineHeight: 50 }}>{clp(alDia ? r.mes : r.total)}</Texto>
           </View>
 
           {detalle && (
@@ -63,13 +59,13 @@ function Portada() {
               {estado.actual.gastos.map((g) => (
                 <View key={g.id_gasto} style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: t.sidebarActive }}>
                   <Texto style={{ flex: 1, color: t.sidebarInk }}>{g.concepto}{g.es_extraordinario ? ' · extraordinario' : ''}{g.estado_pago === 'Exento' ? ' · exento' : ''}</Texto>
-                  <Texto style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'], color: '#fff' }}>{clp(g.monto_total)}</Texto>
+                  <Texto style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'], color: t.sidebarStrong }}>{clp(g.monto_total)}</Texto>
                 </View>
               ))}
               {estado.deudaAnterior > 0 && (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: 1, borderColor: t.sidebarActive }}>
-                  <Texto v="fuerte" style={{ flex: 1, color: '#fff' }}>Deuda de meses anteriores</Texto>
-                  <Texto v="fuerte" style={{ fontFamily: F.etiqueta, fontVariant: ['tabular-nums'], color: '#fff' }}>{clp(estado.deudaAnterior)}</Texto>
+                  <Texto v="fuerte" style={{ flex: 1, color: t.sidebarStrong }}>Deuda de meses anteriores</Texto>
+                  <Texto v="fuerte" style={{ fontFamily: F.etiqueta, fontVariant: ['tabular-nums'], color: t.sidebarStrong }}>{clp(estado.deudaAnterior)}</Texto>
                 </View>
               )}
               <Texto style={{ color: t.sidebarMuted, fontSize: 14, lineHeight: 20, paddingTop: 8 }}>
@@ -122,10 +118,53 @@ function EnPorteria() {
   ));
 }
 
+// Lo que toca hoy o pronto: el camión de la basura (guía de bienvenida) y lo que vence en Mi hogar
+function ParaHoy() {
+  const t = useTema();
+  const { guia, basuraHoy, fichasPorVencer } = useApp();
+  const fichas = fichasPorVencer.slice(0, 2);
+  if (!basuraHoy && !fichas.length) return null;
+  return (
+    <Seccion titulo="Para tener en cuenta" icono="time" orden={0}>
+      {basuraHoy && guia && (
+        <Tarjeta style={{ backgroundColor: t.patinaSoft, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ width: 40, height: 40, borderRadius: 10, backgroundColor: t.patina, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="trash-outline" size={20} color={t.oscuro ? t.paper : '#FFFFFF'} />
+          </View>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Texto v="fuerte">Hoy pasa el camión de la basura</Texto>
+            <Texto v="chico">{[guia.basura_horario, guia.basura_lugar].filter(Boolean).join(' · ')}</Texto>
+          </View>
+        </Tarjeta>
+      )}
+      {fichas.length > 0 && (
+        <Tarjeta style={{ paddingVertical: 4 }}>
+          {fichas.map((f, n) => {
+            const v = vencimiento(f)!;
+            return (
+              <Fila
+                key={f.id_ficha} borde={n > 0} titulo={f.tipo === 'Garantía' ? `Garantía: ${f.titulo}` : `Mantención: ${f.titulo}`} detalle={`${v.texto} · Mi hogar`}
+                izquierda={<Ionicons name={FICHA[f.tipo].icono} size={22} color={v.tono === 'bad' ? t.bad : t.warn} />}
+                onPress={() => router.push({ pathname: '/hogar/[id]', params: { id: String(f.id_ficha) } })}
+              />
+            );
+          })}
+        </Tarjeta>
+      )}
+    </Seccion>
+  );
+}
+
 // Inicio centrado en la propia vivienda: la placa y lo que debe abren la pantalla; después, los accesos, lo que la comunidad decide y las visitas.
 export default function Inicio() {
   const t = useTema();
-  const { cuenta, unidad, comunidad, cargo, tiene, misInvitaciones, misReservas, espacioDe, votaciones, miVoto, publicaciones } = useApp();
+  const { cuenta, unidad, comunidad, cargo, tiene, misInvitaciones, misReservas, espacioDe, votaciones, miVoto, publicaciones, guiaPendiente, tutorialPendiente } = useApp();
+  // Primer ingreso: primero el tutorial de la app (solo la primera vez que la persona entra) y después
+  // la guía de bienvenida de esta vivienda. Las dos quedan en Perfil para verlas cuando quiera.
+  useEffect(() => {
+    if (tutorialPendiente) router.push('/tutorial');
+    else if (guiaPendiente) router.push('/bienvenida');
+  }, [tutorialPendiente, guiaPendiente, unidad?.id_unidad]);
   if (!cuenta || !unidad || !comunidad) return null;
 
   const proximasVisitas = misInvitaciones
@@ -152,47 +191,59 @@ export default function Inicio() {
     <Pantalla>
       <Portada />
       <EnPorteria />
+      <ParaHoy />
 
-      {accesos.length > 0 && <Tarjeta style={{ paddingVertical: 4 }}>{accesos}</Tarjeta>}
+      {accesos.length > 0 && (
+        <Seccion titulo="Accesos rápidos" icono="flash" orden={0}>
+          <Tarjeta style={{ paddingVertical: 4 }}>{accesos}</Tarjeta>
+        </Seccion>
+      )}
 
-      {porVotar.map((v) => (
-        <Tarjeta key={v.id_votacion} acento={t.patina}>
-          <View style={{ gap: 4 }}>
-            <Texto v="etiqueta" color={t.patina}>{v.tipo === 'Votación' ? 'Votación abierta' : 'Encuesta'} · cierra {cuando(v.fecha_cierre)}</Texto>
-            <Texto v="subtitulo">{v.titulo}</Texto>
-          </View>
-          <Boton tipo="secundario" texto={v.tipo === 'Votación' ? 'Votar' : 'Responder'} onPress={() => router.push({ pathname: '/votacion/[id]', params: { id: String(v.id_votacion) } })} />
-        </Tarjeta>
-      ))}
+      {porVotar.length > 0 && (
+        <Seccion titulo="Decisiones de la comunidad" icono="checkbox" orden={1}>
+          {porVotar.map((v) => (
+            <Tarjeta key={v.id_votacion} acento={t.patina}>
+              <View style={{ gap: 4 }}>
+                <Texto v="etiqueta" color={t.patina}>{v.tipo === 'Votación' ? 'Votación abierta' : 'Encuesta'} · cierra {cuando(v.fecha_cierre)}</Texto>
+                <Texto v="subtitulo">{v.titulo}</Texto>
+              </View>
+              <Boton tipo="secundario" texto={v.tipo === 'Votación' ? 'Votar' : 'Responder'} onPress={() => router.push({ pathname: '/votacion/[id]', params: { id: String(v.id_votacion) } })} />
+            </Tarjeta>
+          ))}
+        </Seccion>
+      )}
 
       {tiene('invitaciones_qr') && (
-        <Tarjeta>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-            <Texto v="subtitulo">Visitas de hoy y mañana</Texto>
-            <Boton tipo="texto" texto="Ver todas" onPress={() => router.push('/invitaciones')} style={{ minHeight: 36, paddingHorizontal: 0 }} />
-          </View>
-          {proximasVisitas.length === 0 && <Texto v="suave">No esperas visitas. Invita a alguien y comparte su código QR.</Texto>}
-          {proximasVisitas.map((i, n) => (
-            <Fila
-              key={i.id_invitacion} borde={n > 0} titulo={i.visitante}
-              detalle={i.estado === 'Adentro' ? 'Ya ingresó' : `${cuando(i.fecha_desde)}, de ${horaMinuto(i.fecha_desde)} a ${horaMinuto(i.fecha_hasta)}`}
-              derecha={<Chip texto={i.codigo} tono="senal" codigo />}
-              onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: String(i.id_invitacion) } })}
-            />
-          ))}
-        </Tarjeta>
+        <Seccion
+          titulo="Visitas de hoy y mañana" icono="people" orden={2}
+          derecha={<Boton tipo="texto" texto="Ver todas" onPress={() => router.push('/invitaciones')} style={{ minHeight: 36, paddingHorizontal: 0 }} />}
+        >
+          <Tarjeta style={{ paddingVertical: proximasVisitas.length ? 4 : 18 }}>
+            {proximasVisitas.length === 0 && <Texto v="suave">No esperas visitas. Invita a alguien y comparte su código QR.</Texto>}
+            {proximasVisitas.map((i, n) => (
+              <Fila
+                key={i.id_invitacion} borde={n > 0} titulo={i.visitante}
+                detalle={i.estado === 'Adentro' ? 'Ya ingresó' : `${cuando(i.fecha_desde)}, de ${horaMinuto(i.fecha_desde)} a ${horaMinuto(i.fecha_hasta)}`}
+                derecha={<Chip texto={i.codigo} tono="senal" codigo />}
+                onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: String(i.id_invitacion) } })}
+              />
+            ))}
+          </Tarjeta>
+        </Seccion>
       )}
 
       {oficial && tiene('muro') && (
-        <Tarjeta>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <SelloCargo cargo={oficial.oficial!.cargo} size={20} />
-            <Texto v="etiqueta">{oficial.oficial!.tipo} oficial · {fecha(oficial.fecha)}</Texto>
-          </View>
-          <Texto v="subtitulo">{oficial.titulo}</Texto>
-          <Texto v="suave" numberOfLines={3}>{oficial.texto}</Texto>
-          <Boton tipo="texto" texto="Ir al muro" onPress={() => router.push('/(tabs)/muro')} style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 36 }} />
-        </Tarjeta>
+        <Seccion titulo="Último comunicado" icono="megaphone" orden={3}>
+          <Tarjeta>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <SelloCargo cargo={oficial.oficial!.cargo} size={20} />
+              <Texto v="etiqueta">{oficial.oficial!.tipo} oficial · {fecha(oficial.fecha)}</Texto>
+            </View>
+            <Texto v="subtitulo">{oficial.titulo}</Texto>
+            <Texto v="suave" numberOfLines={3}>{oficial.texto}</Texto>
+            <Boton tipo="texto" texto="Ir al muro" onPress={() => router.push('/(tabs)/muro')} style={{ alignSelf: 'flex-start', paddingHorizontal: 0, minHeight: 36 }} />
+          </Tarjeta>
+        </Seccion>
       )}
 
       {cargo && (

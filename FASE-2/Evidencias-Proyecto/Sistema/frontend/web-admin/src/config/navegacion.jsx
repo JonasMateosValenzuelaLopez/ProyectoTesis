@@ -19,6 +19,7 @@ import {
   DomainOutlined as ComunidadIcon,
   ToggleOnOutlined as ModulosIcon,
   ContactPhoneOutlined as DirectorioIcon,
+  ExploreOutlined as GuiaIcon,
 } from '@mui/icons-material';
 import { tieneModulo } from './modulos';
 
@@ -63,6 +64,8 @@ export const SECCIONES = [
       { texto: 'Reservas', ruta: '/panel/reservas', icono: <ReservasIcon />, cargos: ['administrador'], modulo: 'reservas' },
       { texto: 'Residentes y cargos', ruta: '/panel/residentes', icono: <ResidentesIcon />, cargos: ['administrador'], pendiente: 'solicitudes' },
       { texto: 'Unidades', ruta: '/panel/unidades', icono: <UnidadesIcon />, cargos: ['administrador'] },
+      // Lo que ven los residentes nuevos en la app (P8). Sin administrador externo, la edita el Presidente
+      { texto: 'Guía de bienvenida', ruta: '/panel/guia', icono: <GuiaIcon />, cargos: ['administrador', 'secretario'] },
     ],
   },
   {

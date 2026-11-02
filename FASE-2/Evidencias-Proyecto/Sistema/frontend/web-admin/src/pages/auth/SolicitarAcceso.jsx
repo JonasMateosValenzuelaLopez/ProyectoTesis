@@ -3,6 +3,7 @@ import { Box, Button, TextField, Typography, Link as MuiLink } from '@mui/materi
 import { ArrowBack as VolverIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import PanelMarca from '../../components/marca/PanelMarca';
+import SelectorTema from '../../components/SelectorTema';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
 
 // Mismo armazón que Entrar: panel de marca a la izquierda y el formulario a la derecha.
@@ -15,6 +16,7 @@ export default function SolicitarAcceso() {
   return (
     <Box component="main" sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.1fr 1fr' }, bgcolor: 'background.paper' }}>
       <PanelMarca titulo="Únete a EntreCasas." texto="Conecta con tus vecinos y participa en tu comunidad. La administración valida tu vivienda antes de activar la cuenta." />
+      <SelectorTema flotante />
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2, py: { xs: 4, md: 6 } }}>
         <Box sx={{ width: '100%', maxWidth: 420, display: 'grid', gap: 3 }}>

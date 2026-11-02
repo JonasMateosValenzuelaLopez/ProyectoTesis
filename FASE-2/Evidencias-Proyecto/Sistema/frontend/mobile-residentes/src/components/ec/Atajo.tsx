@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { F, useTema } from '@/constants/tema';
+import { F, sombra, useTema } from '@/constants/tema';
 import Texto from './Texto';
 import { PressableAnimado, usePresion } from './usePresion';
 
@@ -13,9 +13,9 @@ export default function Atajo({ icono, texto, onPress, senal }: { icono: keyof t
       onPress={onPress} onPressIn={presion.onPressIn} onPressOut={presion.onPressOut}
       accessibilityRole="button" accessibilityLabel={texto}
       style={[{
-        flex: 1, minHeight: 88, borderRadius: 12, padding: 12, gap: 10, justifyContent: 'space-between',
-        backgroundColor: senal ? t.signal : t.surface, borderWidth: 1, borderColor: senal ? t.signal : t.line,
-      }, presion.estilo]}
+        flex: 1, minHeight: 96, borderRadius: 20, padding: 14, gap: 10, justifyContent: 'space-between',
+        backgroundColor: senal ? t.signal : t.surface, borderWidth: t.oscuro && !senal ? 1 : 0, borderColor: t.line,
+      }, senal ? null : sombra(t), presion.estilo]}
     >
       <Ionicons name={icono} size={26} color={senal ? t.signalInk : t.accion} />
       <Texto style={{ fontFamily: F.negrita, fontSize: 15, lineHeight: 19, color: senal ? t.signalInk : t.ink }}>{texto}</Texto>

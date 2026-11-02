@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Navigate, useMatch, useNavigate } from 'react-router-dom';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
 import { Logout as LogoutIcon } from '@mui/icons-material';
@@ -7,6 +8,9 @@ import { SECCIONES_PLATAFORMA, activoPlataforma } from '../config/plataforma';
 import MarcoPanel from './MarcoPanel';
 import { nombreCorto } from '../utils/formato';
 import { esPlataforma } from '../config/roles';
+import SelectorTema from './SelectorTema';
+import PasoSesion from './marca/PasoSesion';
+import BotonTutorial from './tutorial/BotonTutorial';
 
 function Etiqueta() {
   return (
@@ -32,6 +36,7 @@ function BarraContexto() {
 // Panel del equipo EntreCasas: solo para cuentas de plataforma.
 export default function PlataformaProtegida() {
   const { usuario, bloqueados, cerrarSesion } = useSesion();
+  const [saliendo, setSaliendo] = useState(false);
   const navigate = useNavigate();
   if (!usuario) return <Navigate to="/login" replace />;
   if (!esPlataforma(usuario)) return <Navigate to="/panel" replace />;
@@ -43,6 +48,7 @@ export default function PlataformaProtegida() {
 
   return (
     <PlataformaProvider>
+      {saliendo && <PasoSesion tipo="salir" nombre={usuario.nombre} alTerminar={salir} />}
       <MarcoPanel
         secciones={SECCIONES_PLATAFORMA}
         contadores={{ bloqueados: bloqueados.length }}
@@ -56,8 +62,10 @@ export default function PlataformaProtegida() {
             <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', md: 'block' } }}>
               {nombreCorto(usuario)}
             </Typography>
+            <BotonTutorial cargo="plataforma" />
+            <SelectorTema />
             <Tooltip title="Cerrar sesión">
-              <IconButton aria-label="Cerrar sesión" onClick={salir} sx={{ color: 'text.secondary' }}>
+              <IconButton aria-label="Cerrar sesión" onClick={() => setSaliendo(true)} sx={{ color: 'text.secondary' }}>
                 <LogoutIcon />
               </IconButton>
             </Tooltip>

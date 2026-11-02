@@ -1,7 +1,7 @@
 import { View, type ViewProps } from 'react-native';
-import { useTema } from '@/constants/tema';
+import { sombra, useTema } from '@/constants/tema';
 
-// Contenedor de superficie con borde fino, como las tarjetas del panel.
+// Superficie blanca que flota sobre el papel con una sombra cálida (en oscuro, con un borde fino).
 // `acento` marca lo oficial (pátina): el borde completo toma ese color, sin franjas.
 export default function Tarjeta({ style, acento, ...rest }: ViewProps & { acento?: string }) {
   const t = useTema();
@@ -9,8 +9,8 @@ export default function Tarjeta({ style, acento, ...rest }: ViewProps & { acento
     <View
       {...rest}
       style={[{
-        backgroundColor: t.surface, borderRadius: 12, borderWidth: acento ? 1.5 : 1, borderColor: acento ?? t.line, padding: 16, gap: 12,
-      }, style]}
+        backgroundColor: t.surface, borderRadius: 20, borderWidth: acento ? 1.5 : t.oscuro ? 1 : 0, borderColor: acento ?? t.line, padding: 18, gap: 12,
+      }, sombra(t), style]}
     />
   );
 }

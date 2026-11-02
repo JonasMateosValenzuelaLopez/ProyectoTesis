@@ -1,12 +1,13 @@
-import { createContext, useContext, useMemo, useReducer } from 'react';
+import { createContext, useContext, useMemo, useReducer, useState } from 'react';
 import { useSesion } from './SesionContext';
 import { useFinanzas } from './FinanzasContext';
 import { directivaInicial, directivaVacia } from '../data/directivaMock';
+import { guiaVacia, guiasIniciales } from '../data/guiaMock';
 import { resultado } from '../utils/votaciones';
 import { nombreCorto } from '../utils/formato';
 
 // Secretaría de cada comunidad con las filas de la base: `votaciones`, `votacion_opciones`, `votos`,
-// `actas`, `acta_acuerdos` y `contactos`. Igual que en finanzas, simula la API y cada acción queda en la bitácora.
+// `actas`, `acta_acuerdos` y `contactos`, más la guía de bienvenida (`guias_comunidad`, P8). Igual que en finanzas, simula la API y cada acción queda en la bitácora.
 const DirectivaContext = createContext(null);
 
 // Con la API el id lo pone AUTO_INCREMENT; aquí se usa el mayor + 1
@@ -70,8 +71,11 @@ export function DirectivaProvider({ children }) {
     redes.forEach((r) => { inicial[r.id_red] ??= directivaVacia(); });
     return inicial;
   });
+  // Filas de `guias_comunidad` por comunidad. La editan Administración y Secretaría.
+  const [guias, setGuias] = useState(guiasIniciales);
   const id_red = comunidad.id_red;
   const d = state[id_red];
+  const guia = guias[id_red] ?? guiaVacia(id_red);
   const id_usuario = usuario.id_usuario;
 
   const valor = useMemo(() => {
@@ -120,19 +124,24 @@ export function DirectivaProvider({ children }) {
         dispatch({ tipo: 'guardarContacto', id_red, contacto });
         finanzas.anotar('Actualizó el directorio oficial', contacto.nombre, 'Directorio actualizado.');
       },
+      // UPDATE (o INSERT la primera vez) de `guias_comunidad`; quien guarda firma el mensaje
+      guardarGuia: (cambios) => {
+        setGuias((x) => ({ ...x, [id_red]: { ...guia, ...cambios, id_red, id_usuario_actualiza: id_usuario, fecha_actualizacion: ahora() } }));
+        finanzas.anotar('Actualizó la guía de bienvenida', 'Basura, reciclaje y mensaje para los residentes nuevos', 'Guía guardada. Los residentes nuevos la verán al entrar a la app.');
+      },
       eliminarContacto: (contacto) => {
         dispatch({ tipo: 'eliminarContacto', id_red, id_contacto: contacto.id_contacto });
         finanzas.anotar('Quitó un contacto del directorio', contacto.nombre, 'Contacto eliminado.');
       },
     };
     return {
-      ...d, votaciones, actas,
+      ...d, votaciones, actas, guia,
       totalUnidades,
       votacionesAbiertas: votaciones.filter((v) => v.estado === 'Abierta'),
       actasBorrador: actas.filter((a) => a.estado === 'Borrador'),
       acciones,
     };
-  }, [d, id_red, id_usuario, comunidad, cuentas, finanzas, correosEnviados]);
+  }, [d, guia, id_red, id_usuario, comunidad, cuentas, finanzas, correosEnviados]);
 
   return <DirectivaContext.Provider value={valor}>{children}</DirectivaContext.Provider>;
 }

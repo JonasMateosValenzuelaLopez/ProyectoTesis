@@ -58,7 +58,7 @@ export default function GastosComunes() {
       {/* Tabla de Finanzas */}
       <TableContainer component={Paper} elevation={2}>
         <Table sx={{ minWidth: 700 }}>
-          <TableHead sx={{ bgcolor: 'rgba(42, 157, 143, 0.1)' }}>
+          <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 'bold' }}>Unidad</TableCell>
               <TableCell sx={{ fontWeight: 'bold' }}>Residente Principal</TableCell>
@@ -70,7 +70,7 @@ export default function GastosComunes() {
           </TableHead>
           <TableBody>
             {finanzas.map((row) => (
-              <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: 'rgba(0,0,0,0.02)' } }}>
+              <TableRow key={row.id} sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: 'action.hover' } }}>
                 <TableCell sx={{ fontWeight: 'bold' }}>{row.unidad}</TableCell>
                 <TableCell>{row.residente}</TableCell>
                 <TableCell>{formatCurrency(row.cargoMes)}</TableCell>
