@@ -13,6 +13,7 @@ import { AuthService } from './auth.service';
 import { UsuarioActual } from './decorators/usuario-actual.decorator';
 import { IdentificadorUsuarioDto } from './dto/identificador-usuario.dto';
 import { LoginDto } from './dto/login.dto';
+import { MarcarTutorialDto } from './dto/marcar-tutorial.dto';
 import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { VerificarCodigoDto } from './dto/verificar-codigo.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -46,6 +47,16 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   perfil(@UsuarioActual() usuario: UsuarioAutenticado) {
     return this.authService.perfil(usuario.idUsuario);
+  }
+
+  @Post('tutorial-visto')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard)
+  marcarTutorialVisto(
+    @UsuarioActual() usuario: UsuarioAutenticado,
+    @Body() dto: MarcarTutorialDto,
+  ) {
+    return this.authService.marcarTutorialVisto(usuario.idUsuario, dto.lado);
   }
 
   @Post('recuperar-password')

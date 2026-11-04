@@ -34,6 +34,7 @@ import {
   MENSAJE_CUENTA_BLOQUEADA,
 } from './auth.constantes';
 import { AuthService } from './auth.service';
+import { LadoTutorial } from './dto/marcar-tutorial.dto';
 import { CodigoOtp } from './entities/codigo-otp.entity';
 import {
   TipoTokenPassword,
@@ -69,6 +70,7 @@ describe('AuthService', () => {
   let mockUsuariosRepository: {
     createQueryBuilder: jest.Mock;
     findOneBy: jest.Mock;
+    update: jest.Mock;
   };
   let mockMembresiasRepository: { find: jest.Mock };
   let mockResidenciasRepository: { find: jest.Mock };
@@ -207,6 +209,7 @@ describe('AuthService', () => {
     mockUsuariosRepository = {
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       findOneBy: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockMembresiasRepository = { find: jest.fn().mockResolvedValue([]) };
     mockResidenciasRepository = { find: jest.fn().mockResolvedValue([]) };
@@ -835,6 +838,34 @@ describe('AuthService', () => {
       await expect(target.perfil(99)).rejects.toThrow(
         new NotFoundException('Usuario no encontrado'),
       );
+    });
+  });
+
+  describe('marcarTutorialVisto', () => {
+    it('debe marcar solo el tutorial de la app del usuario indicado', async () => {
+      await target.marcarTutorialVisto(7, LadoTutorial.APP);
+
+      expect(mockUsuariosRepository.update).toHaveBeenCalledWith(
+        { idUsuario: 7, fechaEliminacion: IsNull() },
+        { tutorialAppVisto: true },
+      );
+    });
+
+    it('debe marcar solo el tutorial del panel del usuario indicado', async () => {
+      await target.marcarTutorialVisto(7, LadoTutorial.PANEL);
+
+      expect(mockUsuariosRepository.update).toHaveBeenCalledWith(
+        { idUsuario: 7, fechaEliminacion: IsNull() },
+        { tutorialPanelVisto: true },
+      );
+    });
+
+    it('debe terminar sin error cuando el tutorial ya estaba marcado', async () => {
+      mockUsuariosRepository.update.mockResolvedValue({ affected: 0 });
+
+      await expect(
+        target.marcarTutorialVisto(7, LadoTutorial.APP),
+      ).resolves.toBeUndefined();
     });
   });
 

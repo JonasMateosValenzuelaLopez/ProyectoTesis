@@ -1,4 +1,5 @@
-import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { HttpStatus } from '@nestjs/common';
+import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { AuthController } from './auth.controller';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -24,10 +25,19 @@ describe('AuthController', () => {
     },
   );
 
-  it('debe exigir sesión para ver el perfil', () => {
-    expect(Reflect.getMetadata(GUARDS_METADATA, metodo('perfil'))).toEqual([
-      JwtAuthGuard,
-    ]);
+  it.each([['perfil'], ['marcarTutorialVisto']] as const)(
+    'debe exigir sesión en %s',
+    (nombre) => {
+      expect(Reflect.getMetadata(GUARDS_METADATA, metodo(nombre))).toEqual([
+        JwtAuthGuard,
+      ]);
+    },
+  );
+
+  it('debe responder 204 sin contenido al marcar el tutorial', () => {
+    expect(
+      Reflect.getMetadata(HTTP_CODE_METADATA, metodo('marcarTutorialVisto')),
+    ).toBe(HttpStatus.NO_CONTENT);
   });
 
   it.each([

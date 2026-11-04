@@ -7,6 +7,8 @@ import { Unidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from './entities/membresia.entity';
 import { Residencia } from './entities/residencia.entity';
 import { Usuario } from './entities/usuario.entity';
+import { ResidenciasController } from './residencias.controller';
+import { ResidenciasService } from './residencias.service';
 import { UsuariosService } from './usuarios.service';
 import { UsuariosController } from './usuarios.controller';
 
@@ -22,8 +24,8 @@ import { UsuariosController } from './usuarios.controller';
       RedModulo,
     ]),
   ],
-  controllers: [UsuariosController],
-  providers: [UsuariosService],
+  controllers: [UsuariosController, ResidenciasController],
+  providers: [UsuariosService, ResidenciasService],
   exports: [TypeOrmModule],
 })
 export class UsuariosModule {}

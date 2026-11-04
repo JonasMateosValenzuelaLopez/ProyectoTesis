@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { IdentificadorUsuarioDto } from './identificador-usuario.dto';
 import { LoginDto } from './login.dto';
+import { LadoTutorial, MarcarTutorialDto } from './marcar-tutorial.dto';
 import { RestablecerPasswordDto } from './restablecer-password.dto';
 import { VerificarCodigoDto } from './verificar-codigo.dto';
 
@@ -134,6 +135,32 @@ describe('LoginDto', () => {
     });
 
     expect(mensajes).toEqual(['Credenciales inválidas']);
+  });
+});
+
+describe('MarcarTutorialDto', () => {
+  it.each([[LadoTutorial.APP], [LadoTutorial.PANEL]])(
+    "debe aceptar el lado '%s'",
+    async (lado) => {
+      const { mensajes } = await validar(MarcarTutorialDto, { lado });
+
+      expect(mensajes).toEqual([]);
+    },
+  );
+
+  it.each([['APP'], ['web'], [''], [1]])(
+    'debe rechazar el lado %p',
+    async (lado) => {
+      const { mensajes } = await validar(MarcarTutorialDto, { lado });
+
+      expect(mensajes).toEqual(["El lado debe ser 'app' o 'panel'"]);
+    },
+  );
+
+  it('debe rechazar la petición sin lado', async () => {
+    const { mensajes } = await validar(MarcarTutorialDto, {});
+
+    expect(mensajes).toEqual(["El lado debe ser 'app' o 'panel'"]);
   });
 });
 

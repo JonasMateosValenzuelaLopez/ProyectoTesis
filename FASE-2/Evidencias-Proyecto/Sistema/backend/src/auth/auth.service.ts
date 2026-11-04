@@ -51,6 +51,7 @@ import {
 } from './auth.constantes';
 import { IdentificadorUsuarioDto } from './dto/identificador-usuario.dto';
 import { LoginDto } from './dto/login.dto';
+import { LadoTutorial } from './dto/marcar-tutorial.dto';
 import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { VerificarCodigoDto } from './dto/verificar-codigo.dto';
 import { CodigoOtp } from './entities/codigo-otp.entity';
@@ -225,6 +226,18 @@ export class AuthService {
     }
     const { activas } = await this.comunidadesDe(idUsuario);
     return { ...this.serializarUsuario(usuario), comunidades: activas };
+  }
+
+  async marcarTutorialVisto(
+    idUsuario: number,
+    lado: LadoTutorial,
+  ): Promise<void> {
+    await this.usuariosRepository.update(
+      { idUsuario, fechaEliminacion: IsNull() },
+      lado === LadoTutorial.APP
+        ? { tutorialAppVisto: true }
+        : { tutorialPanelVisto: true },
+    );
   }
 
   async solicitarRecuperacion(dto: IdentificadorUsuarioDto) {
