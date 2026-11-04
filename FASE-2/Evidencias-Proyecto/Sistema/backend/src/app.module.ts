@@ -8,6 +8,7 @@ import { BitacoraModule } from './bitacora/bitacora.module';
 import { ErroresBdFilter } from './common/filters/errores-bd.filter';
 import { obtenerConfiguracionBaseDatos } from './config/database.config';
 import { validarEntorno } from './config/entorno.config';
+import { ZonaHorariaBdService } from './config/zona-horaria-bd.service';
 import { MailModule } from './mail/mail.module';
 import { RedesVecinalesModule } from './redes-vecinales/redes-vecinales.module';
 import { RolesModule } from './roles/roles.module';
@@ -42,6 +43,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_FILTER, useClass: ErroresBdFilter },
+    ZonaHorariaBdService,
   ],
 })
 export class AppModule {}

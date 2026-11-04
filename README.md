@@ -45,7 +45,7 @@ FASE-2/Evidencias-Proyecto/Sistema/
     git clone https://github.com/JonasMateosValenzuelaLopez/ProyectoTesis.git
     cd ProyectoTesis/FASE-2/Evidencias-Proyecto/Sistema
     ```
-3. Crear la base de datos. Con MariaDB encendido, abrir HeidiSQL y ejecutar `bd/entrecasas_db.sql` (Archivo → Ejecutar archivo SQL, codificación UTF-8). El script borra y recrea `entrecasas_db`.
+3. Crear la base de datos. MariaDB debe trabajar en UTC: en Laragon, abrir `my.ini` (menú MySQL → my.ini), agregar `default-time-zone='+00:00'` bajo `[mysqld]` y reiniciar MariaDB; sin esto la API no arranca. Con MariaDB encendido, abrir HeidiSQL y ejecutar `bd/entrecasas_db.sql` (Archivo → Ejecutar archivo SQL, codificación UTF-8). El script borra y recrea `entrecasas_db`.
 4. Configurar y ejecutar el backend.
     ```bash
     cd backend
