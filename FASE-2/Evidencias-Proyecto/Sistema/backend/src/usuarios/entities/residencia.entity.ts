@@ -43,4 +43,7 @@ export class Residencia extends EntidadAuditada {
 
   @Column({ type: 'date', nullable: true })
   hasta: string | null;
+
+  @Column({ name: 'fecha_guia_vista', type: 'datetime', nullable: true })
+  fechaGuiaVista: Date | null;
 }

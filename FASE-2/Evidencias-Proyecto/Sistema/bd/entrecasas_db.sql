@@ -209,6 +209,26 @@ CREATE TABLE IF NOT EXISTS `comunidad_contactos` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE IF NOT EXISTS `comunidad_guias` (
+  `id_red` int(11) NOT NULL,
+  `mensaje` varchar(500) DEFAULT NULL,
+  `basura_dias` set('Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo') DEFAULT NULL,
+  `basura_horario` varchar(60) DEFAULT NULL,
+  `basura_lugar` varchar(150) DEFAULT NULL,
+  `reciclaje_lugar` varchar(150) DEFAULT NULL,
+  `reciclaje_detalle` varchar(255) DEFAULT NULL,
+  `actualizado_por` int(11) DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_red`),
+  KEY `actualizado_por` (`actualizado_por`),
+  CONSTRAINT `fk_guia_actualizado_por` FOREIGN KEY (`actualizado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
+  CONSTRAINT `fk_guia_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE IF NOT EXISTS `egresos` (
   `id_egreso` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
@@ -283,6 +303,37 @@ CREATE TABLE IF NOT EXISTS `exenciones` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE IF NOT EXISTS `hogar_fichas` (
+  `id_ficha` int(11) NOT NULL AUTO_INCREMENT,
+  `id_unidad` int(11) NOT NULL,
+  `tipo` enum('Pintura','Garantía','Mantención','Medida','Técnico','Otro') NOT NULL,
+  `titulo` varchar(100) NOT NULL,
+  `detalle` text DEFAULT NULL,
+  `contacto_nombre` varchar(100) DEFAULT NULL,
+  `contacto_telefono` varchar(15) DEFAULT NULL,
+  `fecha` date DEFAULT NULL,
+  `fecha_vence` date DEFAULT NULL,
+  `creado_por` int(11) DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_ficha`),
+  KEY `idx_ficha_unidad_vence` (`id_unidad`,`fecha_vence`),
+  KEY `creado_por` (`creado_por`),
+  CONSTRAINT `fk_ficha_creado_por` FOREIGN KEY (`creado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
+  CONSTRAINT `fk_ficha_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE CASCADE,
+  CONSTRAINT `chk_ficha_titulo` CHECK (char_length(trim(`titulo`)) > 0),
+  CONSTRAINT `chk_ficha_detalle_largo` CHECK (`detalle` is null or char_length(`detalle`) <= 2000),
+  CONSTRAINT `chk_ficha_detalle_requerido` CHECK (`tipo` not in ('Pintura','Medida') or char_length(trim(coalesce(`detalle`,''))) > 0),
+  CONSTRAINT `chk_ficha_fecha_tipo` CHECK (`fecha` is null or `tipo` in ('Mantención','Garantía','Pintura','Técnico')),
+  CONSTRAINT `chk_ficha_vence_tipo` CHECK (`fecha_vence` is not null = `tipo` in ('Mantención','Garantía')),
+  CONSTRAINT `chk_ficha_periodo` CHECK (`fecha` is null or `fecha_vence` is null or `fecha_vence` > `fecha`),
+  CONSTRAINT `chk_ficha_contacto_nombre` CHECK (`contacto_nombre` is null or `tipo` = 'Mantención'),
+  CONSTRAINT `chk_ficha_contacto_telefono` CHECK (`contacto_telefono` is null or `tipo` in ('Mantención','Técnico') and `contacto_telefono` regexp '^[+][0-9]{8,14}$')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE IF NOT EXISTS `invitaciones` (
   `id_invitacion` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
@@ -332,9 +383,9 @@ CREATE TABLE IF NOT EXISTS `marketplace_publicaciones` (
   `foto_url` varchar(255) DEFAULT NULL,
   `telefono_contacto` varchar(15) DEFAULT NULL,
   `fecha_publicacion` datetime DEFAULT current_timestamp(),
-  `estado` tinyint(1) DEFAULT 1,
   `estado_moderacion` enum('Publicada','Oculta') NOT NULL DEFAULT 'Publicada',
   `moderado_por` int(11) DEFAULT NULL,
+  `moderado_en` datetime DEFAULT NULL,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `fecha_eliminacion` datetime DEFAULT NULL,
@@ -349,7 +400,8 @@ CREATE TABLE IF NOT EXISTS `marketplace_publicaciones` (
   CONSTRAINT `fk_marketplace_moderado_por` FOREIGN KEY (`moderado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_marketplace_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `fk_marketplace_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL,
-  CONSTRAINT `chk_marketplace_precio` CHECK (`precio` is null or `precio` >= 0)
+  CONSTRAINT `chk_marketplace_precio` CHECK (`precio` is null or `precio` >= 0),
+  CONSTRAINT `chk_marketplace_moderacion` CHECK (`estado_moderacion` = 'Publicada' or `moderado_en` is not null)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -421,10 +473,10 @@ CREATE TABLE IF NOT EXISTS `muro_publicaciones` (
   `titulo` varchar(150) DEFAULT NULL,
   `contenido` text NOT NULL,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
-  `estado` tinyint(1) DEFAULT 1,
   `estado_aprobacion` enum('No requiere','Pendiente','Aprobada','Rechazada') NOT NULL DEFAULT 'No requiere',
   `aprobado_por` int(11) DEFAULT NULL,
   `aprobado_en` datetime DEFAULT NULL,
+  `estado_moderacion` enum('Publicada','Oculta') NOT NULL DEFAULT 'Publicada',
   `moderado_por` int(11) DEFAULT NULL,
   `moderado_en` datetime DEFAULT NULL,
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -439,7 +491,8 @@ CREATE TABLE IF NOT EXISTS `muro_publicaciones` (
   CONSTRAINT `fk_muro_aprobado_por` FOREIGN KEY (`aprobado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_muro_moderado_por` FOREIGN KEY (`moderado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_muro_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
-  CONSTRAINT `fk_muro_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL
+  CONSTRAINT `fk_muro_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL,
+  CONSTRAINT `chk_muro_moderacion` CHECK (`estado_moderacion` = 'Publicada' or `moderado_en` is not null)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -474,8 +527,8 @@ CREATE TABLE IF NOT EXISTS `muro_reportes` (
 CREATE TABLE IF NOT EXISTS `notificaciones_enviadas` (
   `id_notificacion` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
-  `tipo` enum('Cobro','Recordatorio','Recordatorio de votación') NOT NULL,
-  `asunto` varchar(150) DEFAULT NULL,
+  `tipo` enum('Nuevo cobro','Recordatorio de morosidad','Recordatorio de votación') NOT NULL,
+  `asunto` varchar(150) NOT NULL,
   `id_cobro` int(11) DEFAULT NULL,
   `id_votacion` int(11) DEFAULT NULL,
   `destinatarios` int(11) NOT NULL DEFAULT 0,
@@ -491,7 +544,9 @@ CREATE TABLE IF NOT EXISTS `notificaciones_enviadas` (
   CONSTRAINT `fk_notificacion_cobro` FOREIGN KEY (`id_cobro`) REFERENCES `cobros` (`id_cobro`) ON DELETE SET NULL,
   CONSTRAINT `fk_notificacion_enviado_por` FOREIGN KEY (`enviado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_notificacion_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
-  CONSTRAINT `fk_notificacion_votacion` FOREIGN KEY (`id_votacion`) REFERENCES `votaciones` (`id_votacion`) ON DELETE SET NULL
+  CONSTRAINT `fk_notificacion_votacion` FOREIGN KEY (`id_votacion`) REFERENCES `votaciones` (`id_votacion`) ON DELETE SET NULL,
+  CONSTRAINT `chk_notificacion_asunto` CHECK (char_length(trim(`asunto`)) > 0),
+  CONSTRAINT `chk_notificacion_destinatarios` CHECK (`destinatarios` >= 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -642,6 +697,7 @@ CREATE TABLE IF NOT EXISTS `residencias` (
   `tipo` enum('Propietario','Arrendatario') NOT NULL,
   `desde` date NOT NULL DEFAULT curdate(),
   `hasta` date DEFAULT NULL,
+  `fecha_guia_vista` datetime DEFAULT NULL,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `fecha_eliminacion` datetime DEFAULT NULL,
@@ -758,6 +814,8 @@ CREATE TABLE IF NOT EXISTS `usuarios` (
   `es_plataforma` tinyint(1) NOT NULL DEFAULT 0,
   `bloqueado` tinyint(1) NOT NULL DEFAULT 0,
   `motivo_bloqueo` varchar(255) DEFAULT NULL,
+  `tutorial_app_visto` tinyint(1) NOT NULL DEFAULT 0,
+  `tutorial_panel_visto` tinyint(1) NOT NULL DEFAULT 0,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `fecha_eliminacion` datetime DEFAULT NULL,

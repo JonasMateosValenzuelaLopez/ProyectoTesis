@@ -32,7 +32,7 @@ FASE-2/Evidencias-Proyecto/Sistema/
 ## Estado actual
 - Backend implementado: autenticación (contraseña o código por correo), recuperación de contraseña, solicitudes de acceso, correo y bitácora de auditoría.
 - Backend pendiente: comunidades, unidades, usuarios, cobros, muro, marketplace, reservas y accesos.
-- Base de datos: esquema completo de 37 tablas.
+- Base de datos: esquema completo de 39 tablas.
 - Panel web y aplicación móvil: las vistas están construidas, pero **todavía no se conectan al backend**. Funcionan con datos de prueba y las cuentas de demostración se muestran en la pantalla de inicio de sesión.
 
 ## Ejecución local

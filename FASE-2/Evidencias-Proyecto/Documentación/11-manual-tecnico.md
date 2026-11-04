@@ -13,7 +13,7 @@ git clone https://github.com/JonasMateosValenzuelaLopez/ProyectoTesis.git
 cd ProyectoTesis/FASE-2/Evidencias-Proyecto/Sistema
 ```
 
-**Base de datos.** Con MariaDB encendido, ejecutar `bd/entrecasas_db.sql` en HeidiSQL (Archivo → Ejecutar archivo SQL, UTF-8). El script borra y recrea `entrecasas_db`, y deja las 37 tablas con los roles y módulos.
+**Base de datos.** Con MariaDB encendido, ejecutar `bd/entrecasas_db.sql` en HeidiSQL (Archivo → Ejecutar archivo SQL, UTF-8). El script borra y recrea `entrecasas_db`, y deja las 39 tablas con los roles y módulos.
 
 **Backend.**
 ```bash
