@@ -449,10 +449,12 @@ export class AuthService {
         unidades: residencias
           .filter((r) => r.unidad && r.unidad.idRed === red.idRed)
           .map((r) => ({
+            idResidencia: r.idResidencia,
             idUnidad: r.unidad.idUnidad,
             numeroIdentificador: r.unidad.numeroIdentificador,
             tipoUnidad: r.unidad.tipo,
             tipoResidencia: r.tipo,
+            fechaGuiaVista: r.fechaGuiaVista,
           })),
       };
     });
@@ -470,6 +472,8 @@ export class AuthService {
       correo: usuario.correo,
       telefono: usuario.telefono,
       esPlataforma: usuario.esPlataforma,
+      tutorialAppVisto: usuario.tutorialAppVisto,
+      tutorialPanelVisto: usuario.tutorialPanelVisto,
     };
   }
 }

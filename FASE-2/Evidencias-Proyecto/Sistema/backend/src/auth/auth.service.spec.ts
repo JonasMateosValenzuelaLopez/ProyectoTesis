@@ -103,6 +103,8 @@ describe('AuthService', () => {
       esPlataforma: false,
       bloqueado: false,
       motivoBloqueo: null,
+      tutorialAppVisto: false,
+      tutorialPanelVisto: false,
       ...cambios,
     }) as Usuario;
 
@@ -116,6 +118,8 @@ describe('AuthService', () => {
     correo: 'ana@correo.cl',
     telefono: '+56911112222',
     esPlataforma: false,
+    tutorialAppVisto: false,
+    tutorialPanelVisto: false,
   };
 
   const villa = (cambios: Partial<RedVecinal> = {}) =>
@@ -142,8 +146,10 @@ describe('AuthService', () => {
 
   const residenciaEn = (idRed: number, idUnidad: number) =>
     ({
+      idResidencia: idUnidad + 70,
       idUnidad,
       tipo: TipoResidencia.ARRENDATARIO,
+      fechaGuiaVista: null,
       unidad: {
         idUnidad,
         idRed,
@@ -164,10 +170,12 @@ describe('AuthService', () => {
     modulos: [CodigoModulo.MURO, CodigoModulo.COBROS],
     unidades: [
       {
+        idResidencia: 82,
         idUnidad: 12,
         numeroIdentificador: 'A-101',
         tipoUnidad: TipoUnidad.CASA,
         tipoResidencia: TipoResidencia.ARRENDATARIO,
+        fechaGuiaVista: null,
       },
     ],
   };
@@ -513,6 +521,32 @@ describe('AuthService', () => {
 
       expect(resultado.usuario.comunidades[0].roles).toEqual([
         { idRol: RolUsuario.PRESIDENTE, nombre: 'Presidente' },
+      ]);
+    });
+
+    it('debe devolver los tutoriales vistos de la cuenta y cuándo vio la guía cada residencia', async () => {
+      prepararComunidadVilla();
+      const guiaVista = new Date('2026-11-01T15:00:00Z');
+      mockResidenciasRepository.find.mockResolvedValue([
+        { ...residenciaEn(3, 12), fechaGuiaVista: guiaVista },
+      ]);
+      mockQueryBuilder.getOne.mockResolvedValue(
+        crearUsuario({ tutorialAppVisto: true }),
+      );
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
+
+      const resultado = await target.login({
+        identificador: '12345678-5',
+        password: 'clave1234',
+      });
+
+      expect(resultado.usuario).toMatchObject({
+        tutorialAppVisto: true,
+        tutorialPanelVisto: false,
+      });
+      expect(resultado.usuario.comunidades[0].unidades).toEqual([
+        { ...comunidadVilla.unidades[0], fechaGuiaVista: guiaVista },
       ]);
     });
   });
