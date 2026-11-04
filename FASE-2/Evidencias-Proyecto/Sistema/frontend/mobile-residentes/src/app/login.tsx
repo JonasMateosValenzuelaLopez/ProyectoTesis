@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '@/context/App';
-import { CLAVE_PRUEBA, CODIGO_PRUEBA, CUENTAS, SOLO_PANEL, UNIDADES, type Cuenta } from '@/data/demo';
+import { CLAVE_PRUEBA, CODIGO_PRUEBA, CUENTAS, SOLO_PANEL, UNIDADES, tipoUnidad, type Cuenta } from '@/data/demo';
 import { formatearRut, rutValido } from '@/utils/rut';
 import { F, useTema } from '@/constants/tema';
 import Texto from '@/components/ec/Texto';
@@ -12,6 +13,7 @@ import Boton from '@/components/ec/Boton';
 import Segmentos from '@/components/ec/Segmentos';
 import PlacaUnidad from '@/components/ec/PlacaUnidad';
 import Pantalla from '@/components/ec/Pantalla';
+import PasoSesion from '@/components/ec/PasoSesion';
 
 // En la versión publicada se oculta con EXPO_PUBLIC_MODO_PRUEBA=false
 const MODO_PRUEBA = process.env.EXPO_PUBLIC_MODO_PRUEBA !== 'false';
@@ -23,15 +25,20 @@ function Marca() {
   const t = useTema();
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ backgroundColor: t.sidebar, marginHorizontal: -16, marginTop: -(insets.top + 12), paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: 24, gap: 18 }}>
+    <View style={{ backgroundColor: t.sidebar, marginHorizontal: -16, marginTop: -(insets.top + 12), paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: 24, gap: 18, overflow: 'hidden' }}>
+      {/* La misma foto del login del panel (torre, condominio y casas), teñida con el color de la marca */}
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
+        <Image source={require('../../assets/images/login-comunidad.jpg')} contentFit="cover" contentPosition="center" style={{ flex: 1 }} />
+        <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: t.sidebar, opacity: t.oscuro ? 0.84 : 0.78 }} />
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <PlacaUnidad tipo="" numero="EC" size="sm" invertida />
-        <Texto style={{ fontFamily: F.cifra, fontSize: 20, color: '#fff' }}>EntreCasas</Texto>
+        <Texto style={{ fontFamily: F.cifra, fontSize: 20, color: t.sidebarStrong }}>EntreCasas</Texto>
       </View>
-      <Texto style={{ fontFamily: F.cifra, fontSize: 32, lineHeight: 34, color: '#fff' }}>Tu comunidad,{'\n'}casa por casa.</Texto>
+      <Texto style={{ fontFamily: F.cifra, fontSize: 32, lineHeight: 34, color: t.sidebarStrong }}>Tu comunidad,{'\n'}casa por casa.</Texto>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
         {Array.from({ length: 24 }, (_, i) => (
-          <View key={i} style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: ENCENDIDAS.has(i) ? t.bronzeOnSidebar : 'rgba(199,210,205,0.25)', backgroundColor: ENCENDIDAS.has(i) ? t.bronzeOnSidebar : 'transparent' }} />
+          <View key={i} style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: ENCENDIDAS.has(i) ? t.placaSidebar : t.sidebarDot, backgroundColor: ENCENDIDAS.has(i) ? t.placaSidebar : 'transparent' }} />
         ))}
       </View>
     </View>
@@ -75,6 +82,7 @@ export default function Login() {
   const [codigo, setCodigo] = useState('');
   const [enviadoA, setEnviadoA] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [bienvenida, setBienvenida] = useState<Cuenta | null>(null);
 
   const rutMal = rut.length > 3 && !rutValido(rut);
 
@@ -91,9 +99,16 @@ export default function Login() {
     const ok = metodo === 'clave' ? clave === CLAVE_PRUEBA : codigo === CODIGO_PRUEBA;
     if (ok && !c && SOLO_PANEL.includes(r)) return setError('panel');
     if (!ok || !c) return setError(metodo === 'clave' ? 'RUT o clave incorrectos.' : 'El código no es válido o ya venció.');
-    acciones.iniciarSesion(c);
-    router.replace('/(tabs)');
+    // Primero el saludo con la placa de la vivienda; al terminar, se abre la sesión
+    setBienvenida(c);
   };
+
+  const abrirSesion = useCallback(() => {
+    if (!bienvenida) return;
+    acciones.iniciarSesion(bienvenida);
+    router.replace('/(tabs)');
+  }, [acciones, bienvenida]);
+  const unidadBienvenida = bienvenida && UNIDADES[bienvenida.residencias.find((x) => x.estado === 'Activa')!.id_unidad];
 
   const elegir = (c: Cuenta) => {
     setRut(c.rut);
@@ -147,6 +162,9 @@ export default function Login() {
         <Boton tipo="texto" texto="Solicitar acceso" onPress={() => router.push('/solicitar-acceso')} style={{ paddingHorizontal: 0 }} />
       </View>
       {MODO_PRUEBA && <CuentasPrueba onElegir={elegir} />}
+      {bienvenida && unidadBienvenida && (
+        <PasoSesion tipo="entrar" nombre={bienvenida.nombre} placa={{ tipo: tipoUnidad(unidadBienvenida), numero: unidadBienvenida.numero_identificador }} alTerminar={abrirSesion} />
+      )}
     </Pantalla>
   );
 }

@@ -3,10 +3,12 @@ import {
   CATEGORIAS_MARKETPLACE, COBROS, CUENTAS, ID_CATEGORIA, PERSONAS, ROLES, UNIDADES, comunidadPorId, cuentasIniciales, tieneModulo, tipoUnidad, invitacionesIniciales,
   accesosIniciales, fechaHoraLocal, marketplaceInicial, muroInicial, reportesIniciales, visitantesIniciales, reservasIniciales, solicitudesIniciales, votosIniciales,
   ACTAS, ACTA_ACUERDOS, CONTACTOS, TOTAL_UNIDADES, VOTACIONES, VOTACION_OPCIONES, type VotacionDetalle,
+  EMERGENCIAS, GUIAS, diaISO, diaSemanaHoy, diasDe, espaciosActivos, fichasIniciales, type HogarFicha,
   type Cargo, type CategoriaMarketplace, type Cuenta, type Invitacion, type Pago, type Modulo, type RegistroAcceso, type Reserva, type SolicitudContacto, type Visitante,
 } from '@/data/demo';
 import { roles } from '@/constants/tokens';
 import { estadoCuenta, gastosSinPagar } from '@/utils/cuenta';
+import { diasHasta } from '@/utils/formato';
 
 // Estado de la app del residente: quién entró, con qué vivienda está actuando y los datos
 // de su comunidad. Vive en memoria (se reinicia al cerrar la app), como el panel web.
@@ -36,6 +38,8 @@ const nuevoCodigo = () => `EC-${Array.from({ length: 5 }, () => LETRAS[Math.floo
 
 function useValor() {
   const [cuenta, setCuenta] = useState<Cuenta | null>(null);
+  // Correo y teléfono que cada vecino cambió desde Perfil (columnas `correo` y `telefono` de `usuarios`)
+  const [datosEditados, setDatosEditados] = useState<Record<number, Pick<Cuenta, 'correo' | 'telefono'>>>({});
   const [id_unidad, setIdUnidad] = useState<number | null>(null);
   // Filas de `gastos_comunes` y `pagos` de las viviendas (las de cobros vienen fijas en COBROS)
   const [cuentas, setCuentas] = useState(cuentasIniciales);
@@ -49,6 +53,13 @@ function useValor() {
   const [reportes, setReportes] = useState(reportesIniciales);
   const [solicitudes, setSolicitudes] = useState(solicitudesIniciales);
   const [votos, setVotos] = useState(votosIniciales);
+  // P7: filas de `hogar_fichas`. P8: filas de `guias_comunidad` (las edita el panel web; aquí solo se leen)
+  const [fichas, setFichas] = useState<HogarFicha[]>(fichasIniciales);
+  // P9: `residencias.fecha_guia_vista` que se marcó en esta sesión (id_residencia → fecha)
+  const [guiasVistas, setGuiasVistas] = useState<Record<number, string>>({});
+  // Quién ya vio el tutorial de la app en esta sesión. No va en la base: con la API se sabrá porque
+  // la persona ya tiene alguna residencia con `fecha_guia_vista`.
+  const [tutorialesVistos, setTutorialesVistos] = useState<Record<number, true>>({});
   const [aviso, setAviso] = useState<string | null>(null);
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -100,9 +111,33 @@ function useValor() {
       return v ? [v.nombre, v.apellido].filter(Boolean).join(' ') : 'Visita';
     };
 
+    // La residencia con la que actúa (para saber si ya vio la guía de bienvenida de esta unidad)
+    const miResidencia = cuenta?.residencias.find((r) => r.id_unidad === id_unidad && r.estado === 'Activa') ?? null;
+    const guiaVista = miResidencia ? guiasVistas[miResidencia.id_residencia] ?? miResidencia.fecha_guia_vista : null;
+    const filaGuia = GUIAS.find((g) => g.id_red === id_red) ?? null;
+    const diasBasura = diasDe(filaGuia);
+    // La guía como la armará la API: su fila más los espacios (si hay reservas) y los contactos visibles
+    const guia = comunidad ? {
+      ...filaGuia,
+      firma: filaGuia?.id_usuario_actualiza ? `${PERSONAS[filaGuia.id_usuario_actualiza]?.nombre ?? 'La administración'}${PERSONAS[filaGuia.id_usuario_actualiza]?.cargo ? ` · ${roles[PERSONAS[filaGuia.id_usuario_actualiza]!.cargo!].label}` : ''}` : null,
+      diasBasura,
+      tieneBasura: !!(diasBasura.length || filaGuia?.basura_lugar || filaGuia?.reciclaje_lugar),
+      espacios: tieneModulo(comunidad, 'reservas') ? espaciosActivos(comunidad) : [],
+      contactos: CONTACTOS.filter((k) => k.id_red === comunidad.id_red && k.visible === 1),
+      emergencias: EMERGENCIAS,
+    } : null;
+    const misFichas = fichas.filter((f) => f.id_unidad === id_unidad);
+
     const acciones = {
-      iniciarSesion: (c: Cuenta) => { setCuenta(c); setIdUnidad(c.residencias.find((r) => r.estado === 'Activa')!.id_unidad); },
+      iniciarSesion: (c: Cuenta) => { setCuenta({ ...c, ...datosEditados[c.id_usuario] }); setIdUnidad(c.residencias.find((r) => r.estado === 'Activa')!.id_unidad); },
       cerrarSesion: () => { setCuenta(null); setIdUnidad(null); },
+      // La API hará UPDATE de `usuarios` (el correo es único: si ya lo usa otra cuenta, responde con error)
+      actualizarDatos: (datos: Pick<Cuenta, 'correo' | 'telefono'>) => {
+        if (!cuenta) return;
+        setCuenta({ ...cuenta, ...datos });
+        setDatosEditados((x) => ({ ...x, [cuenta.id_usuario]: datos }));
+        avisar('Tus datos quedaron actualizados.');
+      },
       cambiarUnidad: (id: number) => { setIdUnidad(id); avisar(`Ahora ves ${tipoUnidad(UNIDADES[id]) === 'Departamento' ? 'el Depto' : 'la Casa'} ${UNIDADES[id].numero_identificador}.`); },
       // Crea un pago Pendiente por cada gasto que cubre la transferencia, del más antiguo al más nuevo.
       // Si el monto no alcanza para todos, el último queda como abono parcial.
@@ -229,6 +264,37 @@ function useValor() {
         }]));
         avisar('Voto registrado por tu vivienda.');
       },
+      // La API hará INSERT o UPDATE de `hogar_fichas`; solo lo permite a residentes activos de la unidad
+      guardarFicha: (f: Omit<HogarFicha, 'id_ficha' | 'id_unidad' | 'id_usuario_crea' | 'fecha_registro'> & { id_ficha?: number }) => {
+        if (!cuenta || !id_unidad) return null;
+        const id_ficha = f.id_ficha ?? siguiente(fichas, (x) => x.id_ficha);
+        if (f.id_ficha) setFichas((x) => x.map((y) => (y.id_ficha === f.id_ficha ? { ...y, ...f, id_ficha } : y)));
+        else setFichas((x) => [...x, { ...f, id_ficha, id_unidad, id_usuario_crea: cuenta.id_usuario, fecha_registro: ahora() }]);
+        avisar(f.id_ficha ? 'Ficha actualizada.' : 'Ficha guardada en Mi hogar.');
+        return id_ficha;
+      },
+      eliminarFicha: (id_ficha: number) => {
+        setFichas((x) => x.filter((y) => y.id_ficha !== id_ficha));
+        avisar('Ficha eliminada.');
+      },
+      // Una mantención hecha hoy: la fecha pasa a hoy y la próxima se corre lo mismo que el intervalo anterior
+      registrarMantencion: (id_ficha: number) => {
+        const hoy = diaISO();
+        setFichas((x) => x.map((y) => {
+          if (y.id_ficha !== id_ficha) return y;
+          const meses = y.fecha && y.fecha_vence ? Math.max(1, Math.round((new Date(y.fecha_vence).getTime() - new Date(y.fecha).getTime()) / (30.44 * 86400000))) : 12;
+          const prox = new Date(); prox.setMonth(prox.getMonth() + meses);
+          return { ...y, fecha: hoy, fecha_vence: diaISO(prox) };
+        }));
+        avisar('Mantención registrada. Te avisaremos antes de la próxima.');
+      },
+      // UPDATE `residencias` SET fecha_guia_vista = NOW() (también al saltarla)
+      marcarTutorialVisto: () => {
+        if (cuenta) setTutorialesVistos((x) => ({ ...x, [cuenta.id_usuario]: true }));
+      },
+      marcarGuiaVista: () => {
+        if (miResidencia && !guiaVista) setGuiasVistas((x) => ({ ...x, [miResidencia.id_residencia]: ahora() }));
+      },
       avisar,
     };
 
@@ -264,10 +330,21 @@ function useValor() {
       solicitudDe: (id_producto: number): SolicitudContacto | null => misSolicitudes.find((s) => s.id_producto === id_producto) ?? null,
       // Globo de la pestaña Mercado: vecinos esperando mi respuesta y respuestas que aún no veo
       pendientesMercado: solicitudesRecibidas.filter((s) => s.estado === 'Pendiente').length + misSolicitudes.filter((s) => s.estado !== 'Pendiente' && !s.vista).length,
+      misFichas,
+      // Mantenciones y garantías que vencen en 30 días o menos (y las vencidas hace poco), la más próxima primero
+      fichasPorVencer: misFichas.filter((f) => f.fecha_vence && Math.abs(diasHasta(f.fecha_vence)) <= 30)
+        .sort((a, b) => a.fecha_vence!.localeCompare(b.fecha_vence!)),
+      guia,
+      guiaPendiente: !!miResidencia && !guiaVista,
+      // El tutorial de la app va antes de la primera guía de bienvenida de la persona (no al cambiarse de vivienda)
+      tutorialPendiente: !!miResidencia && !guiaVista && !!cuenta && !tutorialesVistos[cuenta.id_usuario]
+        && !cuenta.residencias.some((r) => guiasVistas[r.id_residencia] ?? r.fecha_guia_vista),
+      // Aviso de Inicio: solo si la basura pasa algunos días (si es todos los días no es noticia)
+      basuraHoy: diasBasura.length > 0 && diasBasura.length < 7 && diasBasura.includes(diaSemanaHoy()),
       miVoto: (id_votacion: number) => votos.find((v) => v.id_votacion === id_votacion && v.id_unidad === id_unidad)?.id_opcion ?? null,
       acciones,
     };
-  }, [cuenta, id_unidad, cuentas, visitantes, invitaciones, accesos, reservas, muro, productos, reportes, solicitudes, votos, aviso]);
+  }, [cuenta, datosEditados, id_unidad, cuentas, visitantes, invitaciones, accesos, reservas, muro, productos, reportes, solicitudes, votos, fichas, guiasVistas, tutorialesVistos, aviso]);
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {

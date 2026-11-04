@@ -28,6 +28,7 @@ export type Unidad = { id_unidad: number; id_red: number; numero_identificador: 
 export type Residencia = {
   id_residencia: number; id_usuario: number; id_unidad: number; relacion: 'Propietario' | 'Arrendatario';
   estado: 'Pendiente' | 'Activa' | 'Rechazada' | 'Inactiva';
+  fecha_guia_vista: string | null; // P9: null = aún no ve la guía de bienvenida de esta unidad
 };
 // Tabla `roles`: 1 Administración, 2 Tesorero, 3 Secretario, 4 Presidente, 5 Conserje, 6 Residente, 7 Visitante, 8 Plataforma
 export type Cargo = 'administrador' | 'tesorero' | 'secretario' | 'presidente' | 'conserje';
@@ -103,8 +104,11 @@ export const UNIDADES: Record<number, Unidad> = Object.fromEntries([
 ].map((x) => [x.id_unidad, x]));
 
 let siguiente = 1;
+// Andrés (Casa 27) y el Depto 502 del usuario demo llegaron hace poco: aún no ven la guía de bienvenida
+const SIN_GUIA = new Set(['112-2027', '109-3502']);
 const residencia = (id_usuario: number, id_unidad: number, relacion: Residencia['relacion']): Residencia => ({
   id_residencia: siguiente++, id_usuario, id_unidad, relacion, estado: 'Activa',
+  fecha_guia_vista: SIN_GUIA.has(`${id_usuario}-${id_unidad}`) ? null : '2026-03-01T10:00:00',
 });
 const cuenta = (
   id_usuario: number, nombre: string, apellido_paterno: string, apellido_materno: string | null, rut: string, correo: string, telefono: string,
@@ -562,4 +566,54 @@ export const EMERGENCIAS = [
   { nombre: 'Bomberos', telefono: '132' },
   { nombre: 'Carabineros', telefono: '133' },
   { nombre: 'PDI', telefono: '134' },
+];
+
+// ---------------------------------------------------------------------------
+// P7 · `hogar_fichas`: libreta privada de cada vivienda. La ven todos los residentes activos de la unidad.
+export type TipoFicha = 'Pintura' | 'Garantía' | 'Mantención' | 'Medida' | 'Técnico' | 'Otro'; // P10: «Otro» para notas libres
+export const TIPOS_FICHA: TipoFicha[] = ['Mantención', 'Garantía', 'Pintura', 'Medida', 'Técnico', 'Otro'];
+export type HogarFicha = {
+  id_ficha: number; id_unidad: number; tipo: TipoFicha; titulo: string; detalle: string | null;
+  contacto_nombre: string | null; contacto_telefono: string | null;
+  fecha: string | null; fecha_vence: string | null; id_usuario_crea: number | null; fecha_registro: string;
+};
+const ficha = (id_ficha: number, id_unidad: number, tipo: TipoFicha, titulo: string, detalle: string | null, extra: Partial<HogarFicha> = {}): HogarFicha => ({
+  id_ficha, id_unidad, tipo, titulo, detalle, contacto_nombre: null, contacto_telefono: null, fecha: null, fecha_vence: null,
+  id_usuario_crea: null, fecha_registro: '2026-03-01T10:00:00', ...extra,
+});
+// Fechas relativas a hoy para que siempre haya algo por vencer en la demo
+export function fichasIniciales(): HogarFicha[] {
+  return [
+    ficha(1, 1001, 'Mantención', 'Calefont Splendid 11 L', 'Logia, junto a la lavadora. Se cambió el termopar; pedir revisión de la salida de gases.',
+      { contacto_nombre: 'Hugo Pinto', contacto_telefono: '+56955551212', fecha: dia(-353), fecha_vence: dia(12), id_usuario_crea: 110 }),
+    ficha(2, 1001, 'Garantía', 'Refrigerador Samsung', 'Comprado en Falabella. Boleta en la carpeta de la casa.', { fecha: dia(-320), fecha_vence: dia(46), id_usuario_crea: 110 }),
+    ficha(3, 1001, 'Pintura', 'Living y comedor', 'Sherwin Williams SW 7036 Accessible Beige, látex mate. Se usaron 2 galones.', { fecha: '2025-12-10', id_usuario_crea: 110 }),
+    ficha(4, 1001, 'Medida', 'Ventana dormitorio principal', '120 × 140 cm (ancho × alto)', { id_usuario_crea: 110 }),
+    ficha(5, 1001, 'Técnico', 'Hugo Pinto', 'Gasfíter certificado SEC. Cambió la válvula del calefont.', { contacto_telefono: '+56955551212', fecha: '2026-10-14', id_usuario_crea: 110 }),
+    ficha(8, 1001, 'Otro', 'Lista del supermercado', 'Leche\nPan\nDetergente\nBolsas de basura', { id_usuario_crea: 110 }),
+    ficha(6, 3603, 'Medida', 'Ventanal del living', '210 × 230 cm', { id_usuario_crea: 111 }),
+    ficha(7, 3603, 'Garantía', 'Lavadora LG', 'Comprada en Paris.', { fecha: dia(-400), fecha_vence: dia(-35), id_usuario_crea: 111 }),
+  ];
+}
+
+// P8 · `guias_comunidad`: lo propio de la guía de bienvenida. Espacios y contactos salen de sus tablas.
+export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'] as const;
+export type DiaSemana = typeof DIAS_SEMANA[number];
+export type GuiaComunidad = {
+  id_red: number; mensaje: string | null; basura_dias: string | null; basura_horario: string | null; basura_lugar: string | null;
+  reciclaje_lugar: string | null; reciclaje_detalle: string | null; id_usuario_actualiza: number | null; fecha_actualizacion: string;
+};
+// `basura_dias` es un SET de MariaDB: llega como texto separado por comas
+export const diasDe = (g: GuiaComunidad | null | undefined): DiaSemana[] => (g?.basura_dias ? g.basura_dias.split(',') as DiaSemana[] : []);
+export const diaSemanaHoy = (d = new Date()): DiaSemana => DIAS_SEMANA[(d.getDay() + 6) % 7];
+export const GUIAS: GuiaComunidad[] = [
+  { id_red: 1, mensaje: 'Somos 15 casas y nos gusta conocernos. Cualquier duda, escríbenos o pasa por la administración en horario de oficina.',
+    basura_dias: 'Lunes,Miércoles,Viernes', basura_horario: 'Desde las 21:00', basura_lugar: 'Contenedor verde de la entrada, nunca a la vereda',
+    reciclaje_lugar: 'Punto limpio junto al quincho', reciclaje_detalle: 'Vidrio, latas, cartón aplastado y plástico 1 y 2', id_usuario_actualiza: 101, fecha_actualizacion: '2026-10-20T10:00:00' },
+  { id_red: 2, mensaje: 'La junta de vecinos se reúne el primer jueves de cada mes en la sede. ¡Te esperamos!',
+    basura_dias: 'Martes,Sábado', basura_horario: 'El camión municipal pasa en la mañana', basura_lugar: 'Frente a tu casa, la noche anterior',
+    reciclaje_lugar: 'Punto verde de la sede vecinal', reciclaje_detalle: 'Vidrio, latas y botellas plásticas', id_usuario_actualiza: 2077, fecha_actualizacion: '2026-09-12T10:00:00' },
+  { id_red: 3, mensaje: 'Conserjería atiende las 24 horas. Ante cualquier duda, llama o pasa por el hall.',
+    basura_dias: 'Lunes,Martes,Miércoles,Jueves,Viernes,Sábado,Domingo', basura_horario: 'Hasta las 22:00', basura_lugar: 'Shaft de tu piso, junto al ascensor. Bolsas cerradas.',
+    reciclaje_lugar: 'Sala de reciclaje, subterráneo −1', reciclaje_detalle: 'Vidrio, cartón y pilas. Pide la llave en conserjería.', id_usuario_actualiza: 107, fecha_actualizacion: '2026-10-01T10:00:00' },
 ];

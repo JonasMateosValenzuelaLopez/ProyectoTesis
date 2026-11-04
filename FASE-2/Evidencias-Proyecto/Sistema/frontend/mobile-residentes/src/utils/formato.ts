@@ -48,8 +48,17 @@ export function saludo(ahora = new Date()) {
   return h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
 }
 
-// La base guarda +56961234501; en pantalla se lee +56 9 6123 4501
+// La base guarda +56961234501; en pantalla se lee +56 9 6123 4501 (fijos: +56 2 2345 6789, +56 45 221 0890)
 export const telefono = (t?: string | null) => {
-  const m = t?.match(/^\+56(9)(\d{4})(\d{4})$/);
+  const m = t?.match(/^\+56(9)(\d{4})(\d{4})$/) ?? t?.match(/^\+56(2)(\d{4})(\d{4})$/) ?? t?.match(/^\+56([3-8]\d)(\d{3})(\d{4})$/);
   return m ? `+56 ${m[1]} ${m[2]} ${m[3]}` : t ?? '';
 };
+
+// Teléfono en el formato de la base. Acepta «9 6123 4501» o «+56 9 6123 4501»; con `fijo` también
+// números de red fija (9 dígitos con su código de área, como 2 2345 6789). Si no sirve, null.
+export function normalizarTelefono(texto: string, { fijo = false } = {}): string | null {
+  const d = texto.replace(/\D/g, '').replace(/^56(?=\d{9}$)/, '');
+  if (/^9\d{8}$/.test(d)) return `+56${d}`;
+  if (fijo && /^[2-8]\d{8}$/.test(d)) return `+56${d}`;
+  return null;
+}

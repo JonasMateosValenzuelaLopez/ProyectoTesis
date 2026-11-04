@@ -8,7 +8,9 @@ import { CLAVE_PRUEBA, CODIGO_PRUEBA } from '../../data/cuentasDemo';
 import { formatearRut, rutValido } from '../../utils/rut';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
 import PanelMarca from '../../components/marca/PanelMarca';
+import SelectorTema from '../../components/SelectorTema';
 import SelloCargo from '../../components/marca/SelloCargo';
+import PasoSesion from '../../components/marca/PasoSesion';
 import { cargoDe, esPlataforma } from '../../config/roles';
 import { nombreCorto } from '../../utils/formato';
 
@@ -55,7 +57,8 @@ function CuentasPrueba({ onElegir }) {
 // Entrada al panel con RUT y clave, o con un código de un solo uso enviado al correo.
 export default function Login() {
   const navigate = useNavigate();
-  const { usuario, cuentas, bloqueados, iniciarSesion, membresiasVigentes } = useSesion();
+  const { usuario, cuentas, bloqueados, iniciarSesion, membresiasVigentes, redes } = useSesion();
+  const [entrando, setEntrando] = useState(null);
   const [rut, setRut] = useState('');
   const [metodo, setMetodo] = useState('clave');
   const [clave, setClave] = useState('');
@@ -73,8 +76,7 @@ export default function Login() {
       return;
     }
     if (esPlataforma(c)) {
-      iniciarSesion(c);
-      navigate('/plataforma');
+      setEntrando({ cuenta: c, destino: '/plataforma', detalle: 'la plataforma' });
       return;
     }
     if (c.membresias.length === 0) {
@@ -85,8 +87,13 @@ export default function Login() {
       setError('Tu comunidad está suspendida en EntreCasas. Habla con tu administración.');
       return;
     }
-    iniciarSesion(c);
-    navigate('/panel');
+    // La transición se muestra con la primera comunidad y cargo, que es donde abre el panel
+    const primera = membresiasVigentes(c)[0];
+    setEntrando({ cuenta: c, destino: '/panel', detalle: redes.find((r) => r.id_red === primera.id_red)?.nombre ?? 'tu comunidad' });
+  };
+  const abrirSesion = () => {
+    iniciarSesion(entrando.cuenta);
+    navigate(entrando.destino);
   };
 
   const enviar = (e) => {
@@ -122,6 +129,8 @@ export default function Login() {
   return (
     <Box component="main" sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.1fr 1fr' }, bgcolor: 'background.paper' }}>
       <PanelMarca />
+      <SelectorTema flotante />
+      {entrando && <PasoSesion tipo="entrar" nombre={entrando.cuenta.nombre} detalle={entrando.detalle} alTerminar={abrirSesion} />}
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2, py: { xs: 4, md: 6 } }}>
         <Box sx={{ width: '100%', maxWidth: 420, display: 'grid', gap: 3 }}>

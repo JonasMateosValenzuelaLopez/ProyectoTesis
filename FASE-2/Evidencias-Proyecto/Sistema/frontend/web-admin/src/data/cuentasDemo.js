@@ -9,8 +9,11 @@ export const CODIGO_PRUEBA = '246810';
 
 let siguiente = 1;
 // Fila de `membresias`. Sin `fecha_hasta`, el cargo sigue hasta que alguien lo quite.
+// `fecha_tutorial_visto`: cuándo vio el tutorial del panel con este cargo (null = se abre al entrar).
+// Marta asumió Tesorería el 22 de octubre y todavía no lo ve.
 export const membresia = (id_usuario, id_red, cargo, fecha_desde, fecha_hasta = null) => ({
   id_membresia: siguiente++, id_usuario, id_red, id_rol: ID_ROL[cargo], fecha_desde, fecha_hasta, estado: 'Vigente',
+  fecha_tutorial_visto: id_usuario === 103 ? null : `${fecha_desde}T12:00:00`,
 });
 
 const cuenta = (id_usuario, nombre, apellido_paterno, apellido_materno, rut, correo, telefono, flujo, cargos) => ({

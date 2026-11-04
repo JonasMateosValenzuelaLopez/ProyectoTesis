@@ -8,12 +8,13 @@ const TAMANOS = {
   lg: { pad: 5, radio: 12, px: 16, py: 5, borde: 2, numero: 40, etiqueta: 11 },
 };
 
-// La placa de bronce con el número de la vivienda: el sello de la marca, igual que en el panel.
+// La placa con el número de la vivienda: el sello de la marca, igual que en el panel.
 export default function PlacaUnidad({ tipo, numero, size = 'md', invertida = false }: { tipo: string; numero: string; size?: keyof typeof TAMANOS; invertida?: boolean }) {
   const t = useTema();
   const s = TAMANOS[size];
-  const fondo = invertida ? t.surface : t.bronze;
-  const tinta = invertida ? t.sidebar : t.accionInk;
+  // Invertida: la placa "EC" sobre la portada de marca
+  const fondo = invertida ? t.placaSidebar : t.bronze;
+  const tinta = invertida ? t.placaSidebarInk : t.accionInk;
   const etiqueta = tipo === 'Departamento' ? 'Depto' : tipo;
   return (
     <View style={{ alignSelf: 'flex-start', backgroundColor: fondo, padding: s.pad, borderRadius: s.radio }}>

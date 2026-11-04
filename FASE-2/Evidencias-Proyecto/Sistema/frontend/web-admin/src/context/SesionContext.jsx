@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useState } from 'react';
 import { comunidades } from '../data/mock';
 import { CUENTAS } from '../data/cuentasDemo';
 import { bitacoraPlataformaInicial } from '../data/plataformaMock';
-import { ID_ROL, cargoDe, membresiasVigentes } from '../config/roles';
+import { ID_ROL, cargoDe, esPlataforma, membresiasVigentes } from '../config/roles';
 import { registrarRed } from '../utils/unidades';
 
 // Sesión: quién está conectado y con qué comunidad y cargo está actuando.
@@ -54,6 +54,9 @@ export function SesionProvider({ children }) {
   const [bitacoraPlataforma, setBitacoraPlataforma] = useState(bitacoraPlataformaInicial);
   const [usuario, setUsuario] = useState(() => CUENTAS.find((c) => c.id_usuario === leer(CLAVE_SESION)) ?? null);
   const [activo, setActivo] = useState(() => contextoInicial(usuario, comunidades));
+  // Tutoriales del panel vistos en esta sesión (id_membresia → fecha). Con la API es un UPDATE de
+  // `membresias.fecha_tutorial_visto`.
+  const [tutoriales, setTutoriales] = useState({});
 
   const valor = useMemo(() => {
     // El tipo de unidad (Casa o Departamento) sale del tipo de la comunidad
@@ -115,13 +118,23 @@ export function SesionProvider({ children }) {
     }, ...lista]);
     const bloquear = (rut, bloqueado) => setBloqueados((lista) => (bloqueado ? [...lista, rut] : lista.filter((r) => r !== rut)));
 
+    // Membresía con la que se trabaja ahora (la de Plataforma no tiene comunidad)
+    const cargoActual = activo?.cargo ?? (esPlataforma(usuario) ? 'plataforma' : null);
+    const membresiaActual = (usuario?.membresias ?? []).find((m) => m.estado === 'Vigente' && cargoDe(m) === cargoActual
+      && (cargoActual === 'plataforma' || m.id_red === activo?.id_red));
+    const tutorialPendiente = !!membresiaActual && !(tutoriales[membresiaActual.id_membresia] ?? membresiaActual.fecha_tutorial_visto);
+    const marcarTutorialVisto = () => {
+      if (membresiaActual) setTutoriales((x) => ({ ...x, [membresiaActual.id_membresia]: fechaLocal() }));
+    };
+
     return {
+      tutorialPendiente, marcarTutorialVisto,
       usuario, comunidad, cargo: activo?.cargo ?? null, porComunidad, redes, cuentas, bloqueados,
       cambiarContexto, actualizarComunidad, actualizarRed, iniciarSesion, cerrarSesion, crearComunidad, bloquear,
       bitacoraPlataforma, anotarPlataforma,
       membresiasVigentes: (cuenta) => vigentes(cuenta, redes),
     };
-  }, [activo, usuario, redes, cuentasNuevas, bloqueados, bitacoraPlataforma]);
+  }, [activo, usuario, redes, cuentasNuevas, bloqueados, bitacoraPlataforma, tutoriales]);
 
   return <SesionContext.Provider value={valor}>{children}</SesionContext.Provider>;
 }

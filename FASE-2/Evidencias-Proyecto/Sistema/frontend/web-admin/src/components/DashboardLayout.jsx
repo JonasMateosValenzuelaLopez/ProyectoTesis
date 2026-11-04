@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
 import { Logout as LogoutIcon } from '@mui/icons-material';
@@ -8,6 +9,9 @@ import { useAdmin } from '../context/AdminContext';
 import { useMuro } from '../context/MuroContext';
 import { useConserjeria } from '../context/ConserjeriaContext';
 import MarcoPanel from './MarcoPanel';
+import SelectorTema from './SelectorTema';
+import PasoSesion from './marca/PasoSesion';
+import BotonTutorial from './tutorial/BotonTutorial';
 import SelectorContexto from './SelectorContexto';
 import { nombreCorto } from '../utils/formato';
 
@@ -15,6 +19,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { usuario, comunidad, cargo, cerrarSesion } = useSesion();
+  const [saliendo, setSaliendo] = useState(false);
 
   const secciones = menuPara(cargo, comunidad);
   const { morosos, resumen } = useFinanzas();
@@ -36,12 +41,15 @@ export default function DashboardLayout() {
     return <Navigate to="/panel" replace />;
   }
 
-  const handleLogout = () => {
+  const handleLogout = () => setSaliendo(true);
+  const salir = () => {
     cerrarSesion();
     navigate('/login');
   };
 
   return (
+    <>
+    {saliendo && <PasoSesion tipo="salir" nombre={usuario.nombre} alTerminar={salir} />}
     <MarcoPanel
       secciones={secciones}
       contadores={contadores}
@@ -53,6 +61,8 @@ export default function DashboardLayout() {
           <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', md: 'block' } }}>
             {nombreCorto(usuario)}
           </Typography>
+          <BotonTutorial cargo={cargo} />
+          <SelectorTema />
           <Tooltip title="Cerrar sesión">
             <IconButton aria-label="Cerrar sesión" onClick={handleLogout} sx={{ color: 'text.secondary' }}>
               <LogoutIcon />
@@ -61,5 +71,6 @@ export default function DashboardLayout() {
         </>
       )}
     />
+    </>
   );
 }

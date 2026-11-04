@@ -13,7 +13,7 @@ export default function Hoja({ titulo, children, abajo }: { titulo: string; chil
   const cerrar = () => (router.canGoBack() ? router.back() : router.replace('/'));
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: t.paper }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8, paddingHorizontal: 8, paddingBottom: 8, borderBottomWidth: 1, borderColor: t.line, backgroundColor: t.surface }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: Platform.OS === 'ios' ? 12 : insets.top + 8, paddingHorizontal: 8, paddingBottom: 8, backgroundColor: t.paper }}>
         <Pressable onPress={cerrar} accessibilityRole="button" accessibilityLabel="Cerrar" hitSlop={8} style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}>
           <Ionicons name="close" size={26} color={t.ink} />
         </Pressable>

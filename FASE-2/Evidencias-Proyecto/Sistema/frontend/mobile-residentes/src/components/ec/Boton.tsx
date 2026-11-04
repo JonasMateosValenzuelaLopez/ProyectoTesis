@@ -6,15 +6,16 @@ import { PressableAnimado, usePresion } from './usePresion';
 
 type Tipo = 'principal' | 'secundario' | 'texto' | 'sutil' | 'peligro' | 'senal' | 'portada';
 
-// Botón con área táctil de 48 px y respuesta al presionar (se hunde un poco con un resorte).
+// Botón con área táctil de 52 px y respuesta al presionar (se hunde un poco con un resorte).
 // `sutil` es para acciones secundarias que no deben competir con el contenido (reportar, descartar).
 export default function Boton({ texto, tipo = 'principal', icono, cargando, disabled, style, onPressIn, onPressOut, ...rest }:
   Omit<PressableProps, 'children' | 'style'> & { texto: string; tipo?: Tipo; icono?: keyof typeof Ionicons.glyphMap; cargando?: boolean; style?: StyleProp<ViewStyle> }) {
   const t = useTema();
   const presion = usePresion();
-  const fondo = { principal: t.accion, secundario: t.surface, texto: 'transparent', sutil: 'transparent', peligro: t.surface, senal: t.signal, portada: t.bronzeOnSidebar }[tipo];
-  const tinta = { principal: t.accionInk, secundario: t.accion, texto: t.accion, sutil: t.ink2, peligro: t.bad, senal: t.signalInk, portada: t.sidebar }[tipo];
-  const borde = tipo === 'secundario' ? t.accion : tipo === 'peligro' ? t.bad : 'transparent';
+  // Principal y secundario en turquesa; en la portada (que ya es turquesa) el botón va con el color de la placa
+  const fondo = { principal: t.boton, secundario: t.surface, texto: 'transparent', sutil: 'transparent', peligro: t.surface, senal: t.signal, portada: t.placaSidebar }[tipo];
+  const tinta = { principal: t.botonInk, secundario: t.botonBorde, texto: t.accion, sutil: t.ink2, peligro: t.bad, senal: t.signalInk, portada: t.placaSidebarInk }[tipo];
+  const borde = tipo === 'secundario' ? t.botonBorde : tipo === 'peligro' ? t.bad : 'transparent';
   return (
     <PressableAnimado
       accessibilityRole="button"
@@ -23,13 +24,13 @@ export default function Boton({ texto, tipo = 'principal', icono, cargando, disa
       onPressIn={(e) => { presion.onPressIn(); onPressIn?.(e); }}
       onPressOut={(e) => { presion.onPressOut(); onPressOut?.(e); }}
       style={[{
-        minHeight: 48, borderRadius: 12, paddingHorizontal: 18, backgroundColor: fondo, borderWidth: 1.5, borderColor: borde,
+        minHeight: 52, borderRadius: 16, paddingHorizontal: 20, backgroundColor: fondo, borderWidth: 1.5, borderColor: borde,
         alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.45 : 1,
       }, presion.estilo, style]}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         {cargando ? <ActivityIndicator color={tinta} /> : icono ? <Ionicons name={icono} size={20} color={tinta} /> : null}
-        <Texto style={{ fontFamily: tipo === 'sutil' ? F.medio : F.negrita, fontSize: tipo === 'sutil' ? 15 : 16, color: tinta }}>{texto}</Texto>
+        <Texto style={{ fontFamily: tipo === 'sutil' ? F.medio : F.negrita, fontSize: tipo === 'sutil' ? 15 : 16, letterSpacing: -0.1, color: tinta }}>{texto}</Texto>
       </View>
     </PressableAnimado>
   );

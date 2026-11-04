@@ -17,7 +17,7 @@ const TIPOS = ['Todos', 'Edificio', 'Condominio', 'Villa'];
 const INICIAL_TIPO = { Edificio: 'E', Condominio: 'C', Villa: 'V' };
 const TOTAL_MODULOS = Object.keys(MODULOS).length;
 
-// Monograma neutro: la placa de bronce queda solo para las viviendas
+// Monograma neutro: la placa queda solo para las viviendas
 function Monograma({ tipo }) {
   return (
     <Box aria-hidden sx={{ width: 36, height: 36, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 1, bgcolor: 'primary.light', fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800 }}>

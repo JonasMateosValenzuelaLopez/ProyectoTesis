@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { F, useTema } from '@/constants/tema';
+import { F, sombra, useTema } from '@/constants/tema';
 import Texto from './Texto';
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -45,7 +45,7 @@ export default function Calendario({ valor, onCambio, desde, hasta }: { valor: s
   );
 
   return (
-    <View style={{ backgroundColor: t.surface, borderRadius: 12, borderWidth: 1, borderColor: t.line, padding: 8, gap: 4 }}>
+    <View style={[{ backgroundColor: t.surface, borderRadius: 20, borderWidth: t.oscuro ? 1 : 0, borderColor: t.line, padding: 10, gap: 4 }, sombra(t)]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         {flecha(-1, puedeAtras, 'Mes anterior')}
         <Texto v="fuerte" accessibilityRole="header">{titulo}</Texto>

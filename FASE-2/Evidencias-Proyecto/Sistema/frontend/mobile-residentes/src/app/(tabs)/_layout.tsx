@@ -3,7 +3,7 @@ import type { ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '@/context/App';
 import { espaciosActivos } from '@/data/demo';
-import { F, useTema } from '@/constants/tema';
+import { F, sombra, useTema } from '@/constants/tema';
 
 type Icono = keyof typeof Ionicons.glyphMap;
 const icono = (lleno: Icono, linea: Icono) => {
@@ -27,8 +27,8 @@ export default function Pestanas() {
         headerShown: false,
         tabBarActiveTintColor: t.accion,
         tabBarInactiveTintColor: t.ink2,
-        tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.line, minHeight: 64 },
-        tabBarLabelStyle: { fontFamily: F.etiqueta, fontSize: 12 },
+        tabBarStyle: { backgroundColor: t.surface, borderTopWidth: t.oscuro ? 1 : 0, borderTopColor: t.line, minHeight: 68, paddingTop: 6, ...sombra(t, 'raised') },
+        tabBarLabelStyle: { fontFamily: F.etiqueta, fontSize: 11, letterSpacing: 0.2 },
         tabBarBadgeStyle: { backgroundColor: t.accion, color: t.accionInk, fontFamily: F.negrita, fontSize: 11 },
       }}
     >

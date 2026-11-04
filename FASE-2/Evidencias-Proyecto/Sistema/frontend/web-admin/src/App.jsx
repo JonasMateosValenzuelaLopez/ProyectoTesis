@@ -26,6 +26,7 @@ import Votaciones from './pages/secretario/Votaciones';
 import Directorio from './pages/secretario/Directorio';
 import Modulos from './pages/admin/Modulos';
 import Muro from './pages/comunidad/Muro';
+import GuiaBienvenida from './pages/comunidad/GuiaBienvenida';
 import Porteria from './pages/conserjeria/Porteria';
 import Espacios from './pages/conserjeria/Espacios';
 import Reservas from './pages/admin/Reservas';
@@ -54,6 +55,7 @@ const VISTAS = {
   '/panel/actas': <Actas />,
   '/panel/votaciones': <Votaciones />,
   '/panel/directorio': <Directorio />,
+  '/panel/guia': <GuiaBienvenida />,
   '/panel/modulos': <Modulos />,
   '/panel/porteria': <Porteria />,
   '/panel/espacios': <Espacios />,

@@ -4,21 +4,28 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFonts, Archivo_500Medium, Archivo_600SemiBold, Archivo_800ExtraBold } from '@expo-google-fonts/archivo';
 import {
-  AtkinsonHyperlegibleNext_400Regular, AtkinsonHyperlegibleNext_500Medium, AtkinsonHyperlegibleNext_700Bold,
-} from '@expo-google-fonts/atkinson-hyperlegible-next';
+  useFonts, Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold,
+} from '@expo-google-fonts/archivo';
 import { AppProvider } from '@/context/App';
+import { TemaProvider } from '@/context/Tema';
 import { useTema } from '@/constants/tema';
 import Aviso from '@/components/ec/Aviso';
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  return (
+    <TemaProvider>
+      <Raiz />
+    </TemaProvider>
+  );
+}
+
+function Raiz() {
   const t = useTema();
   const [listas, error] = useFonts({
-    Archivo_500Medium, Archivo_600SemiBold, Archivo_800ExtraBold,
-    AtkinsonHyperlegibleNext_400Regular, AtkinsonHyperlegibleNext_500Medium, AtkinsonHyperlegibleNext_700Bold,
+    Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold,
   });
 
   useEffect(() => {
@@ -39,10 +46,14 @@ export default function RootLayout() {
             <StatusBar style={t.oscuro ? 'light' : 'dark'} />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.paper } }}>
               <Stack.Screen name="index" />
-              <Stack.Screen name="login" />
+              {/* Entrar y salir de la sesión cambian de pantalla con un fundido (después del saludo o la despedida) */}
+              <Stack.Screen name="login" options={{ animation: 'fade' }} />
               <Stack.Screen name="solicitar-acceso" />
-              <Stack.Screen name="(tabs)" />
-              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos', 'actas', 'acta/[id]'].map((n) => (
+              <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+              {/* El tutorial y la guía de bienvenida ocupan toda la pantalla y no se cierran deslizando: se terminan o se saltan */}
+              <Stack.Screen name="bienvenida" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
+              <Stack.Screen name="tutorial" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
+              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos', 'actas', 'acta/[id]', 'mis-datos', 'mi-hogar', 'hogar/[id]', 'hogar-ficha'].map((n) => (
                 <Stack.Screen key={n} name={n} options={{ presentation: 'modal' }} />
               ))}
             </Stack>
