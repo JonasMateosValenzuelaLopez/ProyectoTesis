@@ -11,6 +11,8 @@ Convenciones: **PK** es llave primaria, **FK** es llave foránea y **UK** es val
 - `muro_reportes.id_publicacion` no tiene llave foránea, porque apunta al muro o al marketplace según `tipo_publicacion`.
 - En el muro y el marketplace, que el autor borre una publicación es un borrado lógico (`fecha_eliminacion`); que la oculte un moderador es `estado_moderacion` = 'Oculta', con `moderado_por` y `moderado_en`.
 - `hogar_fichas` pertenece a la unidad: solo la ven y editan sus residentes vigentes.
+- En `reservas`, `bloque_activo` es una columna calculada que vale `hora_inicio` mientras la reserva está Pendiente o Aprobada, y su UNIQUE (`id_espacio`, `fecha_reserva`, `bloque_activo`) impide dos reservas activas en el mismo bloque. «En uso» y «Devuelto» no son estados: salen de `entregado_en` y `recibido_en`.
+- Un espacio común dado de baja queda con `estado` = 0 y su nombre es único en la comunidad (`uq_espacio_red_nombre`), para reactivarlo si se vuelve a agregar.
 
 ## Identidad y acceso
 
@@ -534,6 +536,7 @@ erDiagram
         date fecha_reserva
         time hora_inicio
         time hora_fin
+        time bloque_activo
         smallint invitados
         varchar observacion
         enum estado_reserva

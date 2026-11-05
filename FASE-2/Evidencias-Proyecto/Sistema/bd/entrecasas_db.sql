@@ -270,13 +270,16 @@ CREATE TABLE IF NOT EXISTS `espacios_comunes` (
   `descripcion` text DEFAULT NULL,
   `capacidad` int(11) DEFAULT NULL,
   `reglas` text DEFAULT NULL,
-  `estado` tinyint(1) DEFAULT 1,
+  `estado` tinyint(1) NOT NULL DEFAULT 1,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_espacio`),
+  UNIQUE KEY `uq_espacio_red_nombre` (`id_red`,`nombre`),
   KEY `id_red` (`id_red`),
-  CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE
+  CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `chk_espacio_nombre` CHECK (trim(`nombre`) <> ''),
+  CONSTRAINT `chk_espacio_capacidad` CHECK (`capacidad` is null or `capacidad` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -658,20 +661,22 @@ CREATE TABLE IF NOT EXISTS `reservas` (
   `fecha_reserva` date NOT NULL,
   `hora_inicio` time NOT NULL,
   `hora_fin` time NOT NULL,
+  `bloque_activo` time GENERATED ALWAYS AS (case when `estado_reserva` in ('Pendiente','Aprobada') and `fecha_eliminacion` is null then `hora_inicio` end) STORED,
   `invitados` smallint(5) unsigned DEFAULT NULL,
   `observacion` varchar(255) DEFAULT NULL,
-  `estado_reserva` enum('Pendiente','Aprobada','Rechazada','Cancelada') DEFAULT 'Pendiente',
+  `estado_reserva` enum('Pendiente','Aprobada','Rechazada','Cancelada') NOT NULL DEFAULT 'Pendiente',
   `motivo_cancelacion` varchar(255) DEFAULT NULL,
   `entregado_en` datetime DEFAULT NULL,
   `entregado_por` int(11) DEFAULT NULL,
   `recibido_en` datetime DEFAULT NULL,
   `recibido_por` int(11) DEFAULT NULL,
   `observaciones_recepcion` varchar(255) DEFAULT NULL,
-  `fecha_solicitud` datetime DEFAULT current_timestamp(),
+  `fecha_solicitud` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_reserva`),
+  UNIQUE KEY `uq_reserva_bloque_activo` (`id_espacio`,`fecha_reserva`,`bloque_activo`),
   KEY `id_espacio` (`id_espacio`),
   KEY `id_usuario` (`id_usuario`),
   KEY `idx_reserva_red_fecha` (`id_red`,`fecha_reserva`),
@@ -684,7 +689,10 @@ CREATE TABLE IF NOT EXISTS `reservas` (
   CONSTRAINT `fk_reserva_recibido_por` FOREIGN KEY (`recibido_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_reserva_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `fk_reserva_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL,
-  CONSTRAINT `chk_reserva_horario` CHECK (`hora_fin` > `hora_inicio`)
+  CONSTRAINT `chk_reserva_horario` CHECK (`hora_fin` > `hora_inicio`),
+  CONSTRAINT `chk_reserva_recepcion` CHECK (`recibido_en` is null or `entregado_en` is not null),
+  CONSTRAINT `chk_reserva_entrega` CHECK (`entregado_en` is null or `estado_reserva` = 'Aprobada'),
+  CONSTRAINT `chk_reserva_motivo` CHECK (`motivo_cancelacion` is null or `estado_reserva` = 'Cancelada')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

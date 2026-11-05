@@ -16,6 +16,7 @@ import { MailModule } from './mail/mail.module';
 import { MuroModule } from './muro/muro.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { RedesVecinalesModule } from './redes-vecinales/redes-vecinales.module';
+import { ReservasModule } from './reservas/reservas.module';
 import { ResidentesModule } from './residentes/residentes.module';
 import { RolesModule } from './roles/roles.module';
 import { SolicitudesAccesoModule } from './solicitudes-acceso/solicitudes-acceso.module';
@@ -46,6 +47,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     MuroModule,
     PlataformaModule,
     RedesVecinalesModule,
+    ReservasModule,
     ResidentesModule,
     RolesModule,
     SolicitudesAccesoModule,

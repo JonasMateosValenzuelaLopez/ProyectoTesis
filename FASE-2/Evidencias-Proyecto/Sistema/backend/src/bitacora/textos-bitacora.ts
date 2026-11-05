@@ -38,6 +38,11 @@ export const TEXTO_ACCION: Record<string, string> = {
   ocultar_publicacion: 'Ocultó una publicación',
   restaurar_publicacion: 'Restauró una publicación',
   descartar_reportes: 'Descartó reportes de una publicación',
+  guardar_espacios: 'Actualizó los espacios comunes',
+  crear_reserva: 'Reservó un espacio común',
+  cancelar_reserva: 'Canceló una reserva',
+  entregar_espacio: 'Entregó un espacio común',
+  recibir_espacio: 'Recibió un espacio común',
 };
 
 export const textoAccion = (accion: string) => TEXTO_ACCION[accion] ?? accion;

@@ -4,11 +4,13 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Unique,
 } from 'typeorm';
 import { EntidadAuditada } from '../../common/entities/entidad-auditada.entity';
 import { RedVecinal } from '../../redes-vecinales/entities/red-vecinal.entity';
 
 @Entity('espacios_comunes')
+@Unique('uq_espacio_red_nombre', ['idRed', 'nombre'])
 export class EspacioComun extends EntidadAuditada {
   @PrimaryGeneratedColumn({ name: 'id_espacio' })
   idEspacio: number;
@@ -32,6 +34,6 @@ export class EspacioComun extends EntidadAuditada {
   @Column({ type: 'text', nullable: true })
   reglas: string | null;
 
-  @Column({ type: 'boolean', nullable: true, default: true })
-  estado: boolean | null;
+  @Column({ type: 'boolean', default: true })
+  estado: boolean;
 }
