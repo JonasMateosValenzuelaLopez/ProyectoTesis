@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/auth/login';
 import SolicitarAcceso from './pages/auth/SolicitarAcceso';
 import RecuperarPassword from './pages/auth/RecuperarPassword';
+import ElegirComunidad from './pages/auth/ElegirComunidad';
 
 // Layout Principal
 import PanelProtegido from './components/PanelProtegido';
@@ -83,6 +84,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/solicitar-acceso" element={<SolicitarAcceso />} />
         <Route path="/recuperar-password" element={<RecuperarPassword />} />
+        <Route path="/elegir-comunidad" element={<ElegirComunidad />} />
 
         {/* Flujo Privado (Panel). El menú y el acceso a cada ruta dependen del cargo y los módulos. */}
         <Route path="/panel" element={<PanelProtegido />}>

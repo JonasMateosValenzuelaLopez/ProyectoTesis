@@ -39,12 +39,16 @@ const vigentes = (usuario, redes) => membresiasVigentes(usuario)
   .filter((m) => m.id_red != null && redes.find((r) => r.id_red === m.id_red)?.estado !== 'Suspendida')
   .map((m) => ({ id_red: m.id_red, cargo: cargoDe(m) }));
 
+// Con cargos en una sola comunidad se entra directo con el primero; con varias comunidades
+// el contexto queda vacío y la persona elige en /elegir-comunidad.
+const contextoAlEntrar = (lista) => (new Set(lista.map((m) => m.id_red)).size === 1 ? lista[0] : null);
+
 function contextoInicial(usuario, redes) {
   const lista = vigentes(usuario, redes);
   if (!lista.length) return null;
   const guardado = leer(CLAVE_CONTEXTO);
   const valido = lista.some((m) => m.id_red === guardado?.id_red && m.cargo === guardado?.cargo);
-  return valido ? guardado : lista[0];
+  return valido ? guardado : contextoAlEntrar(lista);
 }
 
 export function SesionProvider({ children }) {
@@ -71,7 +75,7 @@ export function SesionProvider({ children }) {
       guardar(CLAVE_CONTEXTO, nuevo);
     };
     const iniciarSesion = (cuenta) => {
-      const primera = vigentes(cuenta, redes)[0] ?? null;
+      const primera = contextoAlEntrar(vigentes(cuenta, redes));
       setUsuario(cuenta);
       setActivo(primera);
       guardar(CLAVE_SESION, cuenta.id_usuario);

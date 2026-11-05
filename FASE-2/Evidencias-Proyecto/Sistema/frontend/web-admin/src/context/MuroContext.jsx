@@ -18,6 +18,8 @@ const ahora = () => {
 };
 const siguienteId = (filas, campo) => filas.reduce((m, f) => Math.max(m, f[campo]), 0) + 1;
 const TABLA = { muro: 'muro_publicaciones', marketplace: 'marketplace_publicaciones' };
+// Cargos que redactan y pueden borrar comunicados y normas (DIRECTIVA_MURO en la API)
+const DIRECTIVA_MURO = ['administrador', 'presidente', 'tesorero', 'secretario'];
 const ID = { muro: 'id_publicacion', marketplace: 'id_producto' };
 
 function reducer(state, { tipo, id_red, ...p }) {
@@ -38,6 +40,9 @@ function reducer(state, { tipo, id_red, ...p }) {
         muro_publicaciones: d.muro_publicaciones.map((x) => (x.id_publicacion === p.id_publicacion
           ? { ...x, estado_aprobacion: p.aprobada ? 'Aprobada' : 'Rechazada', id_aprobador: p.id_usuario, fecha_aprobacion: ahora() } : x)),
       });
+    // Con la API es un borrado lógico (DELETE /muro/oficiales/:id); aquí la fila sale de la lista
+    case 'eliminarOficial':
+      return con({ muro_publicaciones: d.muro_publicaciones.filter((x) => x.id_publicacion !== p.id_publicacion) });
     case 'moderar': {
       const tabla = TABLA[p.lugar];
       const esta = (r) => r.tipo_publicacion === p.lugar && r.id_publicacion === p.id && r.estado === 'Pendiente';
@@ -99,6 +104,9 @@ export function MuroProvider({ children }) {
     const oficiales = d.muro_publicaciones.filter((x) => x.tipo !== 'Vecino').sort((a, b) => b.fecha_creacion.localeCompare(a.fecha_creacion));
     const publicacionesPorAprobar = oficiales.filter((x) => x.estado_aprobacion === 'Pendiente');
 
+    // Igual que la API: la directiva borra lo que publicó; el Presidente puede borrar cualquiera
+    const puedeEliminarOficial = (x) => DIRECTIVA_MURO.includes(cargo) && (x.id_usuario === yo.id_usuario || cargo === 'presidente');
+
     const acciones = {
       // Comunicados y normas oficiales: los publica directo el Presidente; los demás los envían a su aprobación
       enviarPublicacion: ({ tipo, titulo, contenido }) => {
@@ -113,6 +121,12 @@ export function MuroProvider({ children }) {
         finanzas.anotar(aprobada ? `Aprobó ${x.tipo.toLowerCase()}` : `Rechazó ${x.tipo.toLowerCase()}`, x.titulo,
           aprobada ? `${x.tipo} aprobado y publicado en el muro.` : `${x.tipo} devuelto a quien lo redactó.`);
       },
+      eliminarOficial: (id_publicacion) => {
+        const x = d.muro_publicaciones.find((e) => e.id_publicacion === id_publicacion);
+        if (!x || !puedeEliminarOficial(x)) return;
+        dispatch({ tipo: 'eliminarOficial', id_red, id_publicacion });
+        finanzas.anotar(`Eliminó ${x.tipo.toLowerCase()}`, x.titulo, `${x.tipo} eliminado. Ya no aparece en el muro ni en la app.`);
+      },
       moderar: (pub, accion) => {
         dispatch({ tipo: 'moderar', id_red, lugar: pub.lugar, id: pub.id, accion, id_usuario: yo.id_usuario });
         const textos = { ocultar: ['Ocultó una publicación', 'Publicación oculta. Su autor recibió un aviso.'], restaurar: ['Restauró una publicación', 'Publicación visible otra vez.'], descartar: ['Descartó reportes', 'Reportes descartados. La publicación sigue visible.'] };
@@ -124,7 +138,7 @@ export function MuroProvider({ children }) {
     return {
       ...d, categorias_marketplace: CATEGORIAS_MARKETPLACE,
       vecinos, reportadas, oficiales, publicacionesPorAprobar,
-      nombreUsuario, conCargo, viviendaDe, acciones,
+      nombreUsuario, conCargo, viviendaDe, acciones, puedeEliminarOficial,
     };
   }, [d, id_red, yo, cargo, usuarioPorId, unidadPorId, finanzas]);
 

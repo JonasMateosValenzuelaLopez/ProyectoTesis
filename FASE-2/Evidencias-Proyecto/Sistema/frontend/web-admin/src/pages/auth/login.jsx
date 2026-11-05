@@ -87,7 +87,13 @@ export default function Login() {
       setError('Tu comunidad está suspendida en EntreCasas. Habla con tu administración.');
       return;
     }
-    // La transición se muestra con la primera comunidad y cargo, que es donde abre el panel
+    // Con cargos en varias comunidades elige primero; la transición se muestra al elegir
+    if (new Set(membresiasVigentes(c).map((m) => m.id_red)).size > 1) {
+      iniciarSesion(c);
+      navigate('/elegir-comunidad');
+      return;
+    }
+    // Con una sola comunidad la transición muestra su nombre, que es donde abre el panel
     const primera = membresiasVigentes(c)[0];
     setEntrando({ cuenta: c, destino: '/panel', detalle: redes.find((r) => r.id_red === primera.id_red)?.nombre ?? 'tu comunidad' });
   };

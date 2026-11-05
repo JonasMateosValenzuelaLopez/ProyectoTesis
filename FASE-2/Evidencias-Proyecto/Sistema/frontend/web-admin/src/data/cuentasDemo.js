@@ -29,7 +29,7 @@ export const CUENTAS = [
   cuenta(100, 'Valentina', 'Ortiz', 'Reyes', '9.876.543-3', 'valentina@entrecasas.cl', '+56961234500',
     'Administración de la plataforma: crear y supervisar comunidades', [[null, 'plataforma', '2024-01-01']]),
   cuenta(101, 'Carlos', 'Ibáñez', 'Torres', '12.345.678-5', 'carlos.ibanez@correo.cl', '+56961234501',
-    'Administración de un condominio', [[1, 'administrador', '2025-01-01']]),
+    'Administración de dos comunidades: elige al entrar', [[1, 'administrador', '2025-01-01'], [3, 'administrador', '2025-03-01']]),
   cuenta(102, 'Luis', 'Muñoz', 'Saavedra', '15.678.234-3', 'luis.munoz@correo.cl', '+56961234502',
     'Presidente con administrador externo', [[1, 'presidente', ...LP]]),
   cuenta(103, 'Marta', 'Rivas', 'Cáceres', '16.234.567-2', 'marta.rivas@correo.cl', '+56961234503',
