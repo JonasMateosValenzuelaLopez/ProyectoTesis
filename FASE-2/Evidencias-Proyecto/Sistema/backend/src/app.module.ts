@@ -12,6 +12,7 @@ import { validarEntorno } from './config/entorno.config';
 import { ZonaHorariaBdService } from './config/zona-horaria-bd.service';
 import { HogarModule } from './hogar/hogar.module';
 import { MailModule } from './mail/mail.module';
+import { PlataformaModule } from './plataforma/plataforma.module';
 import { RedesVecinalesModule } from './redes-vecinales/redes-vecinales.module';
 import { RolesModule } from './roles/roles.module';
 import { SolicitudesAccesoModule } from './solicitudes-acceso/solicitudes-acceso.module';
@@ -38,6 +39,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     AuthModule,
     ComunidadModule,
     HogarModule,
+    PlataformaModule,
     RedesVecinalesModule,
     RolesModule,
     SolicitudesAccesoModule,
