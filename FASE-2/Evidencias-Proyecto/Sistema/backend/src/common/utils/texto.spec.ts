@@ -1,4 +1,9 @@
-import { normalizarTextoLargo, recortar, recortarOpcional } from './texto';
+import {
+  normalizarTextoLargo,
+  quitarEspacios,
+  recortar,
+  recortarOpcional,
+} from './texto';
 
 describe('texto', () => {
   describe('recortar', () => {
@@ -21,6 +26,18 @@ describe('texto', () => {
 
     it('debe dejar pasar null para que el DTO lo trate como vacío', () => {
       expect(recortarOpcional({ value: null })).toBeNull();
+    });
+  });
+
+  describe('quitarEspacios', () => {
+    it('debe quitar todos los espacios, también los del medio', () => {
+      expect(quitarEspacios({ value: ' +56 9 1234 5678 ' })).toBe(
+        '+56912345678',
+      );
+    });
+
+    it('debe convertir un texto solo de espacios en undefined', () => {
+      expect(quitarEspacios({ value: '   ' })).toBeUndefined();
     });
   });
 

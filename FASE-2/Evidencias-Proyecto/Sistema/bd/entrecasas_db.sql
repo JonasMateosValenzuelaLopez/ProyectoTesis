@@ -204,7 +204,9 @@ CREATE TABLE IF NOT EXISTS `comunidad_contactos` (
   `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_contacto`),
   KEY `idx_contacto_red_visible` (`id_red`,`visible`),
-  CONSTRAINT `fk_contacto_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE
+  CONSTRAINT `fk_contacto_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `chk_contacto_nombre` CHECK (char_length(trim(`nombre`)) > 0),
+  CONSTRAINT `chk_contacto_telefono` CHECK (`telefono` regexp '^[+][0-9]{8,14}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

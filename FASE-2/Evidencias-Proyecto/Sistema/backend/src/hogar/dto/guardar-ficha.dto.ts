@@ -4,7 +4,6 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  Matches,
   MaxLength,
   registerDecorator,
   ValidationArguments,
@@ -12,17 +11,14 @@ import {
 import { esFechaValida } from '../../common/utils/fechas';
 import {
   normalizarTextoLargo,
+  quitarEspacios,
   recortar,
   recortarOpcional,
 } from '../../common/utils/texto';
 import { fechaHoy } from '../../common/utils/vigencia';
+import { EsTelefono } from '../../common/validators/telefono.validator';
 import { TipoFicha } from '../entities/hogar-ficha.entity';
 import { CamposFicha, errorCamposSegunTipo } from '../reglas-ficha';
-
-const quitarEspacios = ({ value }: { value: unknown }) => {
-  const limpio = typeof value === 'string' ? value.replace(/\s/g, '') : value;
-  return limpio === '' ? undefined : limpio;
-};
 
 function EsFecha() {
   return function (objeto: object, propiedad: string) {
@@ -101,9 +97,7 @@ export class GuardarFichaDto {
 
   @IsOptional()
   @Transform(quitarEspacios)
-  @Matches(/^\+\d{8,14}$/, {
-    message: 'El teléfono debe tener el formato +56912345678',
-  })
+  @EsTelefono()
   contactoTelefono?: string;
 
   @IsOptional()
