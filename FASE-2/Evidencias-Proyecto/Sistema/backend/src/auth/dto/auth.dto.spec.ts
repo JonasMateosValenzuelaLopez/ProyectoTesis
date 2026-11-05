@@ -90,7 +90,7 @@ describe('IdentificadorUsuarioDto', () => {
     });
 
     expect(mensajes).toContain(
-      'correo must be shorter than or equal to 100 characters',
+      'El correo no puede superar 100 caracteres',
     );
   });
 

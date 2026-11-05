@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Post,
   Put,
   UseGuards,
@@ -21,6 +20,7 @@ import type {
   ContextoRed,
   UsuarioAutenticado,
 } from '../common/interfaces/jwt-payload.interface';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { ContactosService, EDITORES_CONTACTOS } from './contactos.service';
 import { GuardarContactoDto } from './dto/guardar-contacto.dto';
 
@@ -51,7 +51,7 @@ export class ContactosController {
   @Roles(...EDITORES_CONTACTOS)
   @Throttle(LIMITE_ESCRITURA)
   actualizar(
-    @Param('idContacto', ParseIntPipe) idContacto: number,
+    @Param('idContacto', ParseIdPipe) idContacto: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Body() dto: GuardarContactoDto,
@@ -69,7 +69,7 @@ export class ContactosController {
   @Roles(...EDITORES_CONTACTOS)
   @Throttle(LIMITE_ESCRITURA)
   eliminar(
-    @Param('idContacto', ParseIntPipe) idContacto: number,
+    @Param('idContacto', ParseIdPipe) idContacto: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
   ) {

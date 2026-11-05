@@ -7,12 +7,12 @@ import {
 } from 'class-validator';
 
 export class RestablecerPasswordDto {
-  @IsString()
+  @IsString({ message: 'El enlace no es válido o ya expiró' })
   @Length(43, 43, { message: 'El enlace no es válido o ya expiró' })
   @Matches(/^[\w-]+$/, { message: 'El enlace no es válido o ya expiró' })
   token: string;
 
-  @IsString()
+  @IsString({ message: 'La contraseña es obligatoria' })
   @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
   @IsByteLength(0, 72, {
     message:

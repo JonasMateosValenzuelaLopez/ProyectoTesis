@@ -8,7 +8,6 @@ import {
   HttpStatus,
   Param,
   ParseEnumPipe,
-  ParseIntPipe,
   Post,
   Put,
   UseGuards,
@@ -19,6 +18,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlataformaGuard } from '../auth/guards/plataforma.guard';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import type { UsuarioAutenticado } from '../common/interfaces/jwt-payload.interface';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { AltaComunidadService } from './alta-comunidad.service';
 import { CambiarModuloDto, CambiarTipoDto } from './dto/cambiar-comunidad.dto';
 import { CrearComunidadDto } from './dto/crear-comunidad.dto';
@@ -51,7 +51,7 @@ export class PlataformaController {
 
   @Get(':idRed')
   ficha(
-    @Param('idRed', ParseIntPipe) idRed: number,
+    @Param('idRed', ParseIdPipe) idRed: number,
     @UsuarioActual() usuario: UsuarioAutenticado,
   ) {
     return this.plataformaService.ficha(idRed, usuario.idUsuario);
@@ -61,7 +61,7 @@ export class PlataformaController {
   @HttpCode(HttpStatus.OK)
   @Throttle(LIMITE_ESCRITURA)
   suspender(
-    @Param('idRed', ParseIntPipe) idRed: number,
+    @Param('idRed', ParseIdPipe) idRed: number,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Body() dto: SuspenderComunidadDto,
   ) {
@@ -75,7 +75,7 @@ export class PlataformaController {
   @Delete(':idRed/suspension')
   @Throttle(LIMITE_ESCRITURA)
   reactivar(
-    @Param('idRed', ParseIntPipe) idRed: number,
+    @Param('idRed', ParseIdPipe) idRed: number,
     @UsuarioActual() usuario: UsuarioAutenticado,
   ) {
     return this.plataformaService.reactivar(idRed, usuario.idUsuario);
@@ -84,7 +84,7 @@ export class PlataformaController {
   @Put(':idRed/modulos/:codigoModulo')
   @Throttle(LIMITE_ESCRITURA)
   cambiarModulo(
-    @Param('idRed', ParseIntPipe) idRed: number,
+    @Param('idRed', ParseIdPipe) idRed: number,
     @Param(
       'codigoModulo',
       new ParseEnumPipe(CodigoModulo, {
@@ -106,7 +106,7 @@ export class PlataformaController {
   @Put(':idRed/tipo')
   @Throttle(LIMITE_ESCRITURA)
   cambiarTipo(
-    @Param('idRed', ParseIntPipe) idRed: number,
+    @Param('idRed', ParseIdPipe) idRed: number,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Body() dto: CambiarTipoDto,
   ) {

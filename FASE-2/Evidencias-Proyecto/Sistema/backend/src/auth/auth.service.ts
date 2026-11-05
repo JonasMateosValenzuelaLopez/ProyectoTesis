@@ -28,6 +28,7 @@ import {
 } from 'typeorm';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import { RolUsuario } from '../common/enums/rol.enum';
+import { CodigoError } from '../common/errores/codigo-error.enum';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { condicionVigente, fechaHoy } from '../common/utils/vigencia';
 import { PAIS_POR_DEFECTO } from '../common/validators/identificador.validator';
@@ -346,7 +347,10 @@ export class AuthService {
 
   private async iniciarSesion(usuario: Usuario) {
     if (usuario.bloqueado) {
-      throw new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA);
+      throw new ForbiddenException({
+        codigo: CodigoError.CUENTA_BLOQUEADA,
+        message: MENSAJE_CUENTA_BLOQUEADA,
+      });
     }
 
     const { activas, suspendidas } = await this.comunidadesDe(
@@ -356,10 +360,14 @@ export class AuthService {
       const [suspendida] = suspendidas;
       throw new ForbiddenException(
         suspendida
-          ? `Tu comunidad ${suspendida.nombre} está suspendida` +
-              (suspendida.motivoSuspension
-                ? `: ${suspendida.motivoSuspension}`
-                : '.')
+          ? {
+              codigo: CodigoError.COMUNIDAD_SUSPENDIDA,
+              message:
+                `Tu comunidad ${suspendida.nombre} está suspendida` +
+                (suspendida.motivoSuspension
+                  ? `: ${suspendida.motivoSuspension}`
+                  : '.'),
+            }
           : 'Tu cuenta no está asociada a ninguna comunidad activa.',
       );
     }

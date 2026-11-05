@@ -6,7 +6,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -21,6 +20,7 @@ import type {
   ContextoRed,
   UsuarioAutenticado,
 } from '../common/interfaces/jwt-payload.interface';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { AsignarCargoDto, InvitarResidenteDto } from './dto/residentes.dto';
 import { ResidentesService } from './residentes.service';
 
@@ -51,7 +51,7 @@ export class ResidentesController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   reenviarInvitacion(
-    @Param('idUsuario', ParseIntPipe) idUsuario: number,
+    @Param('idUsuario', ParseIdPipe) idUsuario: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
   ) {
@@ -66,7 +66,7 @@ export class ResidentesController {
   @HttpCode(HttpStatus.OK)
   @Throttle(LIMITE_ESCRITURA)
   asignarCargo(
-    @Param('idUsuario', ParseIntPipe) idUsuario: number,
+    @Param('idUsuario', ParseIdPipe) idUsuario: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Body() dto: AsignarCargoDto,
@@ -82,8 +82,8 @@ export class ResidentesController {
   @Delete(':idUsuario/cargos/:idRol')
   @Throttle(LIMITE_ESCRITURA)
   quitarCargo(
-    @Param('idUsuario', ParseIntPipe) idUsuario: number,
-    @Param('idRol', ParseIntPipe) idRol: number,
+    @Param('idUsuario', ParseIdPipe) idUsuario: number,
+    @Param('idRol', ParseIdPipe) idRol: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
   ) {
@@ -99,7 +99,7 @@ export class ResidentesController {
   @HttpCode(HttpStatus.OK)
   @Throttle(LIMITE_ESCRITURA)
   desactivar(
-    @Param('idUsuario', ParseIntPipe) idUsuario: number,
+    @Param('idUsuario', ParseIdPipe) idUsuario: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
   ) {
@@ -109,7 +109,7 @@ export class ResidentesController {
   @Delete(':idUsuario/desactivacion')
   @Throttle(LIMITE_ESCRITURA)
   reactivar(
-    @Param('idUsuario', ParseIntPipe) idUsuario: number,
+    @Param('idUsuario', ParseIdPipe) idUsuario: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
   ) {

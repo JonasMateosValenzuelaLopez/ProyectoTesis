@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   UseGuards,
@@ -19,6 +18,7 @@ import type {
   ContextoRed,
   UsuarioAutenticado,
 } from '../common/interfaces/jwt-payload.interface';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { CrearLoteUnidadesDto, EditarUnidadDto } from './dto/unidades.dto';
 import { UnidadesService } from './unidades.service';
 
@@ -58,7 +58,7 @@ export class UnidadesController {
   @Roles(RolUsuario.ADMINISTRADOR)
   @Throttle(LIMITE_ESCRITURA)
   editar(
-    @Param('idUnidad', ParseIntPipe) idUnidad: number,
+    @Param('idUnidad', ParseIdPipe) idUnidad: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Body() dto: EditarUnidadDto,

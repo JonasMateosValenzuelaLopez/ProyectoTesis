@@ -53,13 +53,13 @@ export class GuardarFichaDto {
 
   @IsOptional()
   @Transform(normalizarTextoLargo)
-  @IsString()
+  @IsString({ message: 'El detalle debe ser texto' })
   @MaxLength(2000, { message: 'El detalle no puede superar 2000 caracteres' })
   detalle?: string;
 
   @IsOptional()
   @Transform(recortarOpcional)
-  @IsString()
+  @IsString({ message: 'El nombre de contacto debe ser texto' })
   @MaxLength(100, {
     message: 'El nombre de contacto no puede superar 100 caracteres',
   })

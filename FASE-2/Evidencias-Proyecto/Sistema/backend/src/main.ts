@@ -2,10 +2,15 @@ import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import {
+  asignarIdSolicitud,
+  HEADER_ID_SOLICITUD,
+} from './common/errores/id-solicitud.middleware';
 import { errorDeValidacion } from './common/utils/validacion';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.use(asignarIdSolicitud);
 
   const trustProxy = process.env.TRUST_PROXY?.trim();
   if (trustProxy) {
@@ -39,7 +44,10 @@ async function bootstrap() {
       'CORS',
     );
   }
-  app.enableCors({ origin: origenesPermitidos });
+  app.enableCors({
+    origin: origenesPermitidos,
+    exposedHeaders: [HEADER_ID_SOLICITUD, 'Retry-After'],
+  });
 
   await app.listen(process.env.PORT ?? 3000);
 }

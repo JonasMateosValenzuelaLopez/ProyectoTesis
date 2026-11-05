@@ -3,7 +3,6 @@ import {
   HttpCode,
   HttpStatus,
   Param,
-  ParseIntPipe,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -15,6 +14,7 @@ import type {
   ContextoRed,
   UsuarioAutenticado,
 } from '../common/interfaces/jwt-payload.interface';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { ResidenciasService } from './residencias.service';
 
 @Controller('residencias')
@@ -25,7 +25,7 @@ export class ResidenciasController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard, RolesGuard)
   marcarGuiaVista(
-    @Param('idResidencia', ParseIntPipe) idResidencia: number,
+    @Param('idResidencia', ParseIdPipe) idResidencia: number,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @RedActual() red: ContextoRed,
   ) {

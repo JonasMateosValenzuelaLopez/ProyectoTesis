@@ -3,7 +3,6 @@ import {
   Controller,
   Get,
   Param,
-  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -20,6 +19,7 @@ import type {
   ContextoRed,
   UsuarioAutenticado,
 } from '../common/interfaces/jwt-payload.interface';
+import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
   AprobarSolicitudAccesoDto,
@@ -57,7 +57,7 @@ export class SolicitudesAccesoController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolUsuario.ADMINISTRADOR)
   aprobar(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Body() dto: AprobarSolicitudAccesoDto,
@@ -69,7 +69,7 @@ export class SolicitudesAccesoController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(RolUsuario.ADMINISTRADOR)
   rechazar(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id', ParseIdPipe) id: number,
     @RedActual() red: ContextoRed,
     @UsuarioActual() usuario: UsuarioAutenticado,
     @Body() dto: RechazarSolicitudAccesoDto,
