@@ -9,6 +9,7 @@ import { ErroresBdFilter } from './common/filters/errores-bd.filter';
 import { obtenerConfiguracionBaseDatos } from './config/database.config';
 import { validarEntorno } from './config/entorno.config';
 import { ZonaHorariaBdService } from './config/zona-horaria-bd.service';
+import { HogarModule } from './hogar/hogar.module';
 import { MailModule } from './mail/mail.module';
 import { RedesVecinalesModule } from './redes-vecinales/redes-vecinales.module';
 import { RolesModule } from './roles/roles.module';
@@ -34,6 +35,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     MailModule,
     BitacoraModule,
     AuthModule,
+    HogarModule,
     RedesVecinalesModule,
     RolesModule,
     SolicitudesAccesoModule,
