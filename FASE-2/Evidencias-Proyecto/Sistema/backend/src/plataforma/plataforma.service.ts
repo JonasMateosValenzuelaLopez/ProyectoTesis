@@ -7,12 +7,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
+import { CodigoModulo } from '../common/enums/modulo.enum';
 import { NOMBRE_ROL, RolUsuario } from '../common/enums/rol.enum';
+import { nombreCompleto } from '../common/utils/nombres';
 import { condicionVigente } from '../common/utils/vigencia';
 import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
 import {
   EstadoRedVecinal,
   RedVecinal,
+  TipoRedVecinal,
 } from '../redes-vecinales/entities/red-vecinal.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from '../usuarios/entities/membresia.entity';
@@ -106,6 +109,71 @@ export class PlataformaService {
       await this.registrar(manager, idUsuario, idRed, 'reactivar_comunidad', {
         motivoAnterior: red.motivoSuspension,
       });
+    });
+    return this.resumenDe(idRed);
+  }
+
+  async cambiarModulo(
+    idRed: number,
+    idUsuario: number,
+    codigoModulo: CodigoModulo,
+    activo: boolean,
+  ) {
+    await this.dataSource.transaction(async (manager) => {
+      await this.bloquearRed(manager, idRed);
+      const actual = await manager.findOne(RedModulo, {
+        where: { idRed, codigoModulo },
+        withDeleted: true,
+      });
+      const estabaActivo = Boolean(
+        actual && !actual.fechaEliminacion && actual.activo,
+      );
+      if (estabaActivo === activo) {
+        return;
+      }
+      if (!actual) {
+        await manager.insert(RedModulo, {
+          idRed,
+          codigoModulo,
+          activo,
+          actualizadoPor: idUsuario,
+        });
+      } else {
+        if (actual.fechaEliminacion) {
+          await manager.restore(RedModulo, { idRed, codigoModulo });
+        }
+        await manager.update(
+          RedModulo,
+          { idRed, codigoModulo },
+          { activo, actualizadoPor: idUsuario },
+        );
+      }
+      await this.registrar(
+        manager,
+        idUsuario,
+        idRed,
+        activo ? 'activar_modulo' : 'desactivar_modulo',
+        { modulo: codigoModulo },
+        'red_modulos',
+      );
+    });
+    return this.resumenDe(idRed);
+  }
+
+  async cambiarTipo(idRed: number, idUsuario: number, tipo: TipoRedVecinal) {
+    await this.dataSource.transaction(async (manager) => {
+      const red = await this.bloquearRed(manager, idRed);
+      if (red.tipo === tipo) {
+        return;
+      }
+      await manager.update(RedVecinal, { idRed }, { tipo });
+      await this.registrar(
+        manager,
+        idUsuario,
+        idRed,
+        'cambiar_tipo_comunidad',
+        { anterior: red.tipo, nuevo: tipo },
+      );
     });
     return this.resumenDe(idRed);
   }
@@ -225,9 +293,7 @@ export class PlataformaService {
   private persona(usuario: Usuario) {
     return {
       idUsuario: usuario.idUsuario,
-      nombre: [usuario.nombre, usuario.primerApellido, usuario.segundoApellido]
-        .filter(Boolean)
-        .join(' '),
+      nombre: nombreCompleto(usuario),
       pais: usuario.pais,
       identificador: usuario.identificador,
       correo: usuario.correo,
@@ -240,6 +306,7 @@ export class PlataformaService {
     idRed: number,
     accion: string,
     detalle?: Record<string, unknown>,
+    entidad = 'redes_vecinales',
   ) {
     return this.bitacoraService.registrar(
       {
@@ -247,7 +314,7 @@ export class PlataformaService {
         idRed,
         idUsuario,
         accion,
-        entidad: 'redes_vecinales',
+        entidad,
         idEntidad: idRed,
         detalle,
       },

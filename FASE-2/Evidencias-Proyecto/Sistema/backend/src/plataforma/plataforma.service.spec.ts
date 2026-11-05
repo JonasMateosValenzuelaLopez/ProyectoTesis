@@ -30,7 +30,13 @@ describe('PlataformaService', () => {
   };
   let mockMembresiasRepository: { find: jest.Mock };
   let mockRedModulosRepository: { find: jest.Mock };
-  let mockManager: { findOne: jest.Mock; update: jest.Mock };
+  let mockManager: {
+    findOne: jest.Mock;
+    update: jest.Mock;
+    insert: jest.Mock;
+    restore: jest.Mock;
+  };
+  let moduloEnBd: RedModulo | null;
   let mockDataSource: { transaction: jest.Mock; manager: object };
   let mockBitacoraService: { registrar: jest.Mock };
   let redEnBd: RedVecinal | null;
@@ -75,6 +81,7 @@ describe('PlataformaService', () => {
   beforeEach(async () => {
     jest.useFakeTimers({ now: AHORA });
     redEnBd = crearRed();
+    moduloEnBd = null;
     mockRedesRepository = {
       find: jest.fn().mockResolvedValue([crearRed()]),
       findOne: jest.fn(() => Promise.resolve(redEnBd)),
@@ -108,7 +115,11 @@ describe('PlataformaService', () => {
         ]),
     };
     mockManager = {
-      findOne: jest.fn(() => Promise.resolve(redEnBd)),
+      findOne: jest.fn((entidad: unknown) =>
+        Promise.resolve(entidad === RedModulo ? moduloEnBd : redEnBd),
+      ),
+      insert: jest.fn().mockResolvedValue({ identifiers: [] }),
+      restore: jest.fn().mockResolvedValue({ affected: 1 }),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockDataSource = {
@@ -414,6 +425,143 @@ describe('PlataformaService', () => {
       );
 
       expect(mockManager.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cambiarModulo', () => {
+    it('debe crear la fila activa cuando el módulo nunca existió y registrarlo', async () => {
+      await target.cambiarModulo(1, 99, CodigoModulo.RESERVAS, true);
+
+      expect(mockManager.findOne).toHaveBeenCalledWith(RedVecinal, {
+        where: { idRed: 1 },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(mockManager.findOne).toHaveBeenCalledWith(RedModulo, {
+        where: { idRed: 1, codigoModulo: CodigoModulo.RESERVAS },
+        withDeleted: true,
+      });
+      expect(mockManager.insert).toHaveBeenCalledWith(RedModulo, {
+        idRed: 1,
+        codigoModulo: CodigoModulo.RESERVAS,
+        activo: true,
+        actualizadoPor: 99,
+      });
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        {
+          ambito: AmbitoBitacora.PLATAFORMA,
+          idRed: 1,
+          idUsuario: 99,
+          accion: 'activar_modulo',
+          entidad: 'red_modulos',
+          idEntidad: 1,
+          detalle: { modulo: CodigoModulo.RESERVAS },
+        },
+        mockManager,
+      );
+    });
+
+    it('debe desactivar una fila existente sin borrarla', async () => {
+      moduloEnBd = {
+        idRed: 1,
+        codigoModulo: CodigoModulo.COBROS,
+        activo: true,
+        fechaEliminacion: null,
+      } as RedModulo;
+
+      await target.cambiarModulo(1, 99, CodigoModulo.COBROS, false);
+
+      expect(mockManager.update).toHaveBeenCalledWith(
+        RedModulo,
+        { idRed: 1, codigoModulo: CodigoModulo.COBROS },
+        { activo: false, actualizadoPor: 99 },
+      );
+      expect(mockManager.insert).not.toHaveBeenCalled();
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({ accion: 'desactivar_modulo' }),
+        mockManager,
+      );
+    });
+
+    it('debe restaurar una fila eliminada antes de activarla', async () => {
+      moduloEnBd = {
+        idRed: 1,
+        codigoModulo: CodigoModulo.MURO,
+        activo: true,
+        fechaEliminacion: CREADA,
+      } as RedModulo;
+
+      await target.cambiarModulo(1, 99, CodigoModulo.MURO, true);
+
+      expect(mockManager.restore).toHaveBeenCalledWith(RedModulo, {
+        idRed: 1,
+        codigoModulo: CodigoModulo.MURO,
+      });
+      expect(mockManager.update).toHaveBeenCalled();
+    });
+
+    it.each([
+      ['activar uno ya activo', true, true],
+      ['desactivar uno ya inactivo', false, false],
+    ])(
+      'no debe escribir ni registrar nada al %s',
+      async (_caso, estado: boolean, pedido: boolean) => {
+        moduloEnBd = {
+          idRed: 1,
+          codigoModulo: CodigoModulo.MURO,
+          activo: estado,
+          fechaEliminacion: null,
+        } as RedModulo;
+
+        await target.cambiarModulo(1, 99, CodigoModulo.MURO, pedido);
+
+        expect(mockManager.update).not.toHaveBeenCalled();
+        expect(mockBitacoraService.registrar).not.toHaveBeenCalled();
+      },
+    );
+
+    it('no debe crear una fila para desactivar un módulo que nunca existió', async () => {
+      await target.cambiarModulo(1, 99, CodigoModulo.MURO, false);
+
+      expect(mockManager.insert).not.toHaveBeenCalled();
+      expect(mockBitacoraService.registrar).not.toHaveBeenCalled();
+    });
+
+    it('debe lanzar NotFoundException cuando la comunidad no existe', async () => {
+      redEnBd = null;
+
+      await expect(
+        target.cambiarModulo(77, 99, CodigoModulo.MURO, true),
+      ).rejects.toThrow(new NotFoundException('Comunidad no encontrada'));
+    });
+  });
+
+  describe('cambiarTipo', () => {
+    it('debe cambiar el tipo y registrar el anterior y el nuevo', async () => {
+      await target.cambiarTipo(1, 99, TipoRedVecinal.EDIFICIO);
+
+      expect(mockManager.update).toHaveBeenCalledWith(
+        RedVecinal,
+        { idRed: 1 },
+        { tipo: TipoRedVecinal.EDIFICIO },
+      );
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'cambiar_tipo_comunidad',
+          entidad: 'redes_vecinales',
+          detalle: {
+            anterior: TipoRedVecinal.CONDOMINIO,
+            nuevo: TipoRedVecinal.EDIFICIO,
+          },
+        }),
+        mockManager,
+      );
+    });
+
+    it('no debe escribir ni registrar nada cuando el tipo es el mismo', async () => {
+      await target.cambiarTipo(1, 99, TipoRedVecinal.CONDOMINIO);
+
+      expect(mockManager.update).not.toHaveBeenCalled();
+      expect(mockBitacoraService.registrar).not.toHaveBeenCalled();
     });
   });
 });
