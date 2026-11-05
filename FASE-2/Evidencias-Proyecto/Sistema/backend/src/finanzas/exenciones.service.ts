@@ -7,9 +7,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
+import { DecidirDto } from '../common/dto/decidir.dto';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
 import { nombresPorId } from '../usuarios/nombres-por-id';
-import { DecidirDto, SolicitarExencionDto } from './dto/egresos-exenciones.dto';
+import { SolicitarExencionDto } from './dto/egresos-exenciones.dto';
 import { CobroUnidad, EstadoCobroUnidad } from './entities/cobro-unidad.entity';
 import { EstadoExencion, Exencion } from './entities/exencion.entity';
 

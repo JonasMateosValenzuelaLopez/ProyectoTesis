@@ -5,6 +5,7 @@ export enum TipoNotificacion {
   NUEVO_COBRO = 'Nuevo cobro',
   RECORDATORIO_MOROSIDAD = 'Recordatorio de morosidad',
   RECORDATORIO_VOTACION = 'Recordatorio de votación',
+  NUEVO_COMUNICADO = 'Nuevo comunicado',
 }
 
 @Entity('notificaciones_enviadas')
@@ -26,6 +27,9 @@ export class NotificacionEnviada extends EntidadAuditada {
 
   @Column({ name: 'id_votacion', type: 'int', nullable: true })
   idVotacion: number | null;
+
+  @Column({ name: 'id_publicacion', type: 'int', nullable: true })
+  idPublicacion: number | null;
 
   @Column({ type: 'int', default: 0 })
   destinatarios: number;

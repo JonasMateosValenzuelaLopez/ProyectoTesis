@@ -1,9 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager, In } from 'typeorm';
 import { condicionVigente } from '../common/utils/vigencia';
-import { CorreoSaliente, MailService } from '../mail/mail.service';
 import { Membresia } from '../usuarios/entities/membresia.entity';
 import { Residencia } from '../usuarios/entities/residencia.entity';
+import { CorreoSaliente, MailService } from './mail.service';
 
 export interface Destinatario {
   idUsuario: number;
@@ -13,8 +13,8 @@ export interface Destinatario {
 }
 
 @Injectable()
-export class CorreosFinanzasService {
-  private readonly logger = new Logger(CorreosFinanzasService.name);
+export class CorreosComunidadService {
+  private readonly logger = new Logger(CorreosComunidadService.name);
 
   constructor(private readonly mailService: MailService) {}
 
@@ -62,7 +62,7 @@ export class CorreosFinanzasService {
       }
     })().catch((error: unknown) =>
       this.logger.error(
-        'Falló el envío de correos de finanzas',
+        'Falló el envío de correos a la comunidad',
         error instanceof Error ? error.stack : String(error),
       ),
     );

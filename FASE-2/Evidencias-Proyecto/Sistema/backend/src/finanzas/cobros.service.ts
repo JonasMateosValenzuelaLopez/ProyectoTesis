@@ -10,8 +10,8 @@ import { BitacoraService } from '../bitacora/bitacora.service';
 import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
 import { fechaHoy } from '../common/utils/vigencia';
+import { CorreosComunidadService } from '../mail/correos-comunidad.service';
 import { Unidad } from '../unidades/entities/unidad.entity';
-import { CorreosFinanzasService } from './correos-finanzas.service';
 import { CrearCobroDto, EditarCobroDto } from './dto/finanzas.dto';
 import { AvisoPago } from './entities/aviso-pago.entity';
 import { CategoriaGasto } from './entities/categoria-gasto.entity';
@@ -33,7 +33,7 @@ export class CobrosService {
     private readonly cobrosRepository: Repository<Cobro>,
     private readonly dataSource: DataSource,
     private readonly bitacoraService: BitacoraService,
-    private readonly correosService: CorreosFinanzasService,
+    private readonly correosService: CorreosComunidadService,
   ) {}
 
   async listar(red: ContextoRed) {

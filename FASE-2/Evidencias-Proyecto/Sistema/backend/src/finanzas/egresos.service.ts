@@ -8,10 +8,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
+import { DecidirDto } from '../common/dto/decidir.dto';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
 import { RedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
 import { nombresPorId } from '../usuarios/nombres-por-id';
-import { DecidirDto, RegistrarEgresoDto } from './dto/egresos-exenciones.dto';
+import { RegistrarEgresoDto } from './dto/egresos-exenciones.dto';
 import { CategoriaGasto } from './entities/categoria-gasto.entity';
 import { Egreso, EstadoVisado } from './entities/egreso.entity';
 

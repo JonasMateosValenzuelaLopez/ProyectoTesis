@@ -4,7 +4,7 @@ import { DataSource, In } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
-import { CorreosFinanzasService } from './correos-finanzas.service';
+import { CorreosComunidadService } from '../mail/correos-comunidad.service';
 import { AvisoPago, EstadoAviso } from './entities/aviso-pago.entity';
 import { CobroUnidad, EstadoCobroUnidad } from './entities/cobro-unidad.entity';
 import { Cobro } from './entities/cobro.entity';
@@ -100,7 +100,7 @@ describe('PagosService', () => {
         PagosService,
         { provide: DataSource, useValue: mockDataSource },
         { provide: BitacoraService, useValue: mockBitacoraService },
-        { provide: CorreosFinanzasService, useValue: mockCorreosService },
+        { provide: CorreosComunidadService, useValue: mockCorreosService },
       ],
     }).compile();
 

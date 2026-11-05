@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UsuarioActual } from '../auth/decorators/usuario-actual.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { DecidirDto } from '../common/dto/decidir.dto';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import { RolUsuario } from '../common/enums/rol.enum';
 import type {
@@ -24,7 +25,6 @@ import type {
 } from '../common/interfaces/jwt-payload.interface';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
 import {
-  DecidirDto,
   RegistrarEgresoDto,
   ReporteDto,
   SolicitarExencionDto,

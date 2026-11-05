@@ -1,10 +1,10 @@
 import { EntityManager } from 'typeorm';
-import { MailService } from '../mail/mail.service';
+import { MailService } from './mail.service';
 import { Residencia } from '../usuarios/entities/residencia.entity';
-import { CorreosFinanzasService } from './correos-finanzas.service';
+import { CorreosComunidadService } from './correos-comunidad.service';
 
-describe('CorreosFinanzasService', () => {
-  let target: CorreosFinanzasService;
+describe('CorreosComunidadService', () => {
+  let target: CorreosComunidadService;
   let mockMail: { enviar: jest.Mock };
   let manager: { find: jest.Mock };
 
@@ -19,7 +19,7 @@ describe('CorreosFinanzasService', () => {
 
   beforeEach(() => {
     mockMail = { enviar: jest.fn().mockResolvedValue(true) };
-    target = new CorreosFinanzasService(mockMail as unknown as MailService);
+    target = new CorreosComunidadService(mockMail as unknown as MailService);
     manager = {
       find: jest.fn((entidad: unknown) =>
         Promise.resolve(

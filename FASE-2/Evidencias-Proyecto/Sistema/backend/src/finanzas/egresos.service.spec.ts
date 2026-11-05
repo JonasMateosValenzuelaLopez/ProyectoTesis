@@ -81,16 +81,14 @@ describe('EgresosService', () => {
       findOneByOrFail: jest
         .fn()
         .mockResolvedValue({ umbralVisado: 100000 } as RedVecinal),
-      find: jest
-        .fn()
-        .mockResolvedValue([
-          {
-            idUsuario: 7,
-            nombre: 'Tomás',
-            primerApellido: 'Soto',
-            segundoApellido: null,
-          } as Usuario,
-        ]),
+      find: jest.fn().mockResolvedValue([
+        {
+          idUsuario: 7,
+          nombre: 'Tomás',
+          primerApellido: 'Soto',
+          segundoApellido: null,
+        } as Usuario,
+      ]),
       insert: jest.fn().mockResolvedValue({ identifiers: [{ idEgreso: 5 }] }),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
     };

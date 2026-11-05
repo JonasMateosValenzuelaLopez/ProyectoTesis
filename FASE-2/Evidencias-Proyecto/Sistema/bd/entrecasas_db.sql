@@ -477,7 +477,7 @@ CREATE TABLE IF NOT EXISTS `muro_publicaciones` (
   `id_red` int(11) NOT NULL,
   `id_usuario` int(11) NOT NULL,
   `id_unidad` int(11) DEFAULT NULL,
-  `tipo` enum('Oficial','Vecinal','Seguridad','Norma') NOT NULL DEFAULT 'Vecinal',
+  `tipo` enum('Comunicado','Norma','Vecino') NOT NULL DEFAULT 'Vecino',
   `titulo` varchar(150) DEFAULT NULL,
   `contenido` text NOT NULL,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
@@ -500,7 +500,11 @@ CREATE TABLE IF NOT EXISTS `muro_publicaciones` (
   CONSTRAINT `fk_muro_moderado_por` FOREIGN KEY (`moderado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_muro_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `fk_muro_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL,
-  CONSTRAINT `chk_muro_moderacion` CHECK (`estado_moderacion` = 'Publicada' or `moderado_en` is not null)
+  CONSTRAINT `chk_muro_moderacion` CHECK (`estado_moderacion` = 'Publicada' or `moderado_en` is not null),
+  CONSTRAINT `chk_muro_aprobacion_tipo` CHECK (`tipo` = 'Vecino' = (`estado_aprobacion` = 'No requiere')),
+  CONSTRAINT `chk_muro_titulo_oficial` CHECK (`tipo` = 'Vecino' or char_length(trim(coalesce(`titulo`,''))) > 0),
+  CONSTRAINT `chk_muro_contenido` CHECK (char_length(trim(`contenido`)) > 0),
+  CONSTRAINT `chk_muro_decision` CHECK (`estado_aprobacion` not in ('Aprobada','Rechazada') or `aprobado_en` is not null)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -535,10 +539,11 @@ CREATE TABLE IF NOT EXISTS `muro_reportes` (
 CREATE TABLE IF NOT EXISTS `notificaciones_enviadas` (
   `id_notificacion` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
-  `tipo` enum('Nuevo cobro','Recordatorio de morosidad','Recordatorio de votación') NOT NULL,
+  `tipo` enum('Nuevo cobro','Recordatorio de morosidad','Recordatorio de votación','Nuevo comunicado') NOT NULL,
   `asunto` varchar(150) NOT NULL,
   `id_cobro` int(11) DEFAULT NULL,
   `id_votacion` int(11) DEFAULT NULL,
+  `id_publicacion` int(11) DEFAULT NULL,
   `destinatarios` int(11) NOT NULL DEFAULT 0,
   `enviado_por` int(11) DEFAULT NULL,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
@@ -549,8 +554,10 @@ CREATE TABLE IF NOT EXISTS `notificaciones_enviadas` (
   KEY `id_cobro` (`id_cobro`),
   KEY `enviado_por` (`enviado_por`),
   KEY `id_votacion` (`id_votacion`),
+  KEY `id_publicacion` (`id_publicacion`),
   CONSTRAINT `fk_notificacion_cobro` FOREIGN KEY (`id_cobro`) REFERENCES `cobros` (`id_cobro`) ON DELETE SET NULL,
   CONSTRAINT `fk_notificacion_enviado_por` FOREIGN KEY (`enviado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
+  CONSTRAINT `fk_notificacion_publicacion` FOREIGN KEY (`id_publicacion`) REFERENCES `muro_publicaciones` (`id_publicacion`) ON DELETE SET NULL,
   CONSTRAINT `fk_notificacion_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `fk_notificacion_votacion` FOREIGN KEY (`id_votacion`) REFERENCES `votaciones` (`id_votacion`) ON DELETE SET NULL,
   CONSTRAINT `chk_notificacion_asunto` CHECK (char_length(trim(`asunto`)) > 0),

@@ -1,6 +1,5 @@
 import { Transform } from 'class-transformer';
 import {
-  IsBoolean,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -53,17 +52,6 @@ export class RegistrarEgresoDto {
   )
   @MaxLength(255, { message: 'El enlace no puede superar 255 caracteres' })
   comprobanteUrl?: string;
-}
-
-export class DecidirDto {
-  @IsBoolean({ message: 'aprobado debe ser true o false' })
-  aprobado: boolean;
-
-  @IsOptional()
-  @Transform(recortarOpcional)
-  @IsString({ message: 'El comentario debe ser texto' })
-  @MaxLength(255, { message: 'El comentario no puede superar 255 caracteres' })
-  comentario?: string;
 }
 
 export class SolicitarExencionDto {

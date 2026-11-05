@@ -1,8 +1,8 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { DecidirDto } from '../../common/dto/decidir.dto';
 import { mensajesDeValidacion } from '../../common/utils/validacion';
 import {
-  DecidirDto,
   RegistrarEgresoDto,
   ReporteDto,
   SolicitarExencionDto,

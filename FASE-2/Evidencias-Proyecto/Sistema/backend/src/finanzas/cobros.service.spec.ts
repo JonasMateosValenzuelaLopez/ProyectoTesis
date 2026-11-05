@@ -9,9 +9,9 @@ import { DataSource } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
+import { CorreosComunidadService } from '../mail/correos-comunidad.service';
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { CobrosService } from './cobros.service';
-import { CorreosFinanzasService } from './correos-finanzas.service';
 import { CrearCobroDto } from './dto/finanzas.dto';
 import { AvisoPago } from './entities/aviso-pago.entity';
 import { CategoriaGasto } from './entities/categoria-gasto.entity';
@@ -144,7 +144,7 @@ describe('CobrosService', () => {
         { provide: getRepositoryToken(Cobro), useValue: mockCobrosRepository },
         { provide: DataSource, useValue: mockDataSource },
         { provide: BitacoraService, useValue: mockBitacoraService },
-        { provide: CorreosFinanzasService, useValue: mockCorreosService },
+        { provide: CorreosComunidadService, useValue: mockCorreosService },
       ],
     }).compile();
 

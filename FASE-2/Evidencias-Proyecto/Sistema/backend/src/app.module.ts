@@ -13,6 +13,7 @@ import { ZonaHorariaBdService } from './config/zona-horaria-bd.service';
 import { FinanzasModule } from './finanzas/finanzas.module';
 import { HogarModule } from './hogar/hogar.module';
 import { MailModule } from './mail/mail.module';
+import { MuroModule } from './muro/muro.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { RedesVecinalesModule } from './redes-vecinales/redes-vecinales.module';
 import { ResidentesModule } from './residentes/residentes.module';
@@ -42,6 +43,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     ComunidadModule,
     FinanzasModule,
     HogarModule,
+    MuroModule,
     PlataformaModule,
     RedesVecinalesModule,
     ResidentesModule,

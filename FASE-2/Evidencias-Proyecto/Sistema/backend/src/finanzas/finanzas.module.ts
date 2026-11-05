@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CategoriasService } from './categorias.service';
 import { CobrosService } from './cobros.service';
-import { CorreosFinanzasService } from './correos-finanzas.service';
 import { EgresosExencionesController } from './egresos-exenciones.controller';
 import { EgresosService } from './egresos.service';
 import { AvisoPago } from './entities/aviso-pago.entity';
@@ -36,7 +35,6 @@ import { ReportesService } from './reportes.service';
     CobrosService,
     PagosService,
     EstadoCuentaService,
-    CorreosFinanzasService,
     EgresosService,
     ExencionesService,
     ReportesService,

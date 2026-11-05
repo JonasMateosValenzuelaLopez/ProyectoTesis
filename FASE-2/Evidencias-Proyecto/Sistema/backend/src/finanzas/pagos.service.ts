@@ -8,7 +8,7 @@ import { BitacoraService } from '../bitacora/bitacora.service';
 import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
 import { fechaHoy } from '../common/utils/vigencia';
-import { CorreosFinanzasService } from './correos-finanzas.service';
+import { CorreosComunidadService } from '../mail/correos-comunidad.service';
 import { MarcarPagosDto, RechazarAvisosDto } from './dto/finanzas.dto';
 import { AvisoPago, EstadoAviso } from './entities/aviso-pago.entity';
 import { CobroUnidad, EstadoCobroUnidad } from './entities/cobro-unidad.entity';
@@ -28,7 +28,7 @@ export class PagosService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly bitacoraService: BitacoraService,
-    private readonly correosService: CorreosFinanzasService,
+    private readonly correosService: CorreosComunidadService,
   ) {}
 
   async marcarPagos(red: ContextoRed, idUsuario: number, dto: MarcarPagosDto) {

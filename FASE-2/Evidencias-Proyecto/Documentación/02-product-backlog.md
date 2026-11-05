@@ -21,8 +21,8 @@ Estado al 1 de noviembre de 2026. "Vista" significa que la pantalla existe con d
 | HU-15 | Como Tesorero quiero ver la morosidad para gestionar las deudas | Alta | 4 | Lista unidades con cobros vencidos e impagos | API; falta conectar |
 | HU-16 | Como Tesorero quiero registrar egresos para transparentar los gastos | Media | 4 | Requiere visado del Presidente desde el umbral de la comunidad | API; falta conectar |
 | HU-17 | Como residente quiero solicitar una exención para regularizar un caso especial | Baja | 4 | La revisa Tesorería y la decide la Presidencia; al aprobarse, el cobro queda exento | API; falta conectar |
-| HU-18 | Como residente quiero publicar en el Muro Vecinal para comunicarme con mis vecinos | Alta | 4 | Solo se ve en la comunidad de quien publica | Vista |
-| HU-19 | Como residente quiero reportar una publicación para mantener la sana convivencia | Media | 4 | El reporte valida que la publicación exista y sea de la comunidad | Vista |
+| HU-18 | Como residente quiero publicar en el Muro Vecinal para comunicarme con mis vecinos | Alta | 4 | Solo se ve en la comunidad de quien publica | API; falta conectar |
+| HU-19 | Como residente quiero reportar una publicación para mantener la sana convivencia | Media | 4 | El reporte valida que la publicación exista y sea de la comunidad | API; falta conectar |
 | HU-20 | Como residente quiero publicar en el Marketplace para ofrecer productos a mis vecinos | Media | 4 | Publicación con categoría y solicitud de contacto | Vista |
 | HU-21 | Como residente quiero votar para participar en las decisiones | Media | Por definir | Un voto por persona en cada votación | Vista |
 | HU-22 | Como Secretario quiero registrar actas para dejar constancia de los acuerdos | Media | Por definir | El acta guarda asistentes, temas y acuerdos | Vista |
