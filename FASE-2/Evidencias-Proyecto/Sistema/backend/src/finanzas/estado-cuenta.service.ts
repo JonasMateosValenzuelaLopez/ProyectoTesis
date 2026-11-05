@@ -16,6 +16,7 @@ import { Usuario } from '../usuarios/entities/usuario.entity';
 import { AvisarTransferenciaDto } from './dto/finanzas.dto';
 import { AvisoPago, EstadoAviso } from './entities/aviso-pago.entity';
 import { CobroUnidad, EstadoCobroUnidad } from './entities/cobro-unidad.entity';
+import { Egreso, EstadoVisado } from './entities/egreso.entity';
 import { EstadoExencion, Exencion } from './entities/exencion.entity';
 import {
   NotificacionEnviada,
@@ -51,38 +52,42 @@ export class EstadoCuentaService {
     const manager = this.dataSource.manager;
     const hoy = fechaHoy();
     const periodo = periodoActual(hoy);
-    const [unidades, filas, avisos, exenciones, ultimo] = await Promise.all([
-      manager.find(Unidad, {
-        where: { idRed: red.idRed },
-        order: { orden: 'ASC', idUnidad: 'ASC' },
-      }),
-      this.cobrosUnidadRepository.find({
-        where: { cobro: { idRed: red.idRed } },
-        relations: { cobro: true },
-      }),
-      manager.find(AvisoPago, {
-        where: {
-          estado: EstadoAviso.PENDIENTE,
-          cobroUnidad: { cobro: { idRed: red.idRed } },
-        },
-        relations: { cobroUnidad: { cobro: true } },
-        order: { idAviso: 'ASC' },
-      }),
-      manager.find(Exencion, {
-        where: {
-          estado: In(EXENCION_EN_CURSO),
-          cobroUnidad: { cobro: { idRed: red.idRed } },
-        },
-        relations: { cobroUnidad: true },
-      }),
-      manager.findOne(NotificacionEnviada, {
-        where: {
-          idRed: red.idRed,
-          tipo: TipoNotificacion.RECORDATORIO_MOROSIDAD,
-        },
-        order: { idNotificacion: 'DESC' },
-      }),
-    ]);
+    const [unidades, filas, avisos, exenciones, ultimo, egresosPorVisar] =
+      await Promise.all([
+        manager.find(Unidad, {
+          where: { idRed: red.idRed },
+          order: { orden: 'ASC', idUnidad: 'ASC' },
+        }),
+        this.cobrosUnidadRepository.find({
+          where: { cobro: { idRed: red.idRed } },
+          relations: { cobro: true },
+        }),
+        manager.find(AvisoPago, {
+          where: {
+            estado: EstadoAviso.PENDIENTE,
+            cobroUnidad: { cobro: { idRed: red.idRed } },
+          },
+          relations: { cobroUnidad: { cobro: true } },
+          order: { idAviso: 'ASC' },
+        }),
+        manager.find(Exencion, {
+          where: {
+            estado: In(EXENCION_EN_CURSO),
+            cobroUnidad: { cobro: { idRed: red.idRed } },
+          },
+          relations: { cobroUnidad: true },
+        }),
+        manager.findOne(NotificacionEnviada, {
+          where: {
+            idRed: red.idRed,
+            tipo: TipoNotificacion.RECORDATORIO_MOROSIDAD,
+          },
+          order: { idNotificacion: 'DESC' },
+        }),
+        manager.count(Egreso, {
+          where: { idRed: red.idRed, estadoVisado: EstadoVisado.PENDIENTE },
+        }),
+      ]);
     const usuarios = await this.usuariosPorId(
       avisos.map((aviso) => aviso.idUsuario),
     );
@@ -141,6 +146,7 @@ export class EstadoCuentaService {
         deudaMorosa: resumenUnidades.reduce((t, r) => t + r.deudaAtrasada, 0),
         avisosPorValidar: avisos.length,
         exencionesEnCurso: exenciones.length,
+        egresosPorVisar,
       },
       unidades: resumenUnidades.map((r) => ({
         idUnidad: r.unidad.idUnidad,

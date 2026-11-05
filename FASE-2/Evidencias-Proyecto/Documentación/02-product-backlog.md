@@ -19,8 +19,8 @@ Estado al 1 de noviembre de 2026. "Vista" significa que la pantalla existe con d
 | HU-13 | Como Tesorero quiero marcar pagos para mantener las cuentas al día | Alta | 4 | Queda registrado quién marcó y cuándo | API; falta conectar |
 | HU-14 | Como residente quiero avisar que transferí para que Tesorería lo revise | Alta | 4 | El aviso no marca el cobro como pagado | API; falta conectar |
 | HU-15 | Como Tesorero quiero ver la morosidad para gestionar las deudas | Alta | 4 | Lista unidades con cobros vencidos e impagos | API; falta conectar |
-| HU-16 | Como Tesorero quiero registrar egresos para transparentar los gastos | Media | 4 | Requiere visado del Presidente desde el umbral de la comunidad | Vista |
-| HU-17 | Como residente quiero solicitar una exención para regularizar un caso especial | Baja | Por definir | La solicitud queda pendiente hasta su resolución | Vista |
+| HU-16 | Como Tesorero quiero registrar egresos para transparentar los gastos | Media | 4 | Requiere visado del Presidente desde el umbral de la comunidad | API; falta conectar |
+| HU-17 | Como residente quiero solicitar una exención para regularizar un caso especial | Baja | 4 | La revisa Tesorería y la decide la Presidencia; al aprobarse, el cobro queda exento | API; falta conectar |
 | HU-18 | Como residente quiero publicar en el Muro Vecinal para comunicarme con mis vecinos | Alta | 4 | Solo se ve en la comunidad de quien publica | Vista |
 | HU-19 | Como residente quiero reportar una publicación para mantener la sana convivencia | Media | 4 | El reporte valida que la publicación exista y sea de la comunidad | Vista |
 | HU-20 | Como residente quiero publicar en el Marketplace para ofrecer productos a mis vecinos | Media | 4 | Publicación con categoría y solicitud de contacto | Vista |

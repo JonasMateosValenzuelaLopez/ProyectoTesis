@@ -1,5 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 import { EntidadAuditada } from '../../common/entities/entidad-auditada.entity';
+import { columnaMonto } from '../../common/utils/monto';
 
 export enum TipoRedVecinal {
   VILLA = 'Villa',
@@ -84,4 +85,14 @@ export class RedVecinal extends EntidadAuditada {
     nullable: true,
   })
   correoTransferencias: string | null;
+
+  @Column({
+    name: 'umbral_visado',
+    type: 'decimal',
+    precision: 12,
+    scale: 2,
+    default: 100000,
+    transformer: columnaMonto,
+  })
+  umbralVisado: number;
 }

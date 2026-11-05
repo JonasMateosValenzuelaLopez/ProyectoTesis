@@ -53,6 +53,7 @@ describe('EstadoCuentaService', () => {
     findOne: jest.Mock;
     findOneByOrFail: jest.Mock;
     insert: jest.Mock;
+    count: jest.Mock;
   };
   let mockBitacoraService: { registrar: jest.Mock; marcarActividad: jest.Mock };
   let unidades: Unidad[];
@@ -112,6 +113,7 @@ describe('EstadoCuentaService', () => {
         numeroCuenta: '123',
       } as RedVecinal),
       insert: jest.fn().mockResolvedValue({ identifiers: [] }),
+      count: jest.fn().mockResolvedValue(2),
     };
     mockBitacoraService = {
       registrar: jest.fn().mockResolvedValue(undefined),
@@ -175,6 +177,7 @@ describe('EstadoCuentaService', () => {
           esperado: 90000,
           recaudado: 30000,
           deudaMorosa: 30000,
+          egresosPorVisar: 2,
         }),
       );
       expect(resultado.morosos).toEqual([
