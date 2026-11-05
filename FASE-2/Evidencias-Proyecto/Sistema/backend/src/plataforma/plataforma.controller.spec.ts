@@ -46,6 +46,15 @@ describe('PlataformaController', () => {
     },
   );
 
+  it('debe limitar la creación de comunidades a 10 por minuto', () => {
+    expect(Reflect.getMetadata('THROTTLER:LIMITdefault', metodo('crear'))).toBe(
+      10,
+    );
+    expect(Reflect.getMetadata('THROTTLER:TTLdefault', metodo('crear'))).toBe(
+      60_000,
+    );
+  });
+
   it('debe responder suspender con 200, porque no crea un recurso', () => {
     expect(Reflect.getMetadata(HTTP_CODE_METADATA, metodo('suspender'))).toBe(
       HttpStatus.OK,

@@ -178,7 +178,7 @@ export class PlataformaService {
     return this.resumenDe(idRed);
   }
 
-  private async resumenDe(idRed: number) {
+  async resumenDe(idRed: number) {
     const [resumen] = await this.resumir([await this.buscarRed(idRed)]);
     return resumen;
   }

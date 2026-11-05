@@ -19,7 +19,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PlataformaGuard } from '../auth/guards/plataforma.guard';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import type { UsuarioAutenticado } from '../common/interfaces/jwt-payload.interface';
+import { AltaComunidadService } from './alta-comunidad.service';
 import { CambiarModuloDto, CambiarTipoDto } from './dto/cambiar-comunidad.dto';
+import { CrearComunidadDto } from './dto/crear-comunidad.dto';
 import { SuspenderComunidadDto } from './dto/suspender-comunidad.dto';
 import { PlataformaService } from './plataforma.service';
 
@@ -28,11 +30,23 @@ const LIMITE_ESCRITURA = { default: { limit: 30, ttl: 60_000 } };
 @Controller('plataforma/comunidades')
 @UseGuards(JwtAuthGuard, PlataformaGuard)
 export class PlataformaController {
-  constructor(private readonly plataformaService: PlataformaService) {}
+  constructor(
+    private readonly plataformaService: PlataformaService,
+    private readonly altaComunidadService: AltaComunidadService,
+  ) {}
 
   @Get()
   listar() {
     return this.plataformaService.listar();
+  }
+
+  @Post()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  crear(
+    @UsuarioActual() usuario: UsuarioAutenticado,
+    @Body() dto: CrearComunidadDto,
+  ) {
+    return this.altaComunidadService.crear(usuario.idUsuario, dto);
   }
 
   @Get(':idRed')
