@@ -1,6 +1,6 @@
 # Modelo de datos
 
-El modelo se implementa en MariaDB y tiene 39 tablas y 90 llaves foráneas. Los diagramas se generaron desde el esquema real de la base de datos. Por claridad omiten las tres fechas de auditoría que tiene cada tabla: `fecha_creacion`, `fecha_actualizacion` y `fecha_eliminacion`.
+El modelo se implementa en MariaDB y tiene 39 tablas y 91 llaves foráneas. Los diagramas se generaron desde el esquema real de la base de datos. Por claridad omiten las tres fechas de auditoría que tiene cada tabla: `fecha_creacion`, `fecha_actualizacion` y `fecha_eliminacion`.
 
 Convenciones: **PK** es llave primaria, **FK** es llave foránea y **UK** es valor único. Cada diagrama incluye las relaciones de su área, por lo que también aparecen tablas de otras áreas relacionadas con ella.
 
@@ -322,6 +322,8 @@ erDiagram
         varchar motivo
         int solicitada_por FK
         enum estado
+        int revisada_por FK
+        datetime revisada_en
         int resuelta_por FK
         datetime resuelta_en
         varchar comentario_resolucion

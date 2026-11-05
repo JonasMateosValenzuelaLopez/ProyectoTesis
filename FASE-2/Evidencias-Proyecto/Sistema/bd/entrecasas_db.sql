@@ -286,7 +286,9 @@ CREATE TABLE IF NOT EXISTS `exenciones` (
   `id_cobro_unidad` int(11) NOT NULL,
   `motivo` varchar(255) NOT NULL,
   `solicitada_por` int(11) DEFAULT NULL,
-  `estado` enum('Pendiente','Aprobada','Rechazada') NOT NULL DEFAULT 'Pendiente',
+  `estado` enum('Pendiente','Por aprobar','Aprobada','Rechazada') NOT NULL DEFAULT 'Pendiente',
+  `revisada_por` int(11) DEFAULT NULL,
+  `revisada_en` datetime DEFAULT NULL,
   `resuelta_por` int(11) DEFAULT NULL,
   `resuelta_en` datetime DEFAULT NULL,
   `comentario_resolucion` varchar(255) DEFAULT NULL,
@@ -297,10 +299,14 @@ CREATE TABLE IF NOT EXISTS `exenciones` (
   KEY `idx_exencion_cobro_unidad` (`id_cobro_unidad`,`estado`),
   KEY `solicitada_por` (`solicitada_por`),
   KEY `resuelta_por` (`resuelta_por`),
+  KEY `revisada_por` (`revisada_por`),
   CONSTRAINT `fk_exencion_cobro_unidad` FOREIGN KEY (`id_cobro_unidad`) REFERENCES `cobro_unidades` (`id_cobro_unidad`) ON DELETE CASCADE,
   CONSTRAINT `fk_exencion_resuelta_por` FOREIGN KEY (`resuelta_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
+  CONSTRAINT `fk_exencion_revisada_por` FOREIGN KEY (`revisada_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_exencion_solicitada_por` FOREIGN KEY (`solicitada_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
-  CONSTRAINT `chk_exencion_resolucion` CHECK (`estado` = 'Pendiente' or `resuelta_en` is not null)
+  CONSTRAINT `chk_exencion_revision` CHECK (`estado` = 'Pendiente' = (`revisada_en` is null)),
+  CONSTRAINT `chk_exencion_resolucion` CHECK (`estado` in ('Pendiente','Por aprobar') = (`resuelta_en` is null)),
+  CONSTRAINT `chk_exencion_motivo` CHECK (char_length(trim(`motivo`)) > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

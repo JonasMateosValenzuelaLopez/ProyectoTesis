@@ -15,10 +15,10 @@ Estado al 1 de noviembre de 2026. "Vista" significa que la pantalla existe con d
 | HU-09 | Como Administrador quiero gestionar residentes para mantener el padrón | Alta | 3 | Una persona puede tener varias residencias con fechas de vigencia | API; falta conectar |
 | HU-10 | Como Administrador quiero asignar cargos para definir los permisos | Alta | 3 | Solo un Presidente, un Tesorero y un Secretario vigentes por comunidad | API; falta conectar |
 | HU-11 | Como Administrador quiero activar módulos para adaptar la plataforma a mi comunidad | Media | 3 | Las rutas de un módulo apagado quedan inaccesibles | Vista |
-| HU-12 | Como Tesorero quiero crear cobros para informar a cada unidad lo que debe | Alta | 4 | El cobro se asocia a las unidades correspondientes | Vista |
-| HU-13 | Como Tesorero quiero marcar pagos para mantener las cuentas al día | Alta | 4 | Queda registrado quién marcó y cuándo | Vista |
-| HU-14 | Como residente quiero avisar que transferí para que Tesorería lo revise | Alta | 4 | El aviso no marca el cobro como pagado | Vista |
-| HU-15 | Como Tesorero quiero ver la morosidad para gestionar las deudas | Alta | 4 | Lista unidades con cobros vencidos e impagos | Vista |
+| HU-12 | Como Tesorero quiero crear cobros para informar a cada unidad lo que debe | Alta | 4 | El cobro se asocia a las unidades correspondientes | API; falta conectar |
+| HU-13 | Como Tesorero quiero marcar pagos para mantener las cuentas al día | Alta | 4 | Queda registrado quién marcó y cuándo | API; falta conectar |
+| HU-14 | Como residente quiero avisar que transferí para que Tesorería lo revise | Alta | 4 | El aviso no marca el cobro como pagado | API; falta conectar |
+| HU-15 | Como Tesorero quiero ver la morosidad para gestionar las deudas | Alta | 4 | Lista unidades con cobros vencidos e impagos | API; falta conectar |
 | HU-16 | Como Tesorero quiero registrar egresos para transparentar los gastos | Media | 4 | Requiere visado del Presidente desde el umbral de la comunidad | Vista |
 | HU-17 | Como residente quiero solicitar una exención para regularizar un caso especial | Baja | Por definir | La solicitud queda pendiente hasta su resolución | Vista |
 | HU-18 | Como residente quiero publicar en el Muro Vecinal para comunicarme con mis vecinos | Alta | 4 | Solo se ve en la comunidad de quien publica | Vista |
