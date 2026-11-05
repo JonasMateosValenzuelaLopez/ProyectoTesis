@@ -9,7 +9,7 @@ Estado al 1 de noviembre de 2026. "Vista" significa que la pantalla existe con d
 | HU-03 | Como usuario quiero entrar con contraseña o código por correo para acceder de forma segura | Alta | 2 | Máximo 5 intentos por código; código válido por 10 minutos | API y vista; falta conectar |
 | HU-04 | Como usuario quiero recuperar mi contraseña para no perder el acceso | Alta | 2 | Enlace válido por 1 hora y de un solo uso | API y vista; falta conectar |
 | HU-05 | Como usuario quiero elegir comunidad y cargo para actuar en el contexto correcto | Alta | 3 | Solo aparecen cargos vigentes de comunidades activas | Vista; falta conectar |
-| HU-06 | Como Presidente quiero revisar la bitácora para supervisar las acciones de la comunidad | Media | 3 | Lista acciones con usuario y fecha, filtradas por comunidad | Registro en API; falta consulta |
+| HU-06 | Como Presidente quiero revisar la bitácora para supervisar las acciones de la comunidad | Media | 3 | Lista acciones con usuario y fecha, filtradas por comunidad | API; falta conectar |
 | HU-07 | Como equipo EntreCasas quiero crear comunidades para incorporar clientes | Alta | 3 | Crea comunidad, unidades, módulos y primer responsable en una transacción | API; falta conectar |
 | HU-08 | Como Administrador quiero gestionar unidades para reflejar las viviendas | Alta | 3 | No se repite el número de unidad dentro de una comunidad, salvo departamentos de torres distintas | API; falta conectar |
 | HU-09 | Como Administrador quiero gestionar residentes para mantener el padrón | Alta | 3 | Una persona puede tener varias residencias con fechas de vigencia | API; falta conectar |

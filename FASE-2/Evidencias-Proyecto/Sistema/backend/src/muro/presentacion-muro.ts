@@ -1,7 +1,6 @@
-import { EntityManager, In } from 'typeorm';
-import { NOMBRE_ROL, RolUsuario } from '../common/enums/rol.enum';
-import { condicionVigente } from '../common/utils/vigencia';
-import { Membresia } from '../usuarios/entities/membresia.entity';
+import { EntityManager } from 'typeorm';
+import { RolUsuario } from '../common/enums/rol.enum';
+import { cargosVigentesPorUsuario } from '../usuarios/cargos-vigentes';
 import { nombresPorId } from '../usuarios/nombres-por-id';
 import { MuroPublicacion } from './entities/muro-publicacion.entity';
 
@@ -10,14 +9,6 @@ export const DIRECTIVA_MURO = [
   RolUsuario.PRESIDENTE,
   RolUsuario.TESORERO,
   RolUsuario.SECRETARIO,
-];
-
-const PRIORIDAD_CARGO = [
-  RolUsuario.PRESIDENTE,
-  RolUsuario.ADMINISTRADOR,
-  RolUsuario.SECRETARIO,
-  RolUsuario.TESORERO,
-  RolUsuario.CONSERJE,
 ];
 
 export interface ContextoPresentacion {
@@ -39,29 +30,10 @@ export async function contextoPresentacion(
     ]),
     ...extras,
   ];
-  const unicos = [...new Set(ids.filter((id): id is number => id !== null))];
-  const [nombres, membresias] = await Promise.all([
-    nombresPorId(manager, unicos),
-    unicos.length
-      ? manager.find(Membresia, {
-          where: {
-            idRed,
-            idUsuario: In(unicos),
-            idRol: In(PRIORIDAD_CARGO),
-            activo: true,
-            ...condicionVigente(),
-          },
-        })
-      : Promise.resolve([] as Membresia[]),
+  const [nombres, cargos] = await Promise.all([
+    nombresPorId(manager, ids),
+    cargosVigentesPorUsuario(manager, idRed, ids),
   ]);
-  const cargos = new Map<number, string>();
-  for (const rol of PRIORIDAD_CARGO) {
-    for (const membresia of membresias.filter((m) => m.idRol === rol)) {
-      if (!cargos.has(membresia.idUsuario)) {
-        cargos.set(membresia.idUsuario, NOMBRE_ROL[rol]);
-      }
-    }
-  }
   return { nombres, cargos };
 }
 
