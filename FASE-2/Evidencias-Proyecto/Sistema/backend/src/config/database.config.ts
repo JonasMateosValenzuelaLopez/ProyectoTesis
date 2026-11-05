@@ -12,6 +12,7 @@ export const obtenerConfiguracionBaseDatos = (
   database: configService.getOrThrow<string>('DB_NAME'),
   charset: 'utf8mb4_unicode_ci',
   timezone: 'Z',
+  dateStrings: ['DATE'],
   autoLoadEntities: true,
   synchronize: false,
 });
