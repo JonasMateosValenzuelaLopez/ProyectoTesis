@@ -1,49 +1,68 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  Body,
-  Patch,
   Param,
-  Delete,
+  ParseIntPipe,
+  Patch,
+  Post,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { RedActual } from '../auth/decorators/red-actual.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { UsuarioActual } from '../auth/decorators/usuario-actual.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { RolUsuario } from '../common/enums/rol.enum';
+import type {
+  ContextoRed,
+  UsuarioAutenticado,
+} from '../common/interfaces/jwt-payload.interface';
+import { CrearLoteUnidadesDto, EditarUnidadDto } from './dto/unidades.dto';
 import { UnidadesService } from './unidades.service';
-import { CreateUnidadeDto } from './dto/create-unidad.dto';
-import { UpdateUnidadeDto } from './dto/update-unidad.dto';
 
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(RolUsuario.ADMINISTRADOR)
+export const LECTORES_UNIDADES = [
+  RolUsuario.ADMINISTRADOR,
+  RolUsuario.PRESIDENTE,
+  RolUsuario.TESORERO,
+  RolUsuario.SECRETARIO,
+  RolUsuario.CONSERJE,
+];
+
+const LIMITE_ESCRITURA = { default: { limit: 30, ttl: 60_000 } };
+
 @Controller('unidades')
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class UnidadesController {
   constructor(private readonly unidadesService: UnidadesService) {}
 
-  @Post()
-  create(@Body() createUnidadeDto: CreateUnidadeDto) {
-    return this.unidadesService.create(createUnidadeDto);
-  }
-
   @Get()
-  findAll() {
-    return this.unidadesService.findAll();
+  @Roles(...LECTORES_UNIDADES)
+  listar(@RedActual() red: ContextoRed) {
+    return this.unidadesService.listar(red);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.unidadesService.findOne(+id);
+  @Post('lote')
+  @Roles(RolUsuario.ADMINISTRADOR)
+  @Throttle(LIMITE_ESCRITURA)
+  crearLote(
+    @RedActual() red: ContextoRed,
+    @UsuarioActual() usuario: UsuarioAutenticado,
+    @Body() dto: CrearLoteUnidadesDto,
+  ) {
+    return this.unidadesService.crearLote(red, usuario.idUsuario, dto);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUnidadeDto: UpdateUnidadeDto) {
-    return this.unidadesService.update(+id, updateUnidadeDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.unidadesService.remove(+id);
+  @Patch(':idUnidad')
+  @Roles(RolUsuario.ADMINISTRADOR)
+  @Throttle(LIMITE_ESCRITURA)
+  editar(
+    @Param('idUnidad', ParseIntPipe) idUnidad: number,
+    @RedActual() red: ContextoRed,
+    @UsuarioActual() usuario: UsuarioAutenticado,
+    @Body() dto: EditarUnidadDto,
+  ) {
+    return this.unidadesService.editar(red, usuario.idUsuario, idUnidad, dto);
   }
 }

@@ -1,5 +1,6 @@
 import { TipoRedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
 import { TipoUnidad } from '../unidades/entities/unidad.entity';
+import { UnidadNueva } from '../unidades/unidad-nueva';
 
 export interface Estructura {
   torre?: string;
@@ -11,13 +12,7 @@ export interface Estructura {
   casasPorManzana?: number;
 }
 
-export interface UnidadGenerada {
-  numeroIdentificador: string;
-  tipo: TipoUnidad;
-  callePasaje: string;
-  torre: string | null;
-  piso: number | null;
-  manzana: string | null;
+export interface UnidadGenerada extends UnidadNueva {
   orden: number;
 }
 
@@ -64,7 +59,7 @@ export function generarUnidades(
   tipo: TipoRedVecinal,
   estructura: Estructura,
 ): UnidadGenerada[] {
-  const unidades: Omit<UnidadGenerada, 'orden'>[] = [];
+  const unidades: UnidadNueva[] = [];
   if (tipo === TipoRedVecinal.EDIFICIO) {
     const torre = estructura.torre ?? 'A';
     for (let piso = 1; piso <= (estructura.pisos ?? 0); piso++) {
