@@ -10,22 +10,14 @@ import {
   ValidationArguments,
 } from 'class-validator';
 import { esFechaValida } from '../../common/utils/fechas';
+import {
+  normalizarTextoLargo,
+  recortar,
+  recortarOpcional,
+} from '../../common/utils/texto';
 import { fechaHoy } from '../../common/utils/vigencia';
 import { TipoFicha } from '../entities/hogar-ficha.entity';
 import { CamposFicha, errorCamposSegunTipo } from '../reglas-ficha';
-
-const recortar = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
-const recortarOpcional = ({ value }: { value: unknown }) => {
-  const recortado = recortar({ value });
-  return recortado === '' ? undefined : recortado;
-};
-
-const normalizarDetalle = ({ value }: { value: unknown }) =>
-  recortarOpcional({
-    value: typeof value === 'string' ? value.replace(/\r\n?/g, '\n') : value,
-  });
 
 const quitarEspacios = ({ value }: { value: unknown }) => {
   const limpio = typeof value === 'string' ? value.replace(/\s/g, '') : value;
@@ -94,7 +86,7 @@ export class GuardarFichaDto {
   titulo: string;
 
   @IsOptional()
-  @Transform(normalizarDetalle)
+  @Transform(normalizarTextoLargo)
   @IsString()
   @MaxLength(2000, { message: 'El detalle no puede superar 2000 caracteres' })
   detalle?: string;

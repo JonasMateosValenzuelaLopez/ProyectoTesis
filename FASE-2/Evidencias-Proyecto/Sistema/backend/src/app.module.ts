@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { BitacoraModule } from './bitacora/bitacora.module';
 import { ErroresBdFilter } from './common/filters/errores-bd.filter';
+import { ComunidadModule } from './comunidad/comunidad.module';
 import { obtenerConfiguracionBaseDatos } from './config/database.config';
 import { validarEntorno } from './config/entorno.config';
 import { ZonaHorariaBdService } from './config/zona-horaria-bd.service';
@@ -35,6 +36,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     MailModule,
     BitacoraModule,
     AuthModule,
+    ComunidadModule,
     HogarModule,
     RedesVecinalesModule,
     RolesModule,

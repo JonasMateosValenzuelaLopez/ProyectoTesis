@@ -10,20 +10,13 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import { recortar, recortarOpcional } from '../../common/utils/texto';
 import {
   EsIdentificador,
   NormalizarIdentificador,
   NormalizarPais,
 } from '../../common/validators/identificador.validator';
 import { TipoResidencia } from '../../usuarios/entities/residencia.entity';
-
-const recortar = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
-const recortarOpcional = ({ value }: { value: unknown }) => {
-  const recortado = recortar({ value });
-  return recortado === '' ? undefined : recortado;
-};
 
 export class CrearSolicitudAccesoDto {
   @IsInt({ message: 'Debes seleccionar tu comunidad' })
