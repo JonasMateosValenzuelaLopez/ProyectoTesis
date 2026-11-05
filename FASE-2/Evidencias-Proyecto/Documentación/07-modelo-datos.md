@@ -192,6 +192,7 @@ erDiagram
         enum tipo
         varchar calle_pasaje
         varchar torre
+        varchar torre_clave
         smallint piso
         varchar manzana
         int orden

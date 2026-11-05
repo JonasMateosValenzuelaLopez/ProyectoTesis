@@ -105,13 +105,13 @@ export class SolicitudesAccesoService {
     });
 
     if (!yaPendiente && !yaMiembro) {
-      const unidad = await this.unidadesRepository.findOneBy({
-        idRed: red.idRed,
-        numeroIdentificador: dto.numeroUnidad,
+      const coincidencias = await this.unidadesRepository.find({
+        where: { idRed: red.idRed, numeroIdentificador: dto.numeroUnidad },
+        take: 2,
       });
       await this.solicitudesRepository.insert({
         idRed: red.idRed,
-        idUnidad: unidad?.idUnidad ?? null,
+        idUnidad: coincidencias.length === 1 ? coincidencias[0].idUnidad : null,
         numeroUnidad: dto.numeroUnidad,
         tipoResidencia: dto.tipoResidencia,
         identificador,
@@ -151,7 +151,7 @@ export class SolicitudesAccesoService {
       const idUnidad = dto.idUnidad ?? solicitud.idUnidad;
       if (!idUnidad) {
         throw new BadRequestException(
-          `No existe la unidad "${solicitud.numeroUnidad}" en esta comunidad. Indica idUnidad para aprobar.`,
+          `No se pudo identificar la unidad "${solicitud.numeroUnidad}" en esta comunidad: no existe o el número se repite entre torres. Indica idUnidad para aprobar.`,
         );
       }
       const unidad = await manager.findOneBy(Unidad, {

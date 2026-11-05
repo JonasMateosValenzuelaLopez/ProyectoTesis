@@ -72,7 +72,7 @@ describe('SolicitudesAccesoService', () => {
   };
   let mockRedesRepository: { find: jest.Mock; findOneBy: jest.Mock };
   let mockRedModulosRepository: { find: jest.Mock };
-  let mockUnidadesRepository: { findOneBy: jest.Mock };
+  let mockUnidadesRepository: { find: jest.Mock };
   let mockMembresiasRepository: { exists: jest.Mock };
   let mockAuthService: {
     emitirTokenPassword: jest.Mock;
@@ -172,7 +172,7 @@ describe('SolicitudesAccesoService', () => {
       }),
     };
     mockRedModulosRepository = { find: jest.fn().mockResolvedValue([]) };
-    mockUnidadesRepository = { findOneBy: jest.fn() };
+    mockUnidadesRepository = { find: jest.fn().mockResolvedValue([]) };
     mockMembresiasRepository = { exists: jest.fn().mockResolvedValue(false) };
     mockAuthService = {
       emitirTokenPassword: jest.fn().mockResolvedValue('token-activacion'),
@@ -303,7 +303,7 @@ describe('SolicitudesAccesoService', () => {
     } as CrearSolicitudAccesoDto;
 
     it('debe guardar la solicitud con país por defecto y la unidad encontrada', async () => {
-      mockUnidadesRepository.findOneBy.mockResolvedValue({ idUnidad: 12 });
+      mockUnidadesRepository.find.mockResolvedValue([{ idUnidad: 12 }]);
 
       const resultado = await target.crear({
         ...dto,
@@ -351,10 +351,27 @@ describe('SolicitudesAccesoService', () => {
     });
 
     it('debe guardar idUnidad null cuando el número de unidad no coincide', async () => {
-      mockUnidadesRepository.findOneBy.mockResolvedValue(null);
+      mockUnidadesRepository.find.mockResolvedValue([]);
 
       await target.crear(dto);
 
+      expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ idUnidad: null }),
+      );
+    });
+
+    it('debe guardar idUnidad null cuando el número se repite entre torres, para que la administración elija', async () => {
+      mockUnidadesRepository.find.mockResolvedValue([
+        { idUnidad: 12 },
+        { idUnidad: 40 },
+      ]);
+
+      await target.crear(dto);
+
+      expect(mockUnidadesRepository.find).toHaveBeenCalledWith({
+        where: { idRed: RED.idRed, numeroIdentificador: 'A-101' },
+        take: 2,
+      });
       expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith(
         expect.objectContaining({ idUnidad: null }),
       );
@@ -778,7 +795,7 @@ describe('SolicitudesAccesoService', () => {
 
       await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
         new BadRequestException(
-          'No existe la unidad "A-101" en esta comunidad. Indica idUnidad para aprobar.',
+          'No se pudo identificar la unidad "A-101" en esta comunidad: no existe o el número se repite entre torres. Indica idUnidad para aprobar.',
         ),
       );
     });

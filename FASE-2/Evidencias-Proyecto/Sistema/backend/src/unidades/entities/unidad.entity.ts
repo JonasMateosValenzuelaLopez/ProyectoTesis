@@ -7,7 +7,11 @@ export enum TipoUnidad {
 }
 
 @Entity('unidades')
-@Unique('uq_unidad_red_numero', ['idRed', 'numeroIdentificador'])
+@Unique('uq_unidad_red_torre_numero', [
+  'idRed',
+  'torreClave',
+  'numeroIdentificador',
+])
 export class Unidad extends EntidadAuditada {
   @PrimaryGeneratedColumn({ name: 'id_unidad' })
   idUnidad: number;
@@ -31,6 +35,18 @@ export class Unidad extends EntidadAuditada {
 
   @Column({ type: 'varchar', length: 20, nullable: true })
   torre: string | null;
+
+  @Column({
+    name: 'torre_clave',
+    type: 'varchar',
+    length: 20,
+    generatedType: 'STORED',
+    asExpression: "coalesce(`torre`,'')",
+    insert: false,
+    update: false,
+    select: false,
+  })
+  torreClave: string;
 
   @Column({ type: 'smallint', nullable: true })
   piso: number | null;

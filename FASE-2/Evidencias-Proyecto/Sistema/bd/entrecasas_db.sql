@@ -787,6 +787,7 @@ CREATE TABLE IF NOT EXISTS `unidades` (
   `tipo` enum('Casa','Departamento') NOT NULL DEFAULT 'Casa',
   `calle_pasaje` varchar(100) DEFAULT NULL,
   `torre` varchar(20) DEFAULT NULL,
+  `torre_clave` varchar(20) GENERATED ALWAYS AS (coalesce(`torre`,'')) STORED,
   `piso` smallint(6) DEFAULT NULL,
   `manzana` varchar(20) DEFAULT NULL,
   `orden` int(11) DEFAULT NULL,
@@ -795,9 +796,10 @@ CREATE TABLE IF NOT EXISTS `unidades` (
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_unidad`),
-  UNIQUE KEY `uq_unidad_red_numero` (`id_red`,`numero_identificador`),
+  UNIQUE KEY `uq_unidad_red_torre_numero` (`id_red`,`torre_clave`,`numero_identificador`),
   KEY `id_red` (`id_red`),
-  CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE
+  CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `chk_unidad_torre` CHECK (`tipo` = 'Departamento' = (`torre` is not null))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
