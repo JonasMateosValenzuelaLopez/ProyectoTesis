@@ -51,6 +51,23 @@ npx expo start -c
 | `MAIL_FROM` | Con SMTP | Remitente verificado |
 | `TRUST_PROXY` | Detrás de un proxy | Número de proxies delante de la API |
 
+**Uso de la API.** Las rutas de una comunidad requieren el token en `Authorization: Bearer` y la comunidad en el header `X-Red-Id`. Todo error responde con esta forma:
+
+```json
+{ "statusCode": 400, "codigo": "VALIDACION", "mensaje": "Revisa los datos ingresados", "campos": { "correo": "El correo no es válido" }, "idSolicitud": "…" }
+```
+
+| `codigo` | Estado HTTP | Cuándo ocurre |
+|---|---|---|
+| `VALIDACION` | 400 | Un campo no cumple su formato; `campos` trae un mensaje por campo |
+| `SESION_EXPIRADA`, `CONTRASENA_CAMBIADA` | 401 | Hay que volver a iniciar sesión |
+| `CUENTA_BLOQUEADA`, `COMUNIDAD_SUSPENDIDA`, `SIN_PERMISO`, `MODULO_INACTIVO` | 403 | La acción no está permitida |
+| `NO_ENCONTRADO` | 404 | El registro no existe o es de otra comunidad |
+| `CONFLICTO` | 409 | El dato ya existe o cambió mientras se editaba |
+| `DEMASIADAS_SOLICITUDES` | 429 | Límite de peticiones; el header `Retry-After` indica cuántos segundos esperar |
+| `SOLICITUD_INVALIDA` | Otros 4xx | La petición no se puede procesar |
+| `ERROR_INTERNO` | 5xx | Error del servidor; `idSolicitud` permite encontrarlo en el log |
+
 ## 4. Despliegue (planificado)
 Estos pasos aún no se han ejecutado.
 

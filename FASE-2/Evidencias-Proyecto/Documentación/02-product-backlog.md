@@ -1,6 +1,6 @@
 # Product Backlog
 
-Estado al 1 de noviembre de 2026. "Vista" significa que la pantalla existe con datos de prueba y "API" que el endpoint está implementado.
+Estado al 5 de noviembre de 2026. "Vista" significa que la pantalla existe con datos de prueba y "API" que el endpoint está implementado.
 
 | ID | Historia de usuario | Prioridad | Sprint | Criterios de aceptación | Estado |
 |---|---|---|---|---|---|
@@ -8,13 +8,13 @@ Estado al 1 de noviembre de 2026. "Vista" significa que la pantalla existe con d
 | HU-02 | Como Administrador quiero aprobar o rechazar solicitudes para controlar quién entra | Alta | 2 | Al aprobar se crea cuenta, cargo y residencia, se registra en bitácora y se envía correo | API y vista; falta conectar |
 | HU-03 | Como usuario quiero entrar con contraseña o código por correo para acceder de forma segura | Alta | 2 | Máximo 5 intentos por código; código válido por 10 minutos | API y vista; falta conectar |
 | HU-04 | Como usuario quiero recuperar mi contraseña para no perder el acceso | Alta | 2 | Enlace válido por 1 hora y de un solo uso | API y vista; falta conectar |
-| HU-05 | Como usuario quiero elegir comunidad y cargo para actuar en el contexto correcto | Alta | 3 | Solo aparecen cargos vigentes de comunidades activas | Vista; falta conectar |
+| HU-05 | Como usuario quiero elegir comunidad y cargo para actuar en el contexto correcto | Alta | 3 | Solo aparecen cargos vigentes de comunidades activas | API y vista; falta conectar |
 | HU-06 | Como Presidente quiero revisar la bitácora para supervisar las acciones de la comunidad | Media | 3 | Lista acciones con usuario y fecha, filtradas por comunidad | API; falta conectar |
 | HU-07 | Como equipo EntreCasas quiero crear comunidades para incorporar clientes | Alta | 3 | Crea comunidad, unidades, módulos y primer responsable en una transacción | API; falta conectar |
 | HU-08 | Como Administrador quiero gestionar unidades para reflejar las viviendas | Alta | 3 | No se repite el número de unidad dentro de una comunidad, salvo departamentos de torres distintas | API; falta conectar |
 | HU-09 | Como Administrador quiero gestionar residentes para mantener el padrón | Alta | 3 | Una persona puede tener varias residencias con fechas de vigencia | API; falta conectar |
 | HU-10 | Como Administrador quiero asignar cargos para definir los permisos | Alta | 3 | Solo un Presidente, un Tesorero y un Secretario vigentes por comunidad | API; falta conectar |
-| HU-11 | Como Administrador quiero activar módulos para adaptar la plataforma a mi comunidad | Media | 3 | Las rutas de un módulo apagado quedan inaccesibles | Vista |
+| HU-11 | Como equipo EntreCasas quiero activar los módulos de cada comunidad para adaptar la plataforma a ella | Media | 3 | Las rutas de un módulo apagado quedan inaccesibles | API; falta conectar |
 | HU-12 | Como Tesorero quiero crear cobros para informar a cada unidad lo que debe | Alta | 4 | El cobro se asocia a las unidades correspondientes | API; falta conectar |
 | HU-13 | Como Tesorero quiero marcar pagos para mantener las cuentas al día | Alta | 4 | Queda registrado quién marcó y cuándo | API; falta conectar |
 | HU-14 | Como residente quiero avisar que transferí para que Tesorería lo revise | Alta | 4 | El aviso no marca el cobro como pagado | API; falta conectar |
