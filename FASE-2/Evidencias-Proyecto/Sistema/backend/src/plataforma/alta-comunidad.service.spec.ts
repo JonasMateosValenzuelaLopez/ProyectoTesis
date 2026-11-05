@@ -17,6 +17,7 @@ import { EspacioComun } from '../reservas/entities/espacio-comun.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from '../usuarios/entities/membresia.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
+import { CuentasService } from '../usuarios/cuentas.service';
 import { AltaComunidadService } from './alta-comunidad.service';
 import { CrearComunidadDto } from './dto/crear-comunidad.dto';
 import { PlataformaService } from './plataforma.service';
@@ -85,8 +86,14 @@ describe('AltaComunidadService', () => {
         }),
       ),
       findOne: jest.fn(
-        (_entidad: unknown, opciones: { where: { correo?: string } }) =>
-          Promise.resolve(opciones.where.correo ? porCorreo : porIdentificador),
+        (entidad: unknown, opciones: { where: { correo?: string } }) =>
+          Promise.resolve(
+            entidad === Membresia
+              ? null
+              : opciones.where.correo
+                ? porCorreo
+                : porIdentificador,
+          ),
       ),
       restore: jest.fn().mockResolvedValue({ affected: 1 }),
       create: jest.fn((_entidad: unknown, datos: object) => datos),
@@ -115,6 +122,7 @@ describe('AltaComunidadService', () => {
     const module = await Test.createTestingModule({
       providers: [
         AltaComunidadService,
+        CuentasService,
         { provide: DataSource, useValue: mockDataSource },
         { provide: BitacoraService, useValue: mockBitacoraService },
         { provide: AuthService, useValue: mockAuthService },
@@ -208,6 +216,7 @@ describe('AltaComunidadService', () => {
       primerApellido: 'Soto',
       segundoApellido: null,
       correo: 'ana@correo.cl',
+      telefono: null,
       passwordHash: null,
     });
     expect(insertado(Membresia)).toEqual({
@@ -336,7 +345,7 @@ describe('AltaComunidadService', () => {
       [
         'del equipo EntreCasas',
         { esPlataforma: true },
-        'Una cuenta del equipo EntreCasas no puede ser responsable de una comunidad',
+        'Una cuenta del equipo EntreCasas no puede tener cargos ni viviendas en una comunidad',
       ],
     ])(
       'debe rechazar una cuenta %s sin crear nada más',

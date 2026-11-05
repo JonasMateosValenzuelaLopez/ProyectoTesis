@@ -4,13 +4,12 @@ import { Modulo } from '../redes-vecinales/entities/modulo.entity';
 import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
 import { RedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
+import { CuentasService } from './cuentas.service';
 import { Membresia } from './entities/membresia.entity';
 import { Residencia } from './entities/residencia.entity';
 import { Usuario } from './entities/usuario.entity';
 import { ResidenciasController } from './residencias.controller';
 import { ResidenciasService } from './residencias.service';
-import { UsuariosService } from './usuarios.service';
-import { UsuariosController } from './usuarios.controller';
 
 @Module({
   imports: [
@@ -24,8 +23,8 @@ import { UsuariosController } from './usuarios.controller';
       RedModulo,
     ]),
   ],
-  controllers: [UsuariosController, ResidenciasController],
-  providers: [UsuariosService, ResidenciasService],
-  exports: [TypeOrmModule],
+  controllers: [ResidenciasController],
+  providers: [ResidenciasService, CuentasService],
+  exports: [TypeOrmModule, CuentasService],
 })
 export class UsuariosModule {}

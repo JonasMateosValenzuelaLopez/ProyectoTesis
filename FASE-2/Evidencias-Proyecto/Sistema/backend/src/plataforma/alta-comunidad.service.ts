@@ -1,5 +1,5 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import { DataSource, EntityManager, IsNull, Not } from 'typeorm';
+import { Injectable } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
 import { BitacoraService } from '../bitacora/bitacora.service';
@@ -7,15 +7,13 @@ import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import { NOMBRE_ROL, RolUsuario } from '../common/enums/rol.enum';
 import { PAIS_POR_DEFECTO } from '../common/validators/identificador.validator';
-import { fechaHoy } from '../common/utils/vigencia';
 import { MailService } from '../mail/mail.service';
 import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
 import { RedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
 import { EspacioComun } from '../reservas/entities/espacio-comun.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
-import { Membresia } from '../usuarios/entities/membresia.entity';
-import { Usuario } from '../usuarios/entities/usuario.entity';
-import { CrearComunidadDto, ResponsableDto } from './dto/crear-comunidad.dto';
+import { CuentasService } from '../usuarios/cuentas.service';
+import { CrearComunidadDto } from './dto/crear-comunidad.dto';
 import { generarUnidades } from './estructura-unidades';
 import { PlataformaService } from './plataforma.service';
 
@@ -29,6 +27,7 @@ export class AltaComunidadService {
     private readonly authService: AuthService,
     private readonly mailService: MailService,
     private readonly plataformaService: PlataformaService,
+    private readonly cuentasService: CuentasService,
   ) {}
 
   async crear(idUsuarioPlataforma: number, dto: CrearComunidadDto) {
@@ -74,21 +73,32 @@ export class AltaComunidadService {
           );
         }
 
-        const { usuario, cuentaNueva } = await this.cuentaDelResponsable(
+        const { usuario, cuentaNueva } =
+          await this.cuentasService.obtenerOCrear(
+            manager,
+            {
+              ...dto.responsable,
+              pais: dto.responsable.pais ?? PAIS_POR_DEFECTO,
+            },
+            {
+              correoAjeno:
+                'El correo del responsable ya está registrado por otra persona',
+              bloqueada:
+                'La cuenta del responsable está bloqueada. Desbloquéala antes de asignarle una comunidad.',
+            },
+          );
+        await this.cuentasService.asignarMembresia(
           manager,
-          dto.responsable,
-        );
-        await manager.insert(Membresia, {
-          idUsuario: usuario.idUsuario,
+          usuario.idUsuario,
           idRed,
-          idRol: cargo,
-          activo: true,
-          desde: fechaHoy(),
-          hasta: null,
-        });
+          cargo,
+        );
         const requiereActivacion =
           cuentaNueva ||
-          !(await this.tienePassword(manager, usuario.idUsuario));
+          !(await this.cuentasService.tienePassword(
+            manager,
+            usuario.idUsuario,
+          ));
         const tokenActivacion = requiereActivacion
           ? await this.authService.emitirTokenPassword(
               usuario.idUsuario,
@@ -141,62 +151,5 @@ export class AltaComunidadService {
       ...(await this.plataformaService.resumenDe(idRed)),
       correoEnviado,
     };
-  }
-
-  private async cuentaDelResponsable(
-    manager: EntityManager,
-    datos: ResponsableDto,
-  ) {
-    const pais = datos.pais ?? PAIS_POR_DEFECTO;
-    const porIdentificador = await manager.findOne(Usuario, {
-      where: { pais, identificador: datos.identificador },
-      withDeleted: true,
-    });
-    const porCorreo = await manager.findOne(Usuario, {
-      where: { correo: datos.correo },
-      withDeleted: true,
-    });
-    if (porCorreo && porCorreo.idUsuario !== porIdentificador?.idUsuario) {
-      throw new ConflictException(
-        'El correo del responsable ya está registrado por otra persona',
-      );
-    }
-    if (porIdentificador?.esPlataforma) {
-      throw new ConflictException(
-        'Una cuenta del equipo EntreCasas no puede ser responsable de una comunidad',
-      );
-    }
-    if (porIdentificador?.bloqueado) {
-      throw new ConflictException(
-        'La cuenta del responsable está bloqueada. Desbloquéala antes de asignarle una comunidad.',
-      );
-    }
-    if (porIdentificador) {
-      if (porIdentificador.fechaEliminacion) {
-        await manager.restore(Usuario, {
-          idUsuario: porIdentificador.idUsuario,
-        });
-      }
-      return { usuario: porIdentificador, cuentaNueva: false };
-    }
-    const usuario = await manager.save(
-      manager.create(Usuario, {
-        pais,
-        identificador: datos.identificador,
-        nombre: datos.nombre,
-        primerApellido: datos.primerApellido,
-        segundoApellido: datos.segundoApellido ?? null,
-        correo: datos.correo,
-        passwordHash: null,
-      }),
-    );
-    return { usuario, cuentaNueva: true };
-  }
-
-  private tienePassword(manager: EntityManager, idUsuario: number) {
-    return manager.exists(Usuario, {
-      where: { idUsuario, passwordHash: Not(IsNull()) },
-      withDeleted: true,
-    });
   }
 }

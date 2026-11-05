@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, IsNull, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
 import { BitacoraService } from '../bitacora/bitacora.service';
@@ -13,7 +13,7 @@ import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
-import { condicionVigente, fechaHoy } from '../common/utils/vigencia';
+import { condicionVigente } from '../common/utils/vigencia';
 import { PAIS_POR_DEFECTO } from '../common/validators/identificador.validator';
 import { MailService } from '../mail/mail.service';
 import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
@@ -22,9 +22,8 @@ import {
   RedVecinal,
 } from '../redes-vecinales/entities/red-vecinal.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
+import { CuentasService } from '../usuarios/cuentas.service';
 import { Membresia } from '../usuarios/entities/membresia.entity';
-import { Residencia } from '../usuarios/entities/residencia.entity';
-import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
   AprobarSolicitudAccesoDto,
@@ -51,6 +50,7 @@ export class SolicitudesAccesoService {
     private readonly authService: AuthService,
     private readonly bitacoraService: BitacoraService,
     private readonly mailService: MailService,
+    private readonly cuentasService: CuentasService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -164,48 +164,22 @@ export class SolicitudesAccesoService {
         );
       }
 
-      const porIdentificador = await manager.findOne(Usuario, {
-        where: { pais: solicitud.pais, identificador: solicitud.identificador },
-        withDeleted: true,
-      });
-      const porCorreo = await manager.findOne(Usuario, {
-        where: { correo: solicitud.correo },
-        withDeleted: true,
-      });
-      if (porCorreo && porCorreo.idUsuario !== porIdentificador?.idUsuario) {
-        throw new ConflictException(
-          'El correo de la solicitud ya está registrado por otra persona',
-        );
-      }
+      const { usuario, cuentaNueva: esNuevo } =
+        await this.cuentasService.obtenerOCrear(manager, solicitud, {
+          correoAjeno:
+            'El correo de la solicitud ya está registrado por otra persona',
+          bloqueada:
+            'La cuenta de esta persona está bloqueada. Debe desbloquearla el equipo EntreCasas antes de aprobar.',
+        });
 
-      let usuario = porIdentificador;
-      const esNuevo = !usuario;
-      if (usuario?.bloqueado) {
-        throw new ConflictException(
-          'La cuenta de esta persona está bloqueada. Debe desbloquearla el equipo EntreCasas antes de aprobar.',
-        );
-      }
-      if (usuario?.fechaEliminacion) {
-        await manager.restore(Usuario, { idUsuario: usuario.idUsuario });
-      }
-      if (!usuario) {
-        usuario = await manager.save(
-          manager.create(Usuario, {
-            identificador: solicitud.identificador,
-            pais: solicitud.pais,
-            nombre: solicitud.nombre,
-            primerApellido: solicitud.primerApellido,
-            segundoApellido: solicitud.segundoApellido,
-            correo: solicitud.correo,
-            telefono: solicitud.telefono,
-            passwordHash: null,
-          }),
-        );
-      }
-
-      await this.asignarResidente(manager, usuario.idUsuario, red.idRed);
+      await this.cuentasService.asignarMembresia(
+        manager,
+        usuario.idUsuario,
+        red.idRed,
+        RolUsuario.RESIDENTE,
+      );
       const tipoResidencia = dto.tipoResidencia ?? solicitud.tipoResidencia;
-      await this.asignarResidencia(
+      await this.cuentasService.asignarResidencia(
         manager,
         usuario.idUsuario,
         idUnidad,
@@ -239,7 +213,8 @@ export class SolicitudesAccesoService {
       );
 
       const requiereActivacion =
-        esNuevo || !(await this.tienePassword(manager, usuario.idUsuario));
+        esNuevo ||
+        !(await this.cuentasService.tienePassword(manager, usuario.idUsuario));
       const tokenActivacion = requiereActivacion
         ? await this.authService.emitirTokenPassword(
             usuario.idUsuario,
@@ -324,79 +299,6 @@ export class SolicitudesAccesoService {
       throw new NotFoundException('La comunidad no existe');
     }
     return red.nombre;
-  }
-
-  private tienePassword(manager: EntityManager, idUsuario: number) {
-    return manager.exists(Usuario, {
-      where: { idUsuario, passwordHash: Not(IsNull()) },
-      withDeleted: true,
-    });
-  }
-
-  private async asignarResidente(
-    manager: EntityManager,
-    idUsuario: number,
-    idRed: number,
-  ) {
-    const existente = await manager.findOne(Membresia, {
-      where: { idUsuario, idRed, idRol: RolUsuario.RESIDENTE },
-      withDeleted: true,
-    });
-    if (existente?.fechaEliminacion) {
-      await manager.restore(Membresia, {
-        idMembresia: existente.idMembresia,
-      });
-    }
-    const hoy = fechaHoy();
-    if (!existente) {
-      await manager.insert(Membresia, {
-        idUsuario,
-        idRed,
-        idRol: RolUsuario.RESIDENTE,
-        activo: true,
-        desde: hoy,
-        hasta: null,
-      });
-      return;
-    }
-    const vencida = existente.hasta !== null && existente.hasta < hoy;
-    await manager.update(
-      Membresia,
-      { idMembresia: existente.idMembresia },
-      {
-        activo: true,
-        hasta: null,
-        ...(vencida || existente.fechaEliminacion ? { desde: hoy } : {}),
-      },
-    );
-  }
-
-  private async asignarResidencia(
-    manager: EntityManager,
-    idUsuario: number,
-    idUnidad: number,
-    tipo: Residencia['tipo'],
-  ) {
-    const vigente = await manager.findOne(Residencia, {
-      where: { idUsuario, idUnidad, ...condicionVigente() },
-    });
-    if (vigente) {
-      if (vigente.tipo !== tipo) {
-        await manager.update(
-          Residencia,
-          { idResidencia: vigente.idResidencia },
-          { tipo },
-        );
-      }
-      return;
-    }
-    await manager.insert(Residencia, {
-      idUsuario,
-      idUnidad,
-      tipo,
-      desde: fechaHoy(),
-      hasta: null,
-    });
   }
 
   private async buscarPendiente(

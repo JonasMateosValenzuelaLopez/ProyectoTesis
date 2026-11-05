@@ -8,46 +8,16 @@ import {
   registerDecorator,
   ValidationArguments,
 } from 'class-validator';
-import { esFechaValida } from '../../common/utils/fechas';
 import {
   normalizarTextoLargo,
   quitarEspacios,
   recortar,
   recortarOpcional,
 } from '../../common/utils/texto';
-import { fechaHoy } from '../../common/utils/vigencia';
+import { EsFecha, NoFutura } from '../../common/validators/fecha.validator';
 import { EsTelefono } from '../../common/validators/telefono.validator';
 import { TipoFicha } from '../entities/hogar-ficha.entity';
 import { CamposFicha, errorCamposSegunTipo } from '../reglas-ficha';
-
-function EsFecha() {
-  return function (objeto: object, propiedad: string) {
-    registerDecorator({
-      name: 'esFecha',
-      target: objeto.constructor,
-      propertyName: propiedad,
-      options: {
-        message: 'La fecha debe tener el formato AAAA-MM-DD y existir',
-      },
-      validator: { validate: (valor: unknown) => esFechaValida(valor) },
-    });
-  };
-}
-
-function NoFutura() {
-  return function (objeto: object, propiedad: string) {
-    registerDecorator({
-      name: 'noFutura',
-      target: objeto.constructor,
-      propertyName: propiedad,
-      options: { message: 'La fecha no puede ser futura' },
-      validator: {
-        validate: (valor: unknown) =>
-          typeof valor === 'string' && valor <= fechaHoy(),
-      },
-    });
-  };
-}
 
 function CamposSegunTipo() {
   return function (objeto: object, propiedad: string) {

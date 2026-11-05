@@ -27,6 +27,7 @@ import {
   Residencia,
   TipoResidencia,
 } from '../usuarios/entities/residencia.entity';
+import { CuentasService } from '../usuarios/cuentas.service';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
@@ -211,6 +212,7 @@ describe('SolicitudesAccesoService', () => {
     const module = await Test.createTestingModule({
       providers: [
         SolicitudesAccesoService,
+        CuentasService,
         {
           provide: getRepositoryToken(SolicitudAcceso),
           useValue: mockSolicitudesRepository,

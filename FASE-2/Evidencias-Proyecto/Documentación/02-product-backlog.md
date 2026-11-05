@@ -12,8 +12,8 @@ Estado al 1 de noviembre de 2026. "Vista" significa que la pantalla existe con d
 | HU-06 | Como Presidente quiero revisar la bitácora para supervisar las acciones de la comunidad | Media | 3 | Lista acciones con usuario y fecha, filtradas por comunidad | Registro en API; falta consulta |
 | HU-07 | Como equipo EntreCasas quiero crear comunidades para incorporar clientes | Alta | 3 | Crea comunidad, unidades, módulos y primer responsable en una transacción | API; falta conectar |
 | HU-08 | Como Administrador quiero gestionar unidades para reflejar las viviendas | Alta | 3 | No se repite el número de unidad dentro de una comunidad, salvo departamentos de torres distintas | API; falta conectar |
-| HU-09 | Como Administrador quiero gestionar residentes para mantener el padrón | Alta | 3 | Una persona puede tener varias residencias con fechas de vigencia | Vista |
-| HU-10 | Como Administrador quiero asignar cargos para definir los permisos | Alta | 3 | Solo un Presidente, un Tesorero y un Secretario vigentes por comunidad | Vista |
+| HU-09 | Como Administrador quiero gestionar residentes para mantener el padrón | Alta | 3 | Una persona puede tener varias residencias con fechas de vigencia | API; falta conectar |
+| HU-10 | Como Administrador quiero asignar cargos para definir los permisos | Alta | 3 | Solo un Presidente, un Tesorero y un Secretario vigentes por comunidad | API; falta conectar |
 | HU-11 | Como Administrador quiero activar módulos para adaptar la plataforma a mi comunidad | Media | 3 | Las rutas de un módulo apagado quedan inaccesibles | Vista |
 | HU-12 | Como Tesorero quiero crear cobros para informar a cada unidad lo que debe | Alta | 4 | El cobro se asocia a las unidades correspondientes | Vista |
 | HU-13 | Como Tesorero quiero marcar pagos para mantener las cuentas al día | Alta | 4 | Queda registrado quién marcó y cuándo | Vista |
