@@ -1,7 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
+import { DataSource, In, LessThan } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
@@ -15,6 +15,8 @@ import {
   LugarPublicacion,
   MuroReporte,
 } from './entities/muro-reporte.entity';
+import { Residencia } from '../usuarios/entities/residencia.entity';
+import { Usuario } from '../usuarios/entities/usuario.entity';
 import { ModeracionService } from './moderacion.service';
 
 const AHORA = new Date('2026-11-05T15:00:00Z');
@@ -23,6 +25,11 @@ describe('ModeracionService', () => {
   let target: ModeracionService;
   let mockManager: { findOne: jest.Mock; update: jest.Mock };
   let mockBitacora: { registrar: jest.Mock; marcarActividad: jest.Mock };
+  let mockPublicacionesRepository: {
+    find: jest.Mock;
+    findOneOrFail: jest.Mock;
+  };
+  let mockManagerLectura: { find: jest.Mock };
   let enBd: MuroPublicacion | null;
   let reportesActualizados: number;
 
@@ -68,21 +75,23 @@ describe('ModeracionService', () => {
       registrar: jest.fn().mockResolvedValue(undefined),
       marcarActividad: jest.fn().mockResolvedValue(undefined),
     };
+    mockPublicacionesRepository = {
+      find: jest.fn().mockResolvedValue([]),
+      findOneOrFail: jest.fn(() => Promise.resolve(publicacion())),
+    };
+    mockManagerLectura = { find: jest.fn().mockResolvedValue([]) };
 
     const module = await Test.createTestingModule({
       providers: [
         ModeracionService,
         {
           provide: getRepositoryToken(MuroPublicacion),
-          useValue: {
-            find: jest.fn().mockResolvedValue([]),
-            findOneOrFail: jest.fn(() => Promise.resolve(publicacion())),
-          },
+          useValue: mockPublicacionesRepository,
         },
         {
           provide: DataSource,
           useValue: {
-            manager: { find: jest.fn().mockResolvedValue([]) },
+            manager: mockManagerLectura,
             transaction: (trabajo: (m: unknown) => unknown) =>
               trabajo(mockManager),
           },
@@ -97,6 +106,83 @@ describe('ModeracionService', () => {
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+  });
+
+  it('listar debe traer las publicaciones de vecinos con sus reportes pendientes del muro y la vivienda de quien reporta', async () => {
+    mockPublicacionesRepository.find.mockResolvedValue([publicacion()]);
+    mockManagerLectura.find.mockImplementation((entidad: unknown) => {
+      if (entidad === MuroReporte) {
+        return Promise.resolve([
+          {
+            idReporte: 5,
+            idPublicacion: 40,
+            idUsuario: 9,
+            motivo: 'Contenido ofensivo',
+            fechaCreacion: AHORA,
+          },
+        ]);
+      }
+      if (entidad === Residencia) {
+        return Promise.resolve([
+          { idUsuario: 9, unidad: { numeroIdentificador: '7' } },
+        ]);
+      }
+      if (entidad === Usuario) {
+        return Promise.resolve([
+          { idUsuario: 8, nombre: 'Luis', primerApellido: 'Soto' },
+          { idUsuario: 9, nombre: 'Ana', primerApellido: 'Rojas' },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+
+    const resultado = await target.listar(red, { antesDe: 50, limite: 10 });
+
+    expect(mockPublicacionesRepository.find).toHaveBeenCalledWith({
+      where: {
+        idRed: 3,
+        tipo: TipoPublicacion.VECINO,
+        idPublicacion: LessThan(50),
+      },
+      relations: { unidad: true },
+      order: { idPublicacion: 'DESC' },
+      take: 11,
+    });
+    expect(mockManagerLectura.find).toHaveBeenCalledWith(MuroReporte, {
+      where: {
+        tipoPublicacion: LugarPublicacion.MURO,
+        idPublicacion: In([40]),
+        estado: EstadoReporte.PENDIENTE,
+      },
+      order: { idReporte: 'ASC' },
+    });
+    expect(resultado.siguiente).toBeNull();
+    expect(resultado.publicaciones[0].reportes).toEqual([
+      {
+        idReporte: 5,
+        motivo: 'Contenido ofensivo',
+        fecha: AHORA,
+        reportadoPor: { idUsuario: 9, nombre: 'Ana Rojas', cargo: null },
+        vivienda: '7',
+      },
+    ]);
+    expect(resultado.publicaciones[0].autor).toEqual({
+      idUsuario: 8,
+      nombre: 'Luis Soto',
+      cargo: null,
+    });
+  });
+
+  it('listar debe entregar el cursor siguiente cuando hay más publicaciones', async () => {
+    mockPublicacionesRepository.find.mockResolvedValue([
+      { ...publicacion(), idPublicacion: 41 },
+      publicacion(),
+    ]);
+
+    const resultado = await target.listar(red, { limite: 1 });
+
+    expect(resultado.publicaciones).toHaveLength(1);
+    expect(resultado.siguiente).toBe(41);
   });
 
   it('ocultar debe marcar quién y cuándo, y atender los reportes pendientes', async () => {

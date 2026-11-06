@@ -1,6 +1,4 @@
 import {
-  BadRequestException,
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -26,6 +24,7 @@ import {
   contextoPresentacion,
   serializarPublicacion,
 } from './presentacion-muro';
+import { idsReportadasPor, registrarReporte } from './reportes-publicacion';
 
 const LIMITE_POR_DEFECTO = 50;
 
@@ -71,22 +70,15 @@ export class MuroService {
       take: limite + 1,
     });
     const publicaciones = filas.slice(0, limite);
-    const ids = publicaciones.map((p) => p.idPublicacion);
-    const [contexto, misReportes] = await Promise.all([
+    const [contexto, reportadas] = await Promise.all([
       contextoPresentacion(this.dataSource.manager, red.idRed, publicaciones),
-      ids.length
-        ? this.reportesRepository.find({
-            select: { idPublicacion: true },
-            where: {
-              tipoPublicacion: LugarPublicacion.MURO,
-              idPublicacion: In(ids),
-              idUsuario,
-            },
-            withDeleted: true,
-          })
-        : Promise.resolve([] as MuroReporte[]),
+      idsReportadasPor(
+        this.reportesRepository,
+        LugarPublicacion.MURO,
+        publicaciones.map((p) => p.idPublicacion),
+        idUsuario,
+      ),
     ]);
-    const reportadas = new Set(misReportes.map((r) => r.idPublicacion));
     return {
       publicaciones: publicaciones.map((publicacion) => ({
         ...serializarPublicacion(publicacion, contexto),
@@ -170,28 +162,15 @@ export class MuroService {
     if (!publicacion) {
       throw new NotFoundException('Publicación no encontrada');
     }
-    if (publicacion.idUsuario === idUsuario) {
-      throw new BadRequestException('No puedes reportar tu propia publicación');
-    }
-    const yaReportada = await this.reportesRepository.exists({
-      where: {
-        tipoPublicacion: LugarPublicacion.MURO,
-        idPublicacion,
-        idUsuario,
-      },
-      withDeleted: true,
-    });
-    if (yaReportada) {
-      throw new ConflictException('Ya reportaste esta publicación');
-    }
-    const { identifiers } = await this.reportesRepository.insert({
+    const resultado = await registrarReporte(this.reportesRepository, {
       idRed: red.idRed,
-      tipoPublicacion: LugarPublicacion.MURO,
+      lugar: LugarPublicacion.MURO,
       idPublicacion,
+      idAutor: publicacion.idUsuario,
       idUsuario,
       motivo: dto.motivo,
     });
     await this.bitacoraService.marcarActividad(red.idRed);
-    return { idReporte: identifiers[0].idReporte as number };
+    return resultado;
   }
 }
