@@ -3,6 +3,7 @@ import {
   IsInt,
   IsNotEmpty,
   IsOptional,
+  IsPositive,
   IsString,
   Matches,
   Max,
@@ -71,4 +72,10 @@ export class EditarUnidadDto {
     message: 'El número solo puede tener letras, números y guiones',
   })
   numeroIdentificador: string;
+}
+
+export class CambiarTitularDto {
+  @IsInt({ message: 'Elige al titular de la vivienda' })
+  @IsPositive({ message: 'Elige al titular de la vivienda' })
+  idUsuario: number;
 }

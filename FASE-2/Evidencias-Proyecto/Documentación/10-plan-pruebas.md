@@ -3,7 +3,7 @@
 ## Alcance y estado
 | Tipo | Herramienta | Alcance | Estado |
 |---|---|---|---|
-| Unitarias | Jest | Servicios, controladores, guards, filtros, DTO y validadores | 1090 pruebas en 79 archivos, todas aprobadas |
+| Unitarias | Jest | Servicios, controladores, guards, filtros, DTO y validadores | 1176 pruebas en 83 archivos, todas aprobadas |
 | Integración | Peticiones HTTP a la API con una BD real | Cada endpoint de los módulos implementados, con datos de prueba que se borran al terminar | Realizadas de forma manual por módulo; falta automatizarlas con Jest y Supertest |
 | Sistema | Manual | Flujos completos en web y móvil | Planificadas para el Sprint 5 |
 | Rendimiento | Por definir | RNF-01 con 50 usuarios concurrentes | Planificadas para el Sprint 5 |
@@ -14,10 +14,10 @@ Medición del 5 de noviembre de 2026 con `npm run test:cov`:
 
 | Métrica | Cobertura |
 |---|---|
-| Sentencias | 88,71 % |
-| Ramas | 83,31 % |
-| Funciones | 75,88 % |
-| Líneas | 89,17 % |
+| Sentencias | 89,17 % |
+| Ramas | 83,70 % |
+| Funciones | 76,62 % |
+| Líneas | 89,57 % |
 
 ## Casos principales
 | ID | Caso | Resultado esperado | Tipo |

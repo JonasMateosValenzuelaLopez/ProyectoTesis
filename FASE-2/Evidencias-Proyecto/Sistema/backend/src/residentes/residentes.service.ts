@@ -277,11 +277,17 @@ export class ResidentesService {
         { idMembresia: In(vigentes.map((m) => m.idMembresia)) },
         TERMINAR(),
       );
+      const nuevosTitulares = await this.asegurarTitulares(
+        manager,
+        red,
+        idUsuario,
+      );
       await this.registrar(manager, red, idActor, 'desactivar_persona', {
         idUsuario,
         cargos: vigentes
           .filter((m) => m.idRol !== RolUsuario.RESIDENTE)
           .map((m) => NOMBRE_ROL[m.idRol]),
+        nuevosTitulares,
       });
     });
     await this.bitacoraService.marcarActividad(red.idRed);
@@ -314,12 +320,41 @@ export class ResidentesService {
         red.idRed,
         RolUsuario.RESIDENTE,
       );
+      const nuevosTitulares = await this.asegurarTitulares(
+        manager,
+        red,
+        idUsuario,
+      );
       await this.registrar(manager, red, idActor, 'reactivar_persona', {
         idUsuario,
+        nuevosTitulares,
       });
     });
     await this.bitacoraService.marcarActividad(red.idRed);
     return this.persona(red, idUsuario);
+  }
+
+  private async asegurarTitulares(
+    manager: EntityManager,
+    red: ContextoRed,
+    idUsuario: number,
+  ) {
+    const residencias = await manager.find(Residencia, {
+      select: { idUnidad: true },
+      where: { idUsuario, unidad: { idRed: red.idRed }, ...condicionVigente() },
+    });
+    const nuevosTitulares: { idUnidad: number; idUsuario: number }[] = [];
+    for (const { idUnidad } of residencias) {
+      const idTitular = await this.cuentasService.asegurarTitular(
+        manager,
+        red.idRed,
+        idUnidad,
+      );
+      if (idTitular !== null) {
+        nuevosTitulares.push({ idUnidad, idUsuario: idTitular });
+      }
+    }
+    return nuevosTitulares;
   }
 
   private async persona(red: ContextoRed, idUsuario: number) {

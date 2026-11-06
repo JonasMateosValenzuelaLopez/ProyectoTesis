@@ -1,6 +1,6 @@
 # Modelo de datos
 
-El modelo se implementa en MariaDB y tiene 39 tablas y 92 llaves foráneas. Los diagramas se generaron desde el esquema real de la base de datos. Por claridad omiten las tres fechas de auditoría que tiene cada tabla: `fecha_creacion`, `fecha_actualizacion` y `fecha_eliminacion`.
+El modelo se implementa en MariaDB y tiene 39 tablas y 93 llaves foráneas. Los diagramas se generaron desde el esquema real de la base de datos. Por claridad omiten las tres fechas de auditoría que tiene cada tabla: `fecha_creacion`, `fecha_actualizacion` y `fecha_eliminacion`.
 
 Convenciones: **PK** es llave primaria, **FK** es llave foránea y **UK** es valor único. Cada diagrama incluye las relaciones de su área, por lo que también aparecen tablas de otras áreas relacionadas con ella.
 
@@ -11,6 +11,7 @@ Convenciones: **PK** es llave primaria, **FK** es llave foránea y **UK** es val
 - `muro_reportes.id_publicacion` no tiene llave foránea, porque apunta al muro o al marketplace según `tipo_publicacion`.
 - En el muro y el marketplace, que el autor borre una publicación es un borrado lógico (`fecha_eliminacion`); que la oculte un moderador es `estado_moderacion` = 'Oculta', con `moderado_por` y `moderado_en`.
 - `hogar_fichas` pertenece a la unidad: solo la ven y editan sus residentes vigentes.
+- Cada vivienda tiene como máximo un titular: `residencias.titular` vale 1 o NULL, y el UNIQUE (`id_unidad`, `titular`) no deja dos titulares en la misma unidad. Vota el titular, y `votos` permite un voto por vivienda con el UNIQUE (`id_votacion`, `id_unidad`).
 - En `reservas`, `bloque_activo` es una columna calculada que vale `hora_inicio` mientras la reserva está Pendiente o Aprobada, y su UNIQUE (`id_espacio`, `fecha_reserva`, `bloque_activo`) impide dos reservas activas en el mismo bloque. «En uso» y «Devuelto» no son estados: salen de `entregado_en` y `recibido_en`.
 - Un espacio común dado de baja queda con `estado` = 0 y su nombre es único en la comunidad (`uq_espacio_red_nombre`), para reactivarlo si se vuelve a agregar.
 
@@ -50,6 +51,7 @@ erDiagram
     usuarios ||--o{ vehiculos : ""
     usuarios ||--o{ votaciones : ""
     usuarios ||--o{ votos : ""
+    unidades ||--o{ votos : ""
     usuarios {
         int id_usuario PK
         varchar identificador
@@ -85,6 +87,7 @@ erDiagram
         int id_usuario FK
         int id_unidad FK
         enum tipo
+        tinyint titular
         date desde
         date hasta
         datetime fecha_guia_vista
@@ -378,7 +381,7 @@ erDiagram
         int numero
         varchar titulo
         enum tipo_reunion
-        datetime fecha_asamblea
+        date fecha_asamblea
         varchar lugar
         int unidades_presentes
         text asistentes
@@ -418,6 +421,7 @@ erDiagram
         int id_voto PK
         int id_votacion FK
         int id_opcion FK
+        int id_unidad FK
         int id_usuario FK
     }
 ```

@@ -43,6 +43,15 @@ export const TEXTO_ACCION: Record<string, string> = {
   cancelar_reserva: 'Canceló una reserva',
   entregar_espacio: 'Entregó un espacio común',
   recibir_espacio: 'Recibió un espacio común',
+  cambiar_titular: 'Cambió el titular de una vivienda',
+  crear_votacion: 'Abrió una votación o encuesta',
+  cerrar_votacion: 'Cerró una votación antes de plazo',
+  recordar_votacion: 'Envió un recordatorio de votación',
+  votar: 'Votó por su vivienda',
+  redactar_acta: 'Redactó un acta',
+  editar_acta: 'Editó un acta',
+  publicar_acta: 'Publicó un acta',
+  eliminar_acta: 'Eliminó un borrador de acta',
 };
 
 export const textoAccion = (accion: string) => TEXTO_ACCION[accion] ?? accion;

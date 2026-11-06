@@ -22,13 +22,18 @@ export class CorreosComunidadService {
     manager: EntityManager,
     idRed: number,
     idsUnidad: number[],
+    opciones: { soloTitulares?: boolean } = {},
   ): Promise<Destinatario[]> {
     if (idsUnidad.length === 0) {
       return [];
     }
     const [residencias, membresias] = await Promise.all([
       manager.find(Residencia, {
-        where: { idUnidad: In(idsUnidad), ...condicionVigente() },
+        where: {
+          idUnidad: In(idsUnidad),
+          ...condicionVigente(),
+          ...(opciones.soloTitulares ? { titular: 1 as const } : {}),
+        },
         relations: { usuario: true },
         order: { idResidencia: 'ASC' },
       }),
@@ -55,16 +60,30 @@ export class CorreosComunidadService {
     return [...porUsuario.values()];
   }
 
-  enviarEnSegundoPlano(correos: CorreoSaliente[]) {
-    void (async () => {
-      for (const correo of correos) {
-        await this.mailService.enviar(correo);
+  async enviar(correos: CorreoSaliente[]): Promise<number> {
+    let enviados = 0;
+    for (const correo of correos) {
+      if (await this.mailService.enviar(correo)) {
+        enviados++;
       }
-    })().catch((error: unknown) =>
-      this.logger.error(
-        'Falló el envío de correos a la comunidad',
-        error instanceof Error ? error.stack : String(error),
-      ),
-    );
+    }
+    return enviados;
+  }
+
+  enviarEnSegundoPlano(correos: CorreoSaliente[]) {
+    void this.enviar(correos)
+      .then((enviados) => {
+        if (enviados < correos.length) {
+          this.logger.warn(
+            `No salieron ${correos.length - enviados} de ${correos.length} correos a la comunidad`,
+          );
+        }
+      })
+      .catch((error: unknown) =>
+        this.logger.error(
+          'Falló el envío de correos a la comunidad',
+          error instanceof Error ? error.stack : String(error),
+        ),
+      );
   }
 }

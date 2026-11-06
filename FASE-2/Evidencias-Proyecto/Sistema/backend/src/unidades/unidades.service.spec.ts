@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource, In, IsNull } from 'typeorm';
+import { DataSource, In, IsNull, Not } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
 import { RolUsuario } from '../common/enums/rol.enum';
@@ -14,6 +14,7 @@ import {
   RedVecinal,
   TipoRedVecinal,
 } from '../redes-vecinales/entities/red-vecinal.entity';
+import { CuentasService } from '../usuarios/cuentas.service';
 import { Membresia } from '../usuarios/entities/membresia.entity';
 import {
   Residencia,
@@ -126,6 +127,7 @@ describe('UnidadesService', () => {
     const module = await Test.createTestingModule({
       providers: [
         UnidadesService,
+        CuentasService,
         {
           provide: getRepositoryToken(Unidad),
           useValue: mockUnidadesRepository,
@@ -182,11 +184,13 @@ describe('UnidadesService', () => {
             idUsuario: 7,
             nombre: 'Ana Soto',
             tipoResidencia: TipoResidencia.PROPIETARIO,
+            titular: false,
           },
           {
             idUsuario: 8,
             nombre: 'Luis Soto',
             tipoResidencia: TipoResidencia.ARRENDATARIO,
+            titular: false,
           },
         ],
       });
@@ -442,6 +446,111 @@ describe('UnidadesService', () => {
       await expect(
         target.editar(red, 9, 99, { numeroIdentificador: '6' }),
       ).rejects.toThrow(new NotFoundException('Unidad no encontrada'));
+    });
+  });
+
+  describe('cambiarTitular', () => {
+    let residenciaEnBd: Residencia | null;
+    let conAcceso: number[];
+
+    beforeEach(() => {
+      residenciaEnBd = { ...residencia(8, 10, 'Luis'), titular: null };
+      conAcceso = [8];
+      mockManager.findOne.mockImplementation((entidad: unknown) =>
+        Promise.resolve(entidad === Residencia ? residenciaEnBd : unidadEnBd),
+      );
+      mockManager.find.mockImplementation((entidad: unknown) =>
+        Promise.resolve(
+          entidad === Membresia
+            ? conAcceso.map((idUsuario) => ({ idUsuario }))
+            : [],
+        ),
+      );
+    });
+
+    it('debe dejar como único titular al residente indicado y registrarlo', async () => {
+      const resultado = await target.cambiarTitular(red, 9, 10, {
+        idUsuario: 8,
+      });
+
+      expect(mockManager.findOne).toHaveBeenCalledWith(Unidad, {
+        where: { idUnidad: 10, idRed: 3 },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(mockManager.findOne).toHaveBeenCalledWith(Residencia, {
+        where: expect.objectContaining({ idUnidad: 10, idUsuario: 8 }),
+      });
+      expect(mockManager.find).toHaveBeenCalledWith(Membresia, {
+        select: { idUsuario: true },
+        where: expect.objectContaining({
+          idRed: 3,
+          idUsuario: In([8]),
+          activo: true,
+        }),
+      });
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Residencia,
+        { idUnidad: 10, titular: 1, idResidencia: Not(8) },
+        { titular: null },
+      );
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Residencia,
+        { idResidencia: 8, idUnidad: 10 },
+        { titular: 1 },
+      );
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'cambiar_titular',
+          idEntidad: 10,
+          detalle: { numeroIdentificador: '5', idUsuario: 8 },
+        }),
+        mockManager,
+      );
+      expect(mockBitacoraService.marcarActividad).toHaveBeenCalledWith(3);
+      expect(resultado).toEqual({ idUnidad: 10, idUsuarioTitular: 8 });
+    });
+
+    it('no debe escribir cuando ya es el titular', async () => {
+      residenciaEnBd = { ...residencia(8, 10, 'Luis'), titular: 1 };
+
+      await target.cambiarTitular(red, 9, 10, { idUsuario: 8 });
+
+      expect(mockManager.update).not.toHaveBeenCalled();
+      expect(mockBitacoraService.marcarActividad).not.toHaveBeenCalled();
+    });
+
+    it('debe rechazar a quien no vive en la unidad', async () => {
+      residenciaEnBd = null;
+
+      await expect(
+        target.cambiarTitular(red, 9, 10, { idUsuario: 8 }),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'Esta persona no es residente vigente de la vivienda',
+        ),
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
+    });
+
+    it('debe pedir reactivar la cuenta de quien vive en la unidad pero ya no tiene acceso', async () => {
+      conAcceso = [];
+
+      await expect(
+        target.cambiarTitular(red, 9, 10, { idUsuario: 8 }),
+      ).rejects.toThrow(
+        new ConflictException(
+          'Esta persona tiene la cuenta desactivada; reactívala antes de dejarla como titular',
+        ),
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
+    });
+
+    it('debe responder 404 por una unidad de otra comunidad', async () => {
+      unidadEnBd = null;
+
+      await expect(
+        target.cambiarTitular(red, 9, 99, { idUsuario: 8 }),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 });
