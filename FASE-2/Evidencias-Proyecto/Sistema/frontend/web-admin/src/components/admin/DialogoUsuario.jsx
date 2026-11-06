@@ -118,7 +118,9 @@ export default function DialogoUsuario({ id_usuario, onClose }) {
         {activo ? (
           confirmarBaja ? (
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Typography variant="body2">Pierde el acceso y sus cargos.</Typography>
+              <Typography variant="body2">
+                Pierde el acceso y sus cargos{viviendas.some((r) => r.titular === 1) ? '; la titularidad de su vivienda pasa al siguiente residente' : ''}.
+              </Typography>
               <Button color="error" variant="contained" onClick={() => { acciones.cambiarEstado(u.id_usuario, 'Desactivado'); setConfirmarBaja(false); }}>Desactivar</Button>
               <Button onClick={() => setConfirmarBaja(false)}>No</Button>
             </Box>

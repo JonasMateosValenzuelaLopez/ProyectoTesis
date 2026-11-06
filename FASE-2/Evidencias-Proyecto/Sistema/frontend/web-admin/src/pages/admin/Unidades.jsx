@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Table, TableBody, TableCell, TableContainer,
+  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
 import { AddHomeWorkOutlined as LoteIcon } from '@mui/icons-material';
@@ -26,8 +26,10 @@ function estadoOcupacion(ocupantes) {
 }
 
 function DialogoUnidad({ unidad, onClose }) {
-  const { comunidad } = useSesion();
+  const { comunidad, cargo } = useSesion();
   const { ocupantes, acciones } = useAdmin();
+  // Solo Administración cambia el titular (PUT /unidades/:id/titular)
+  const gestionaTitular = cargo === 'administrador';
   const [numero, setNumero] = useState(unidad.numero_identificador);
   const personas = ocupantes[unidad.id_unidad] ?? [];
   const guardar = () => {
@@ -46,8 +48,21 @@ function DialogoUnidad({ unidad, onClose }) {
           <Typography variant="subtitle2" component="h3">Residentes</Typography>
           {personas.length === 0 && <Typography color="text.secondary">Nadie registrado. Invita a sus residentes desde Residentes y cargos.</Typography>}
           {personas.map((p) => (
-            <Typography key={p.id_usuario}>{nombreCompleto(p)} <Box component="span" sx={{ color: 'text.secondary' }}>· {p.relacion}</Box></Typography>
+            <Box key={p.id_usuario} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', minHeight: 32 }}>
+              <Typography>{nombreCompleto(p)} <Box component="span" sx={{ color: 'text.secondary' }}>· {p.relacion}</Box></Typography>
+              {p.titular && <Chip size="small" color="info" variant="outlined" label="Titular" />}
+              {!p.titular && gestionaTitular && personas.length > 1 && (
+                <Button size="small" sx={{ ml: 'auto' }} onClick={() => acciones.cambiarTitular(unidad.id_unidad, p.id_usuario)}>Dejar como titular</Button>
+              )}
+            </Box>
           ))}
+          {personas.length > 0 && (
+            <Typography variant="body2" color="text.secondary">
+              {personas.some((p) => p.titular)
+                ? 'El titular vota por la vivienda y recibe los avisos de votaciones. Si se desactiva, pasa al siguiente residente.'
+                : 'Sin titular: nadie de la vivienda puede votar ni recibe los avisos de votaciones.'}
+            </Typography>
+          )}
         </Box>
         <TextField size="small" label="Número" value={numero} onChange={(e) => setNumero(e.target.value)} helperText="Cámbialo solo si se registró mal." />
       </DialogContent>

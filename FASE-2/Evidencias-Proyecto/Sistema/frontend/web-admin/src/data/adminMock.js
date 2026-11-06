@@ -85,9 +85,16 @@ function usuarios(c, vistos) {
     ...persona(1990, 'Rodrigo Pinto', vistos, { estado: 'Desactivado', fecha_registro: '2025-03-02T12:00:00' }),
     residencias: [residencia(1990, 1990, 1006, 'Arrendatario', '2025-03-02T12:00:00', { estado: 'Inactiva' })],
   }] : [];
+  // Tomás Díaz vive en la Casa 1 con Rosa Díaz, que llegó antes y es la titular: sirve para ver
+  // quién vota en la vivienda y para probar «Dejar como titular». Es la misma cuenta que en la app.
+  const coResidentes = c.id_red === 1 ? [{
+    id_usuario: 113, rut: '20.456.789-1', nombre: 'Tomás', apellido_paterno: 'Díaz', apellido_materno: 'Aguilera',
+    correo: 'tomas.diaz@correo.cl', telefono: '+56961234513', estado: 'Activo', fecha_registro: '2026-06-01T12:00:00', membresias: [],
+    residencias: [residencia(1113, 113, 1001, 'Propietario', '2026-06-01T12:00:00')],
+  }] : [];
   // Una misma persona puede vivir en más de una unidad: una fila de usuario con varias residencias
   const porId = new Map();
-  [...personal, ...lista, ...ex].forEach((u) => {
+  [...personal, ...lista, ...ex, ...coResidentes].forEach((u) => {
     const previo = porId.get(u.id_usuario);
     if (previo) previo.residencias.push(...u.residencias);
     else porId.set(u.id_usuario, { ...u, residencias: [...u.residencias] });

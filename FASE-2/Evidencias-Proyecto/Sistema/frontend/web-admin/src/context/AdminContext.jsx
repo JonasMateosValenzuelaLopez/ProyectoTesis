@@ -6,6 +6,7 @@ import { MODULOS, conModulo } from '../config/modulos';
 import { ID_ROL, cargoDe, cargosDe, membresiasVigentes, residenciasActivas } from '../config/roles';
 import { roles } from '../tokens';
 import { nombreCompleto, nombreUnidad } from '../utils/formato';
+import { conTitular, conTitulares, motivoNoTitular } from '../utils/titulares';
 
 // Estado de Administración de cada comunidad: usuarios con sus residencias y cargos,
 // y solicitudes de acceso. Los datos de la comunidad, sus unidades
@@ -27,7 +28,17 @@ const terminar = (u, fn) => ({
   membresias: u.membresias.map((m) => (m.estado === 'Vigente' && fn(m) ? { ...m, estado: 'Terminada', fecha_hasta: hoy() } : m)),
 });
 
-function reducer(state, { tipo, id_red, ...p }) {
+// Después de cada cambio de usuarios se revisan los titulares, como hace la API al invitar,
+// aprobar, desactivar o reactivar a alguien
+function reducer(state, accion) {
+  const nuevo = reducerBase(state, accion);
+  const d = nuevo[accion.id_red];
+  if (nuevo === state || !d) return nuevo;
+  const usuarios = conTitulares(d.usuarios);
+  return usuarios === d.usuarios ? nuevo : { ...nuevo, [accion.id_red]: { ...d, usuarios } };
+}
+
+function reducerBase(state, { tipo, id_red, ...p }) {
   const d = state[id_red];
   const con = (cambios) => ({ ...state, [id_red]: { ...d, ...cambios } });
   const conUsuario = (id, fn) => con({ usuarios: d.usuarios.map((u) => (u.id_usuario === id ? fn(u) : u)) });
@@ -81,6 +92,8 @@ function reducer(state, { tipo, id_red, ...p }) {
           : [...d.usuarios, { ...usuario, residencias: [res], membresias: [] }],
       });
     }
+    case 'cambiarTitular':
+      return con({ usuarios: conTitular(d.usuarios, p.id_unidad, p.id_usuario) });
     default:
       return state;
   }
@@ -92,6 +105,8 @@ export function AdminProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, null, () => {
     const inicial = adminInicial();
     redes.forEach((r) => { inicial[r.id_red] ??= adminVacio(r); });
+    // Cada vivienda parte con su titular: la residencia vigente más antigua con acceso
+    Object.keys(inicial).forEach((id) => { inicial[id] = { ...inicial[id], usuarios: conTitulares(inicial[id].usuarios) }; });
     return inicial;
   });
   const id_red = comunidad.id_red;
@@ -105,7 +120,11 @@ export function AdminProvider({ children }) {
 
     // Ocupación de cada unidad según las residencias vigentes
     const ocupantes = {};
-    activos.forEach((u) => residenciasActivas(u).forEach((r) => { (ocupantes[r.id_unidad] ??= []).push({ ...u, relacion: r.relacion }); }));
+    activos.forEach((u) => residenciasActivas(u).forEach((r) => { (ocupantes[r.id_unidad] ??= []).push({ ...u, relacion: r.relacion, titular: r.titular === 1 }); }));
+    // Titular de cada vivienda (quien vota y recibe los avisos de votaciones)
+    const titularDe = Object.fromEntries(Object.entries(ocupantes)
+      .map(([id, lista]) => [id, lista.find((o) => o.titular)])
+      .filter(([, t]) => t));
 
     const directiva = ORDEN_DIRECTIVA.flatMap((cargo) => activos
       .filter((u) => cargos(u).includes(cargo))
@@ -168,6 +187,15 @@ export function AdminProvider({ children }) {
         });
         finanzas.anotar('Creó unidades', `${nuevas.length} unidades: ${nombreUnidad(nuevas[0])} a ${nombreUnidad(nuevas.at(-1))}`, `${nuevas.length} unidades creadas.`);
       },
+      // PUT /unidades/:id/titular: solo Administración, con un residente vigente y con acceso
+      cambiarTitular: (id_unidad, id_usuario) => {
+        const u = usuarioPorId[id_usuario];
+        if (motivoNoTitular(u, id_unidad) || titularDe[id_unidad]?.id_usuario === id_usuario) return;
+        dispatch({ tipo: 'cambiarTitular', id_red, id_unidad, id_usuario });
+        const unidad = nombreUnidad(unidadPorId[id_unidad]);
+        finanzas.anotar('Cambió el titular de una vivienda', `${unidad} · ${nombreCompleto(u)}`,
+          `${nombreCompleto(u)} ahora es titular de ${unidad}: vota y recibe los avisos de votaciones.`);
+      },
       editarUnidad: (unidad) => {
         actualizarComunidad((c) => ({ unidades: c.unidades.map((u) => (u.id_unidad === unidad.id_unidad ? { ...u, ...unidad } : u)) }));
         finanzas.anotar('Editó una unidad', nombreUnidad(unidad), 'Unidad guardada.');
@@ -179,7 +207,7 @@ export function AdminProvider({ children }) {
       .map((m) => ({ cargo: cargoDe(m), desde: m.fecha_desde, hasta: m.fecha_hasta ?? '' }));
 
     return {
-      ...d, unidadPorId, usuarioPorId, ocupantes, directiva, cargosVigentes,
+      ...d, unidadPorId, usuarioPorId, ocupantes, titularDe, directiva, cargosVigentes,
       solicitudesPendientes: d.solicitudes,
       acciones,
     };

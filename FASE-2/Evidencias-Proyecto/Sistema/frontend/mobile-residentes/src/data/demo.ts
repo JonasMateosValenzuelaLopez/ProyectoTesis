@@ -29,6 +29,8 @@ export type Residencia = {
   id_residencia: number; id_usuario: number; id_unidad: number; relacion: 'Propietario' | 'Arrendatario';
   estado: 'Pendiente' | 'Activa' | 'Rechazada' | 'Inactiva';
   fecha_guia_vista: string | null; // P9: null = aún no ve la guía de bienvenida de esta unidad
+  // Titular de la vivienda: vota por ella y recibe los avisos de votaciones (uno por vivienda)
+  titular: 1 | null;
 };
 // Tabla `roles`: 1 Administración, 2 Tesorero, 3 Secretario, 4 Presidente, 5 Conserje, 6 Residente, 7 Visitante, 8 Plataforma
 export type Cargo = 'administrador' | 'tesorero' | 'secretario' | 'presidente' | 'conserje';
@@ -109,7 +111,20 @@ const SIN_GUIA = new Set(['112-2027', '109-3502']);
 const residencia = (id_usuario: number, id_unidad: number, relacion: Residencia['relacion']): Residencia => ({
   id_residencia: siguiente++, id_usuario, id_unidad, relacion, estado: 'Activa',
   fecha_guia_vista: SIN_GUIA.has(`${id_usuario}-${id_unidad}`) ? null : '2026-03-01T10:00:00',
+  titular: null,
 });
+
+// Como la API: en cada vivienda es titular la residencia vigente más antigua de una cuenta con acceso
+const conTitulares = (cuentas: Cuenta[]): Cuenta[] => {
+  const primera = new Map<number, number>(); // id_unidad → id_residencia titular
+  cuentas.filter((c) => c.estado !== 'Desactivado')
+    .flatMap((c) => c.residencias.filter((r) => r.estado === 'Activa'))
+    .sort((a, b) => a.id_residencia - b.id_residencia)
+    .forEach((r) => { if (!primera.has(r.id_unidad)) primera.set(r.id_unidad, r.id_residencia); });
+  return cuentas.map((c) => ({
+    ...c, residencias: c.residencias.map((r) => ({ ...r, titular: primera.get(r.id_unidad) === r.id_residencia ? 1 : null })),
+  }));
+};
 const cuenta = (
   id_usuario: number, nombre: string, apellido_paterno: string, apellido_materno: string | null, rut: string, correo: string, telefono: string,
   viviendas: [number, Residencia['relacion']][], flujo: string, membresias: Membresia[] = [],
@@ -119,15 +134,21 @@ const cuenta = (
 });
 
 // Los ids de usuario calzan con las cuentas de prueba del panel web
-export const CUENTAS: Cuenta[] = [
-  cuenta(110, 'Rosa', 'Díaz', 'Aguilera', '19.876.543-0', 'rosa.diaz@correo.cl', '+56961234510', [[1001, 'Propietario']], 'Casa 1, Las Palmas · al día'),
+export const CUENTAS: Cuenta[] = conTitulares([
+  cuenta(110, 'Rosa', 'Díaz', 'Aguilera', '19.876.543-0', 'rosa.diaz@correo.cl', '+56961234510', [[1001, 'Propietario']], 'Casa 1, Las Palmas · al día · titular'),
+  // Vive con Rosa, que llegó antes y es la titular: ve las votaciones pero no puede votar
+  cuenta(113, 'Tomás', 'Díaz', 'Aguilera', '20.456.789-1', 'tomas.diaz@correo.cl', '+56961234513', [[1001, 'Propietario']], 'Casa 1, Las Palmas · no es titular: no vota'),
   cuenta(102, 'Luis', 'Muñoz', 'Saavedra', '15.678.234-3', 'luis.munoz@correo.cl', '+56961234502', [[1005, 'Propietario']], 'Casa 5, Las Palmas · pendiente · es Presidente',
     [{ id_membresia: 2, id_usuario: 102, id_red: 1, id_rol: 4, fecha_desde: '2026-03-01', fecha_hasta: '2028-02-28', estado: 'Vigente' }]),
   cuenta(111, 'Mónica', 'Sáez', null, '16.890.123-2', 'monica.saez@correo.cl', '+56961234603', [[3603, 'Arrendatario']], 'Depto 603, Torre Andes · con deuda'),
   cuenta(112, 'Andrés', 'Bravo', 'Leiva', '14.230.987-4', 'andres.bravo@correo.cl', '+56961234027', [[2027, 'Propietario']], 'Casa 27, Villa Los Copihues · sin QR'),
   cuenta(109, 'Usuario', 'Demo', null, '11.111.111-1', 'demo@entrecasas.cl', '+56961234509',
     [[1015, 'Propietario'], [3502, 'Arrendatario'], [2001, 'Propietario']], 'Una vivienda en cada comunidad, para cambiar entre ellas'),
-];
+]);
+
+// Cuenta titular de una vivienda (con la API viene en la respuesta de la votación)
+export const titularDe = (id_unidad: number) =>
+  CUENTAS.find((c) => c.residencias.some((r) => r.id_unidad === id_unidad && r.titular === 1)) ?? null;
 
 // Cuentas que solo usan el panel web (personal sin vivienda en la comunidad)
 export const SOLO_PANEL = ['12.345.678-5', '14.567.890-0', '18.234.765-5', '9.876.543-3', '16.234.567-2', '13.987.654-7', '10.456.789-4', '17.345.123-7'];

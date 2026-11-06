@@ -42,7 +42,7 @@ export function Barras({ v, marcada }: { v: VotacionDetalle; marcada?: number | 
 
 export default function TarjetaVotacion({ v }: { v: VotacionDetalle }) {
   const t = useTema();
-  const { miVoto } = useApp();
+  const { miVoto, esTitular, nombreTitular } = useApp();
   const voto = miVoto(v.id_votacion);
   const r = resultado(v);
   const abierta = v.estado === 'Abierta';
@@ -57,7 +57,9 @@ export default function TarjetaVotacion({ v }: { v: VotacionDetalle }) {
       <Texto v="chico">
         {r.votos} de {v.total_unidades} viviendas votaron ({r.participacion}%){v.quorum ? ` · quórum ${v.quorum}% ${r.alcanzaQuorum ? 'alcanzado' : 'pendiente'}` : ''}
       </Texto>
-      {abierta && !voto && <Boton tipo="secundario" texto={v.tipo === 'Votación' ? 'Votar' : 'Responder'} onPress={() => router.push({ pathname: '/votacion/[id]', params: { id: String(v.id_votacion) } })} />}
+      {abierta && !voto && (esTitular
+        ? <Boton tipo="secundario" texto={v.tipo === 'Votación' ? 'Votar' : 'Responder'} onPress={() => router.push({ pathname: '/votacion/[id]', params: { id: String(v.id_votacion) } })} />
+        : <Texto v="chico" color={t.ink2}>{nombreTitular ? `En tu vivienda vota ${nombreTitular}, la persona titular.` : 'Tu vivienda no tiene titular: habla con la administración para poder votar.'}</Texto>)}
     </Tarjeta>
   );
 }

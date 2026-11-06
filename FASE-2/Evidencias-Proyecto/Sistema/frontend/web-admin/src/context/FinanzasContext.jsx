@@ -315,7 +315,7 @@ export function FinanzasProvider({ children }) {
       recordarVotacion: ({ id_votacion, titulo }, destinatarios) => {
         dispatch({ tipo: 'recordarVotacion', id_red, id_votacion, asunto: titulo, destinatarios, id_usuario,
           log: registrar('Envió recordatorio de votación', `${titulo} · ${destinatarios} unidades`) });
-        setAviso(`Recordatorio enviado a las ${destinatarios} unidades que no han votado.`);
+        setAviso(`Recordatorio enviado a los titulares de ${destinatarios} ${destinatarios === 1 ? 'vivienda' : 'viviendas'} que no han votado.`);
       },
       // Para que otras áreas (Secretaría, Administración) dejen su acción en la bitácora
       anotar: (accion, detalle, mensaje) => {

@@ -4,7 +4,7 @@ import {
   accesosIniciales, fechaHoraLocal, marketplaceInicial, muroInicial, reportesIniciales, visitantesIniciales, reservasIniciales, solicitudesIniciales, votosIniciales,
   ACTAS, ACTA_ACUERDOS, CONTACTOS, TOTAL_UNIDADES, VOTACIONES, VOTACION_OPCIONES, type VotacionDetalle,
   EMERGENCIAS, GUIAS, diaISO, diaSemanaHoy, diasDe, espaciosActivos, fichasIniciales, type HogarFicha,
-  HORAS_PARA_CANCELAR, MAX_BLOQUES_POR_DIA, puedeCancelarResidente, yaPaso,
+  HORAS_PARA_CANCELAR, MAX_BLOQUES_POR_DIA, puedeCancelarResidente, yaPaso, titularDe,
   type Cargo, type CategoriaMarketplace, type Cuenta, type Invitacion, type Pago, type Modulo, type RegistroAcceso, type Reserva, type SolicitudContacto, type Visitante,
 } from '@/data/demo';
 import { roles } from '@/constants/tokens';
@@ -71,6 +71,10 @@ function useValor() {
     const membresia = cuenta?.membresias.find((m) => m.estado === 'Vigente' && m.id_red === comunidad?.id_red);
     const cargo = membresia ? ROLES[membresia.id_rol] ?? null : null;
     const relacion = cuenta?.residencias.find((r) => r.id_unidad === id_unidad)?.relacion ?? null;
+    // Solo el titular vota por la vivienda (la API responde 403 a los demás)
+    const esTitular = cuenta?.residencias.some((r) => r.id_unidad === id_unidad && r.titular === 1) ?? false;
+    const titularVivienda = id_unidad ? titularDe(id_unidad) : null;
+    const nombreTitular = titularVivienda ? `${titularVivienda.nombre} ${titularVivienda.apellido_paterno}` : null;
     // Espacios de la comunidad y nombre del espacio de una reserva (con la API, un JOIN con `espacios_comunes`)
     const idsEspacios = new Set((comunidad?.espacios_comunes ?? []).map((e) => e.id_espacio));
     const espacioDe = (id_espacio: number) => comunidad?.espacios_comunes.find((e) => e.id_espacio === id_espacio)?.nombre ?? 'Espacio';
@@ -275,6 +279,10 @@ function useValor() {
       // Fila nueva de `votos`: la unidad vota una vez (UNIQUE id_votacion + id_unidad)
       votar: (id_votacion: number, id_opcion: number) => {
         if (!cuenta || !id_unidad) return;
+        if (!esTitular) {
+          avisar(nombreTitular ? `En tu vivienda vota ${nombreTitular}, la persona titular.` : 'Solo la persona titular de la vivienda puede votar.');
+          return;
+        }
         setVotos((x) => (x.some((v) => v.id_votacion === id_votacion && v.id_unidad === id_unidad) ? x : [...x, {
           id_voto: x.reduce((m, v) => Math.max(m, v.id_voto), 0) + 1, id_votacion, id_opcion, id_unidad, id_usuario: cuenta.id_usuario, fecha: ahora(),
         }]));
@@ -322,7 +330,7 @@ function useValor() {
     const solicitudesRecibidas = vigentes.filter((s) => avisosMios.has(s.id_producto));
 
     return {
-      cuenta, unidad, comunidad, cargo, relacion, tiene, aviso,
+      cuenta, unidad, comunidad, cargo, relacion, esTitular, nombreTitular, tiene, aviso,
       estado,
       misInvitaciones: invitaciones.filter((i) => i.id_unidad === id_unidad)
         .map((i) => ({ ...i, visitante: nombreVisitante(i.id_visitante), rut: visitantes.find((v) => v.id_visitante === i.id_visitante)?.rut ?? null })),

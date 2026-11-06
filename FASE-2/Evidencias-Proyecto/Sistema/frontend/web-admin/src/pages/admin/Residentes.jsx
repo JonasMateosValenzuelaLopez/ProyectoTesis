@@ -149,7 +149,7 @@ export default function Residentes() {
                       {viviendas(u).length === 0 ? <Typography color="text.secondary">Personal</Typography> : viviendas(u).map((r) => (
                         <Box key={r.id_unidad} sx={{ display: 'flex', gap: 1.25, alignItems: 'center' }}>
                           <PlacaUnidad unidad={unidadPorId[r.id_unidad]} size="sm" />
-                          <Typography variant="body2" color="text.secondary">{r.relacion}</Typography>
+                          <Typography variant="body2" color="text.secondary">{r.relacion}{r.titular === 1 && u.estado !== 'Desactivado' ? ' · titular' : ''}</Typography>
                         </Box>
                       ))}
                     </TableCell>
