@@ -66,7 +66,8 @@ Los Sprints 0 a 2 se reconstruyeron desde el historial de git, la Guía 2.4 y lo
 
 | Tarea | Responsable | Estado |
 |---|---|---|
-| Implementar reservas e invitaciones QR | Camila | Pendiente |
+| Implementar espacios comunes y reservas, con entrega y recepción en conserjería | Camila | Terminada |
+| Implementar invitaciones QR y conserjería | Camila | Pendiente |
 | Conectar las vistas correspondientes | Jonas | Pendiente |
 | Ajustar Docker y levantar el sistema | Equipo | Pendiente |
 | Desplegar y ejecutar las pruebas finales | Equipo | Pendiente |

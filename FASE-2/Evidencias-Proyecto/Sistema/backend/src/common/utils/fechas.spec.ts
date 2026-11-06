@@ -1,4 +1,4 @@
-import { esFechaValida, mesesEntre, sumarMeses } from './fechas';
+import { esFechaValida, mesesEntre, sumarDias, sumarMeses } from './fechas';
 
 describe('esFechaValida', () => {
   it.each([['2026-11-04'], ['2024-02-29'], ['2026-12-31']])(
@@ -44,5 +44,17 @@ describe('mesesEntre', () => {
     ['2026-11-01', '2026-11-10', 0],
   ])('debe contar entre %s y %s %i meses', (desde, hasta, esperado) => {
     expect(mesesEntre(desde, hasta)).toBe(esperado);
+  });
+});
+
+describe('sumarDias', () => {
+  it.each([
+    ['2026-11-05', 13, '2026-11-18'],
+    ['2026-11-30', 1, '2026-12-01'],
+    ['2026-12-31', 1, '2027-01-01'],
+    ['2028-02-28', 1, '2028-02-29'],
+    ['2026-11-05', -1, '2026-11-04'],
+  ])('debe sumar a %s %i días y dar %s', (fecha, dias, esperado) => {
+    expect(sumarDias(fecha, dias)).toBe(esperado);
   });
 });

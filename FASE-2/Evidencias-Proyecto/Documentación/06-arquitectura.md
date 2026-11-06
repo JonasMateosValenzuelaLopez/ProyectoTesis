@@ -29,7 +29,7 @@ EntreCasas usa una arquitectura en capas, con un backend modular único que expo
 | `mail` | Envío de correos y destinatarios de la comunidad | Implementado |
 | `roles` | Valida al iniciar que los cargos coincidan con la base de datos | Implementado |
 | `common` | Guards, filtro de errores, pipes, validadores y utilidades | Implementado |
-| `reservas` | Espacios comunes y reservas | Solo la entidad de espacios |
+| `reservas` | Espacios comunes con sus horarios, reservas, cancelaciones y entrega y recepción en conserjería | Implementado |
 | `redes-vecinales` | Datos de la comunidad: cuenta de transferencia y umbral de visado | Plantilla por implementar |
 | Marketplace, votaciones y actas, invitaciones QR | App móvil y directiva | Por implementar |
 

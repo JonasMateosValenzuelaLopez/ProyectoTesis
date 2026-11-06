@@ -35,11 +35,11 @@ FASE-2/Evidencias-Proyecto/Sistema/
     - Plataforma: comunidades, módulos y alta de comunidades.
     - Comunidad: unidades, residentes y cargos, Mi hogar, guía de bienvenida y contactos.
     - Finanzas: cobros, pagos, avisos, morosidad, egresos con visado, exenciones y reportes.
-    - Convivencia: Muro Vecinal con comunicados, aprobación y moderación.
+    - Convivencia: Muro Vecinal con comunicados, aprobación y moderación, y reservas de espacios comunes con entrega y recepción en conserjería.
     - Transversal: bitácora de auditoría y un formato único de errores.
-- Backend pendiente: marketplace, reservas, votaciones y actas, invitaciones QR y conserjería, y los datos de la comunidad (cuenta de transferencia y umbral de visado).
+- Backend pendiente: marketplace, votaciones y actas, invitaciones QR y conserjería, y los datos de la comunidad (cuenta de transferencia y umbral de visado).
 - Base de datos: esquema completo de 39 tablas y 92 llaves foráneas.
-- Pruebas: 961 pruebas unitarias aprobadas, con 88 % de cobertura de sentencias.
+- Pruebas: 1090 pruebas unitarias aprobadas, con 89 % de cobertura de sentencias.
 - Panel web y aplicación móvil: las vistas están construidas, pero **todavía no se conectan al backend**. Funcionan con datos de prueba y las cuentas de demostración se muestran en la pantalla de inicio de sesión.
 
 ## Ejecución local

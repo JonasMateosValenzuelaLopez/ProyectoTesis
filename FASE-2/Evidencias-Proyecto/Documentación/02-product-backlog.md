@@ -26,7 +26,7 @@ Estado al 5 de noviembre de 2026. "Vista" significa que la pantalla existe con d
 | HU-20 | Como residente quiero publicar en el Marketplace para ofrecer productos a mis vecinos | Media | 4 | Publicación con categoría y solicitud de contacto | Vista |
 | HU-21 | Como residente quiero votar para participar en las decisiones | Media | Por definir | Un voto por persona en cada votación | Vista |
 | HU-22 | Como Secretario quiero registrar actas para dejar constancia de los acuerdos | Media | Por definir | El acta guarda asistentes, temas y acuerdos | Vista |
-| HU-23 | Como residente quiero reservar un espacio común para usarlo sin cruces | Media | 5 | No se permiten dos reservas en un mismo bloque | Vista |
+| HU-23 | Como residente quiero reservar un espacio común para usarlo sin cruces | Media | 5 | No se permiten dos reservas en un mismo bloque | API; falta conectar |
 | HU-24 | Como residente quiero invitar visitas con QR para agilizar su ingreso | Media | 5 | El código identifica una invitación vigente | Vista |
 | HU-25 | Como Conserje quiero validar visitas para controlar el acceso | Media | 5 | El ingreso queda en el registro de accesos | Vista |
 | HU-26 | Como equipo quiero contenerizar el sistema para instalarlo de forma consistente | Media | 5 | La API y la BD se levantan con Docker Compose | Pendiente |

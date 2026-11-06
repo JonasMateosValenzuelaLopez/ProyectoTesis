@@ -37,3 +37,7 @@ export function mesesEntre(desde: string, hasta: string): number {
     (aUtc(hasta).getTime() - aUtc(desde).getTime()) / DIA_MS / DIAS_POR_MES,
   );
 }
+
+export function sumarDias(fecha: string, dias: number): string {
+  return aTexto(new Date(aUtc(fecha).getTime() + dias * DIA_MS));
+}

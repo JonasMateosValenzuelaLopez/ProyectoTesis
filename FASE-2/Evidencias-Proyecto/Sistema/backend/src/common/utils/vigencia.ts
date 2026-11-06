@@ -19,3 +19,14 @@ export function condicionVigente(hoy: string = fechaHoy()) {
     hasta: Or(IsNull(), MoreThanOrEqual(hoy)),
   };
 }
+
+const formatoHora = new Intl.DateTimeFormat('en-GB', {
+  timeZone: ZONA_HORARIA,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+
+export function horaActual(ahora: Date = new Date()): string {
+  return formatoHora.format(ahora);
+}
