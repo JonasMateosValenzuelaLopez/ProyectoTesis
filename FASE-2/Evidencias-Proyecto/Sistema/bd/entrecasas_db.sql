@@ -346,11 +346,8 @@ CREATE TABLE IF NOT EXISTS `invitaciones` (
   `patente` varchar(10) DEFAULT NULL,
   `categoria` enum('Visita','Proveedor','Servicio','Delivery') NOT NULL DEFAULT 'Visita',
   `codigo` varchar(20) NOT NULL,
-  `tipo` enum('Uso único','Temporal') NOT NULL DEFAULT 'Uso único',
   `valida_desde` datetime NOT NULL,
   `valida_hasta` datetime NOT NULL,
-  `usos_max` int(11) DEFAULT NULL,
-  `usos` int(11) NOT NULL DEFAULT 0,
   `cancelada_en` datetime DEFAULT NULL,
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -366,7 +363,7 @@ CREATE TABLE IF NOT EXISTS `invitaciones` (
   CONSTRAINT `fk_invitacion_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE CASCADE,
   CONSTRAINT `fk_invitacion_visitante` FOREIGN KEY (`id_visitante`) REFERENCES `visitantes` (`id_visitante`) ON DELETE SET NULL,
   CONSTRAINT `chk_invitacion_vigencia` CHECK (`valida_hasta` > `valida_desde`),
-  CONSTRAINT `chk_invitacion_usos` CHECK (`usos` >= 0 and (`usos_max` is null or `usos` <= `usos_max`))
+  CONSTRAINT `chk_invitacion_nombre` CHECK (char_length(trim(`nombre_visita`)) > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -610,32 +607,33 @@ CREATE TABLE IF NOT EXISTS `registro_accesos` (
   `id_invitacion` int(11) DEFAULT NULL,
   `categoria` enum('Visita','Delivery','Proveedor','Servicio') NOT NULL DEFAULT 'Visita',
   `patente` varchar(10) DEFAULT NULL,
-  `fecha_ingreso` datetime DEFAULT current_timestamp(),
+  `fecha_ingreso` datetime DEFAULT NULL,
   `fecha_salida` datetime DEFAULT NULL,
   `estado_autorizacion` enum('Aprobado','Rechazado','Pendiente de Confirmación') NOT NULL,
   `autorizado_via` enum('Invitación','App','Teléfono') DEFAULT NULL,
   `autorizado_por` int(11) DEFAULT NULL,
-  `codigo_qr_validado` tinyint(1) DEFAULT 0,
   `validado_por` int(11) DEFAULT NULL,
-  `metodo` enum('QR','Manual','Tag','Patente') NOT NULL DEFAULT 'Manual',
+  `metodo` enum('QR','Manual') NOT NULL DEFAULT 'Manual',
   `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
   `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_acceso`),
+  UNIQUE KEY `uq_acceso_invitacion` (`id_invitacion`),
   KEY `id_visitante` (`id_visitante`),
   KEY `id_unidad` (`id_unidad`),
   KEY `idx_acceso_red_ingreso` (`id_red`,`fecha_ingreso`),
-  KEY `id_invitacion` (`id_invitacion`),
   KEY `validado_por` (`validado_por`),
   KEY `idx_acceso_patente` (`patente`),
   KEY `autorizado_por` (`autorizado_por`),
-  CONSTRAINT `1` FOREIGN KEY (`id_visitante`) REFERENCES `visitantes` (`id_visitante`) ON DELETE CASCADE,
-  CONSTRAINT `2` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE CASCADE,
   CONSTRAINT `fk_acceso_autorizado_por` FOREIGN KEY (`autorizado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_acceso_invitacion` FOREIGN KEY (`id_invitacion`) REFERENCES `invitaciones` (`id_invitacion`) ON DELETE SET NULL,
   CONSTRAINT `fk_acceso_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `fk_acceso_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE CASCADE,
   CONSTRAINT `fk_acceso_validado_por` FOREIGN KEY (`validado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
-  CONSTRAINT `chk_acceso_salida` CHECK (`fecha_salida` is null or `fecha_salida` >= `fecha_ingreso`)
+  CONSTRAINT `fk_acceso_visitante` FOREIGN KEY (`id_visitante`) REFERENCES `visitantes` (`id_visitante`) ON DELETE CASCADE,
+  CONSTRAINT `chk_acceso_ingreso` CHECK (`estado_autorizacion` = 'Aprobado' = (`fecha_ingreso` is not null)),
+  CONSTRAINT `chk_acceso_autorizacion` CHECK (`estado_autorizacion` = 'Pendiente de Confirmación' = (`autorizado_via` is null)),
+  CONSTRAINT `chk_acceso_salida` CHECK (`fecha_salida` is null or `fecha_ingreso` is not null and `fecha_salida` >= `fecha_ingreso`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -859,7 +857,8 @@ CREATE TABLE IF NOT EXISTS `vehiculos` (
   KEY `idx_vehiculo_patente` (`patente`),
   KEY `id_unidad` (`id_unidad`),
   CONSTRAINT `fk_vehiculo_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL,
-  CONSTRAINT `fk_vehiculo_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE
+  CONSTRAINT `fk_vehiculo_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `chk_vehiculo_patente` CHECK (cast(`patente` as binary) regexp '^[A-Z0-9]{4,8}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -876,7 +875,8 @@ CREATE TABLE IF NOT EXISTS `visitantes` (
   `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_visitante`),
   UNIQUE KEY `uq_visitante_red_rut` (`id_red`,`rut`),
-  CONSTRAINT `fk_visitante_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE
+  CONSTRAINT `fk_visitante_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `chk_visitante_nombre` CHECK (char_length(trim(`nombre`)) > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

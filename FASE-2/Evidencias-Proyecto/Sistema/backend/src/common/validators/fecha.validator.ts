@@ -35,3 +35,17 @@ export const NoPasada = decoradorDeFecha(
   'La fecha no puede ser anterior a hoy',
   (valor) => valor >= fechaHoy(),
 );
+
+const FECHA_HORA_CON_ZONA =
+  /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d(:[0-5]\d(\.\d{1,3})?)?(Z|[+-](0\d|1[0-4]):[0-5]\d)$/;
+
+export const esFechaHoraConZona = (valor: string) =>
+  FECHA_HORA_CON_ZONA.test(valor) &&
+  !Number.isNaN(new Date(valor).getTime()) &&
+  esFechaValida(valor.slice(0, 10));
+
+export const EsFechaHora = decoradorDeFecha(
+  'esFechaHora',
+  'La fecha y hora debe venir en formato ISO 8601 con zona, por ejemplo 2026-11-06T18:00:00Z',
+  esFechaHoraConZona,
+);

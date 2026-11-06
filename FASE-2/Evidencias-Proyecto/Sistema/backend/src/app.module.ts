@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AccesosModule } from './accesos/accesos.module';
 import { AuthModule } from './auth/auth.module';
 import { BitacoraModule } from './bitacora/bitacora.module';
 import { ErroresApiFilter } from './common/filters/errores-api.filter';
@@ -42,6 +43,7 @@ import { VotacionesModule } from './votaciones/votaciones.module';
     }),
     MailModule,
     BitacoraModule,
+    AccesosModule,
     AuthModule,
     ComunidadModule,
     FinanzasModule,
