@@ -4,12 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, LessThan, Repository } from 'typeorm';
+import { DataSource, LessThan, Repository } from 'typeorm';
 import { BitacoraService } from '../bitacora/bitacora.service';
 import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
-import { condicionVigente } from '../common/utils/vigencia';
-import { Residencia } from '../usuarios/entities/residencia.entity';
 import { PaginaMuroDto } from './dto/muro.dto';
 import {
   EstadoModeracion,
@@ -19,13 +17,17 @@ import {
 import {
   EstadoReporte,
   LugarPublicacion,
-  MuroReporte,
 } from './entities/muro-reporte.entity';
 import {
   contextoPresentacion,
   persona,
   serializarPublicacion,
 } from './presentacion-muro';
+import {
+  reportesPendientesDe,
+  resolverReportesPendientes,
+  viviendasPorUsuario,
+} from './reportes-publicacion';
 
 const LIMITE_POR_DEFECTO = 50;
 
@@ -97,11 +99,6 @@ export class ModeracionService {
         throw new NotFoundException('Publicación no encontrada');
       }
       const ahora = new Date();
-      const pendientes = {
-        tipoPublicacion: LugarPublicacion.MURO,
-        idPublicacion,
-        estado: EstadoReporte.PENDIENTE,
-      };
       let resueltos = 0;
       if (accion === 'ocultar') {
         if (publicacion.estadoModeracion === EstadoModeracion.OCULTA) {
@@ -116,9 +113,10 @@ export class ModeracionService {
             moderadoEn: ahora,
           },
         );
-        resueltos = await this.resolverReportes(
+        resueltos = await resolverReportesPendientes(
           manager,
-          pendientes,
+          LugarPublicacion.MURO,
+          idPublicacion,
           EstadoReporte.ATENDIDO,
           idUsuario,
           ahora,
@@ -137,9 +135,10 @@ export class ModeracionService {
           },
         );
       } else {
-        resueltos = await this.resolverReportes(
+        resueltos = await resolverReportesPendientes(
           manager,
-          pendientes,
+          LugarPublicacion.MURO,
+          idPublicacion,
           EstadoReporte.DESCARTADO,
           idUsuario,
           ahora,
@@ -180,61 +179,21 @@ export class ModeracionService {
     return resultado;
   }
 
-  private async resolverReportes(
-    manager: EntityManager,
-    filtro: Partial<MuroReporte>,
-    estado: EstadoReporte,
-    idUsuario: number,
-    ahora: Date,
-  ) {
-    const { affected } = await manager.update(MuroReporte, filtro, {
-      estado,
-      resueltoPor: idUsuario,
-      resueltoEn: ahora,
-    });
-    return affected ?? 0;
-  }
-
   private async conReportes(
     red: ContextoRed,
     publicaciones: MuroPublicacion[],
   ) {
     const manager = this.dataSource.manager;
-    const ids = publicaciones.map((p) => p.idPublicacion);
-    const reportes = ids.length
-      ? await manager.find(MuroReporte, {
-          where: {
-            tipoPublicacion: LugarPublicacion.MURO,
-            idPublicacion: In(ids),
-            estado: EstadoReporte.PENDIENTE,
-          },
-          order: { idReporte: 'ASC' },
-        })
-      : [];
+    const reportes = await reportesPendientesDe(
+      manager,
+      LugarPublicacion.MURO,
+      publicaciones.map((p) => p.idPublicacion),
+    );
     const reportantes = [...new Set(reportes.map((r) => r.idUsuario))];
-    const [contexto, viviendas] = await Promise.all([
+    const [contexto, viviendaDe] = await Promise.all([
       contextoPresentacion(manager, red.idRed, publicaciones, reportantes),
-      reportantes.length
-        ? manager.find(Residencia, {
-            where: {
-              idUsuario: In(reportantes),
-              unidad: { idRed: red.idRed },
-              ...condicionVigente(),
-            },
-            relations: { unidad: true },
-            order: { idResidencia: 'ASC' },
-          })
-        : Promise.resolve([] as Residencia[]),
+      viviendasPorUsuario(manager, red.idRed, reportantes),
     ]);
-    const viviendaDe = new Map<number, string>();
-    for (const residencia of viviendas) {
-      if (residencia.unidad && !viviendaDe.has(residencia.idUsuario)) {
-        viviendaDe.set(
-          residencia.idUsuario,
-          residencia.unidad.numeroIdentificador,
-        );
-      }
-    }
     return publicaciones.map((publicacion) => ({
       ...serializarPublicacion(publicacion, contexto),
       moderadoPor: persona(contexto, publicacion.moderadoPor),

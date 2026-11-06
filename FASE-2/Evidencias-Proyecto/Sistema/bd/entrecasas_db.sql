@@ -81,17 +81,6 @@ CREATE TABLE IF NOT EXISTS `categorias_gasto` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
-CREATE TABLE IF NOT EXISTS `categorias_marketplace` (
-  `id_categoria` int(11) NOT NULL AUTO_INCREMENT,
-  `nombre_categoria` varchar(50) NOT NULL,
-  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
-  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `fecha_eliminacion` datetime DEFAULT NULL,
-  PRIMARY KEY (`id_categoria`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE IF NOT EXISTS `cobro_unidades` (
   `id_cobro_unidad` int(11) NOT NULL AUTO_INCREMENT,
   `id_cobro` int(11) NOT NULL,
@@ -387,14 +376,12 @@ CREATE TABLE IF NOT EXISTS `marketplace_publicaciones` (
   `id_red` int(11) NOT NULL,
   `id_usuario` int(11) NOT NULL,
   `id_unidad` int(11) DEFAULT NULL,
-  `id_categoria` int(11) NOT NULL,
-  `tipo` enum('Venta','Permuta','Servicio') NOT NULL DEFAULT 'Venta',
+  `tipo` enum('Vendo','Servicio','Busco') NOT NULL,
   `titulo` varchar(100) NOT NULL,
   `descripcion` text DEFAULT NULL,
   `precio` decimal(10,2) DEFAULT NULL,
-  `foto_url` varchar(255) DEFAULT NULL,
-  `telefono_contacto` varchar(15) DEFAULT NULL,
   `fecha_publicacion` datetime DEFAULT current_timestamp(),
+  `cerrado_en` datetime DEFAULT NULL,
   `estado_moderacion` enum('Publicada','Oculta') NOT NULL DEFAULT 'Publicada',
   `moderado_por` int(11) DEFAULT NULL,
   `moderado_en` datetime DEFAULT NULL,
@@ -403,16 +390,16 @@ CREATE TABLE IF NOT EXISTS `marketplace_publicaciones` (
   `fecha_eliminacion` datetime DEFAULT NULL,
   PRIMARY KEY (`id_producto`),
   KEY `id_usuario` (`id_usuario`),
-  KEY `id_categoria` (`id_categoria`),
   KEY `idx_marketplace_red_fecha` (`id_red`,`fecha_publicacion`),
   KEY `moderado_por` (`moderado_por`),
   KEY `id_unidad` (`id_unidad`),
-  CONSTRAINT `1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
-  CONSTRAINT `2` FOREIGN KEY (`id_categoria`) REFERENCES `categorias_marketplace` (`id_categoria`),
   CONSTRAINT `fk_marketplace_moderado_por` FOREIGN KEY (`moderado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_marketplace_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `fk_marketplace_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE SET NULL,
+  CONSTRAINT `fk_marketplace_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `chk_marketplace_titulo` CHECK (char_length(trim(`titulo`)) >= 3),
   CONSTRAINT `chk_marketplace_precio` CHECK (`precio` is null or `precio` >= 0),
+  CONSTRAINT `chk_marketplace_precio_busco` CHECK (`tipo` <> 'Busco' or `precio` is null),
   CONSTRAINT `chk_marketplace_moderacion` CHECK (`estado_moderacion` = 'Publicada' or `moderado_en` is not null)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
