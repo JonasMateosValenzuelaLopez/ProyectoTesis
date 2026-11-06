@@ -67,6 +67,11 @@ function reducer(state, { tipo, id_red, ...p }) {
     }
     case 'cambiarReserva':
       return con({ reservas: d.reservas.map((r) => (r.id_reserva === p.id_reserva ? { ...r, ...p.cambios } : r)) });
+    // Cancelación en bloque al quitar un espacio o cambiar sus horarios (cada una con su motivo)
+    case 'cancelarVarias': {
+      const motivos = new Map(p.lista.map((x) => [x.id_reserva, x.motivo]));
+      return con({ reservas: d.reservas.map((r) => (motivos.has(r.id_reserva) ? { ...r, estado_reserva: 'Cancelada', motivo_cancelacion: motivos.get(r.id_reserva) } : r)) });
+    }
     default:
       return state;
   }
@@ -176,13 +181,21 @@ export function ConserjeriaProvider({ children }) {
       },
       recibirEspacio: (r, observacion) => {
         const e = espacioDe(r);
-        dispatch({ tipo: 'cambiarReserva', id_red, id_reserva: r.id_reserva, cambios: { estado_reserva: 'Devuelto', observacion } });
+        dispatch({ tipo: 'cambiarReserva', id_red, id_reserva: r.id_reserva, cambios: { estado_reserva: 'Devuelto', observaciones_recepcion: observacion } });
         finanzas.anotar('Recibió un espacio común', `${e} de ${nombreUnidad(unidadPorId[r.id_unidad])} · ${observacion}`, `${e} recibido.`);
       },
       cancelarReserva: (r, motivo) => {
         const e = espacioDe(r);
-        dispatch({ tipo: 'cambiarReserva', id_red, id_reserva: r.id_reserva, cambios: { estado_reserva: 'Cancelada', observacion: motivo } });
+        dispatch({ tipo: 'cambiarReserva', id_red, id_reserva: r.id_reserva, cambios: { estado_reserva: 'Cancelada', motivo_cancelacion: motivo } });
         finanzas.anotar('Canceló una reserva', `${e} de ${nombreUnidad(unidadPorId[r.id_unidad])} · ${motivo}`, `Reserva cancelada. Se avisó a ${nombreUnidad(unidadPorId[r.id_unidad])}.`);
+      },
+      // Al guardar los espacios: `afectadas` viene de reservasAfectadas() como [{ reserva, motivo }]
+      cancelarPorEspacios: (afectadas) => {
+        if (!afectadas.length) return;
+        dispatch({ tipo: 'cancelarVarias', id_red, lista: afectadas.map(({ reserva, motivo }) => ({ id_reserva: reserva.id_reserva, motivo })) });
+        const unidades = new Set(afectadas.map(({ reserva }) => reserva.id_unidad)).size;
+        finanzas.anotar('Canceló reservas por cambios en los espacios', `${afectadas.length} ${afectadas.length === 1 ? 'reserva' : 'reservas'} · ${afectadas.map(({ reserva }) => `${espacioDe(reserva)} ${reserva.fecha_reserva}`).join(', ')}`,
+          `Datos guardados. Se cancelaron ${afectadas.length} ${afectadas.length === 1 ? 'reserva' : 'reservas'} y se avisó a ${unidades} ${unidades === 1 ? 'vivienda' : 'viviendas'}.`);
       },
     };
 

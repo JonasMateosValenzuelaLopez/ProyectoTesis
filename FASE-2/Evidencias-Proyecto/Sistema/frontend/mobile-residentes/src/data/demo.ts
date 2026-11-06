@@ -318,12 +318,37 @@ export function accesosIniciales(): RegistroAcceso[] {
 export type Reserva = {
   id_reserva: number; id_espacio: number; id_usuario: number; id_unidad: number; fecha_reserva: string; hora_inicio: string; hora_fin: string;
   cantidad_invitados: number; estado_reserva: 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Cancelada' | 'Entregado' | 'Devuelto';
-  observacion: string | null; fecha_solicitud: string;
+  // Lo deja la administración o un cambio en el espacio; el residente cancela sin motivo
+  motivo_cancelacion: string | null;
+  // Lo deja conserjería al recibir el espacio
+  observaciones_recepcion: string | null;
+  fecha_solicitud: string;
 };
 // Quien reserva es el residente de la unidad: ids de usuario iguales a Residentes y cargos del panel
-const reserva = (id_reserva: number, id_espacio: number, id_usuario: number, id_unidad: number, fecha_reserva: string, inicio: string, fin: string, cantidad_invitados: number, estado_reserva: Reserva['estado_reserva'] = 'Aprobada', observacion: string | null = null): Reserva => ({
-  id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, hora_inicio: `${inicio}:00`, hora_fin: `${fin}:00`, cantidad_invitados, estado_reserva, observacion, fecha_solicitud: `${dia(0)}T09:00:00`,
+const reserva = (id_reserva: number, id_espacio: number, id_usuario: number, id_unidad: number, fecha_reserva: string, inicio: string, fin: string, cantidad_invitados: number, estado_reserva: Reserva['estado_reserva'] = 'Aprobada', observaciones_recepcion: string | null = null): Reserva => ({
+  id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, hora_inicio: `${inicio}:00`, hora_fin: `${fin}:00`, cantidad_invitados, estado_reserva,
+  motivo_cancelacion: null, observaciones_recepcion, fecha_solicitud: `${dia(0)}T09:00:00`,
 });
+
+// Reglas de la API (reglas-reservas.ts). Fechas y horas se comparan como texto local 'AAAA-MM-DD HH:MM:SS'.
+export const DIAS_PARA_RESERVAR = 14;
+export const MAX_BLOQUES_POR_DIA = 2;
+export const HORAS_PARA_CANCELAR = 24;
+export const MAX_INVITADOS = 1000;
+export const MOTIVO_BAJA = 'El espacio dejó de estar disponible';
+export const MOTIVO_HORARIO = 'El horario reservado cambió o dejó de estar disponible';
+export const momentoLocal = (d = new Date()) => `${diaISO(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+export const yaPaso = (fecha: string, hora_inicio: string, ahora = new Date()) => `${fecha} ${hora_inicio}` <= momentoLocal(ahora);
+// El residente cancela una reserva confirmada, sin entregar, hasta 24 horas antes de que empiece
+export const puedeCancelarResidente = (r: Reserva, ahora = new Date()) =>
+  r.estado_reserva === 'Aprobada'
+  && `${r.fecha_reserva} ${r.hora_inicio}` >= momentoLocal(new Date(ahora.getTime() + HORAS_PARA_CANCELAR * 3600000));
+// Texto para el historial de una reserva cancelada que no canceló el residente
+export const motivoCancelacion = (r: Reserva) => {
+  if (r.estado_reserva !== 'Cancelada' || !r.motivo_cancelacion) return null;
+  const porEspacio = r.motivo_cancelacion === MOTIVO_BAJA || r.motivo_cancelacion === MOTIVO_HORARIO;
+  return porEspacio ? r.motivo_cancelacion : `La administración la canceló: ${r.motivo_cancelacion}`;
+};
 const pad = (n: number) => String(n).padStart(2, '0');
 export const diaISO = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const dia = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return diaISO(d); };
@@ -346,6 +371,8 @@ export function reservasIniciales(): Reserva[] {
     reserva(101, 11, 102, 1005, dia(2), '12:00', '17:00', 14),
     reserva(102, 11, 1013, 1012, dia(6), '18:00', '23:30', 8),
     reserva(103, 11, 110, 1001, dia(-9), '12:00', '17:00', 12, 'Devuelto', 'Sin novedades'),
+    // Rosa Díaz: la administración le canceló una reserva, para ver el motivo en el historial
+    { ...reserva(104, 11, 110, 1001, dia(-3), '18:00', '23:30', 6, 'Cancelada'), motivo_cancelacion: 'Fumigación programada del quincho' },
     reserva(201, 21, 2026, 2026, dia(3), '10:00', '14:00', 30),
     reserva(202, 22, 2077, 2077, dia(1), '18:00', '20:00', 10),
   ];

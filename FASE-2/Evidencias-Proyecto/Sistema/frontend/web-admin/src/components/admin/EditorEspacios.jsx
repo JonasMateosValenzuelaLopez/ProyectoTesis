@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Box, Button, IconButton, InputAdornment, Paper, TextField, Typography } from '@mui/material';
 import { Add as AddIcon, DeleteOutlined as QuitarIcon, Close as CerrarIcon } from '@mui/icons-material';
-import { erroresBloques, hora } from '../../utils/espacios';
+import {
+  MAX_BLOQUES, MAX_CAPACIDAD, MAX_DESCRIPCION, MAX_ESPACIOS, MAX_NOMBRE, erroresBloques, hora,
+} from '../../utils/espacios';
 
 // Filas de `espacios_comunes` con sus `espacios_bloques` mientras se editan. Las horas se editan
 // como 13:00 y se guardan como TIME (13:00:00). Un espacio sin bloques no se puede reservar.
@@ -15,15 +17,22 @@ function Espacio({ e, onCambio, onQuitar }) {
   return (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, display: 'grid', gap: 2 }}>
       <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 140px auto' }, alignItems: 'start' }}>
-        <TextField required size="small" label="Nombre" value={e.nombre} onChange={(ev) => onCambio({ ...e, nombre: ev.target.value })} error={!e.nombre.trim()} />
         <TextField
-          size="small" label="Capacidad" type="number" value={e.capacidad ?? ''} helperText="Personas, opcional"
-          onChange={(ev) => onCambio({ ...e, capacidad: ev.target.value === '' ? null : Math.max(1, Math.floor(Number(ev.target.value))) })}
-          slotProps={{ htmlInput: { min: 1, step: 1 } }}
+          required size="small" label="Nombre" value={e.nombre} onChange={(ev) => onCambio({ ...e, nombre: ev.target.value.slice(0, MAX_NOMBRE) })}
+          error={!e.nombre.trim()} helperText={e.nombre.trim() ? ' ' : 'El nombre es obligatorio'} slotProps={{ htmlInput: { maxLength: MAX_NOMBRE } }}
+        />
+        <TextField
+          size="small" label="Capacidad" type="number" value={e.capacidad ?? ''} helperText={`Personas, opcional (hasta ${MAX_CAPACIDAD})`}
+          onChange={(ev) => onCambio({ ...e, capacidad: ev.target.value === '' ? null : Math.min(MAX_CAPACIDAD, Math.max(1, Math.floor(Number(ev.target.value)))) })}
+          slotProps={{ htmlInput: { min: 1, max: MAX_CAPACIDAD, step: 1 } }}
         />
         <Button color="error" startIcon={<QuitarIcon />} onClick={onQuitar} aria-label={`Quitar ${e.nombre || 'espacio'}`}>Quitar</Button>
       </Box>
-      <TextField size="small" label="Descripción (opcional)" value={e.descripcion ?? ''} onChange={(ev) => onCambio({ ...e, descripcion: ev.target.value || null })} multiline maxRows={3} />
+      <TextField
+        size="small" label="Descripción (opcional)" value={e.descripcion ?? ''} onChange={(ev) => onCambio({ ...e, descripcion: ev.target.value.slice(0, MAX_DESCRIPCION) || null })}
+        multiline maxRows={3} slotProps={{ htmlInput: { maxLength: MAX_DESCRIPCION } }}
+        helperText={(e.descripcion ?? '').length > MAX_DESCRIPCION - 100 ? `${(e.descripcion ?? '').length}/${MAX_DESCRIPCION}` : ' '}
+      />
       <Box sx={{ display: 'grid', gap: 1 }}>
         <Typography variant="body2" sx={{ fontWeight: 700 }}>Horarios que se pueden reservar</Typography>
         {e.espacios_bloques.length === 0 && (
@@ -40,14 +49,17 @@ function Espacio({ e, onCambio, onQuitar }) {
             </IconButton>
           </Box>
         ))}
-        <Box>
-          <Button size="small" startIcon={<AddIcon />} onClick={() => {
+        <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button size="small" startIcon={<AddIcon />} disabled={e.espacios_bloques.length >= MAX_BLOQUES} onClick={() => {
             // Propone el siguiente bloque a continuación del último
             const ultimo = [...e.espacios_bloques].sort((a, b) => a.hora_fin.localeCompare(b.hora_fin)).at(-1);
             const inicio = ultimo?.hora_fin && ultimo.hora_fin < '21:00:00' ? ultimo.hora_fin : '10:00:00';
             const fin = `${String(Math.min(Number(inicio.slice(0, 2)) + 2, 23)).padStart(2, '0')}${inicio.slice(2)}`;
             onCambio({ ...e, espacios_bloques: [...e.espacios_bloques, { id_bloque: null, id_espacio: e.id_espacio, hora_inicio: inicio, hora_fin: fin }] });
           }}>Agregar horario</Button>
+          {e.espacios_bloques.length >= MAX_BLOQUES && (
+            <Typography variant="body2" color="text.secondary">Un espacio puede tener hasta {MAX_BLOQUES} horarios.</Typography>
+          )}
         </Box>
       </Box>
     </Paper>
@@ -57,9 +69,10 @@ function Espacio({ e, onCambio, onQuitar }) {
 // Espacios comunes de la comunidad con su capacidad y sus horarios reservables
 export default function EditorEspacios({ espacios, onCambio }) {
   const [nuevo, setNuevo] = useState('');
+  const lleno = espacios.length >= MAX_ESPACIOS;
   const agregar = () => {
     const nombre = nuevo.trim();
-    if (nombre && !espacios.some((x) => x.nombre.trim().toLowerCase() === nombre.toLowerCase())) {
+    if (nombre && !lleno && !espacios.some((x) => x.nombre.trim().toLowerCase() === nombre.toLowerCase())) {
       onCambio([...espacios, { id_espacio: null, nombre, descripcion: null, capacidad: null, espacios_bloques: [] }]);
     }
     setNuevo('');
@@ -75,9 +88,13 @@ export default function EditorEspacios({ espacios, onCambio }) {
         />
       ))}
       <TextField
-        size="small" label="Agregar espacio" value={nuevo} onChange={(ev) => setNuevo(ev.target.value)} placeholder="Ej: Sala de eventos"
-        onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); agregar(); } }} sx={{ maxWidth: 360 }}
-        slotProps={{ input: { endAdornment: <InputAdornment position="end"><IconButton aria-label="Agregar espacio" edge="end" onClick={agregar} disabled={!nuevo.trim()}><AddIcon /></IconButton></InputAdornment> } }}
+        size="small" label="Agregar espacio" value={nuevo} onChange={(ev) => setNuevo(ev.target.value.slice(0, MAX_NOMBRE))} placeholder="Ej: Sala de eventos"
+        onKeyDown={(ev) => { if (ev.key === 'Enter') { ev.preventDefault(); agregar(); } }} sx={{ maxWidth: 360 }} disabled={lleno}
+        helperText={lleno ? `Puedes tener hasta ${MAX_ESPACIOS} espacios comunes.` : ' '}
+        slotProps={{
+          htmlInput: { maxLength: MAX_NOMBRE },
+          input: { endAdornment: <InputAdornment position="end"><IconButton aria-label="Agregar espacio" edge="end" onClick={agregar} disabled={!nuevo.trim() || lleno}><AddIcon /></IconButton></InputAdornment> },
+        }}
       />
     </>
   );

@@ -4,6 +4,7 @@ import {
   accesosIniciales, fechaHoraLocal, marketplaceInicial, muroInicial, reportesIniciales, visitantesIniciales, reservasIniciales, solicitudesIniciales, votosIniciales,
   ACTAS, ACTA_ACUERDOS, CONTACTOS, TOTAL_UNIDADES, VOTACIONES, VOTACION_OPCIONES, type VotacionDetalle,
   EMERGENCIAS, GUIAS, diaISO, diaSemanaHoy, diasDe, espaciosActivos, fichasIniciales, type HogarFicha,
+  HORAS_PARA_CANCELAR, MAX_BLOQUES_POR_DIA, puedeCancelarResidente, yaPaso,
   type Cargo, type CategoriaMarketplace, type Cuenta, type Invitacion, type Pago, type Modulo, type RegistroAcceso, type Reserva, type SolicitudContacto, type Visitante,
 } from '@/data/demo';
 import { roles } from '@/constants/tokens';
@@ -193,15 +194,30 @@ function useValor() {
         } : y)));
         avisar(autoriza ? `Listo. Conserjería dejará pasar a ${v ? nombreVisitante(v.id_visitante) : 'tu visita'}.` : 'Avisamos a conserjería que no autorizas el ingreso.');
       },
+      // Como la API: el horario no puede haber pasado ni estar tomado, y la vivienda tiene hasta 2 horarios por día en un espacio
       reservar: (r: Pick<Reserva, 'id_espacio' | 'fecha_reserva' | 'hora_inicio' | 'hora_fin' | 'cantidad_invitados'>) => {
+        const activa = (y: Reserva) => y.estado_reserva !== 'Cancelada' && y.estado_reserva !== 'Rechazada';
+        const delDia = reservas.filter((y) => activa(y) && y.id_espacio === r.id_espacio && y.fecha_reserva === r.fecha_reserva);
+        if (yaPaso(r.fecha_reserva, r.hora_inicio)) { avisar('Ese horario ya pasó.'); return; }
+        if (delDia.some((y) => y.hora_inicio < r.hora_fin && r.hora_inicio < y.hora_fin)) { avisar('Ese horario ya está reservado.'); return; }
+        if (delDia.filter((y) => y.id_unidad === id_unidad).length >= MAX_BLOQUES_POR_DIA) {
+          avisar(`Tu vivienda ya tiene ${MAX_BLOQUES_POR_DIA} horarios de ${espacioDe(r.id_espacio)} ese día.`);
+          return;
+        }
         setReservas((x) => [...x, {
           ...r, id_reserva: x.reduce((m, y) => Math.max(m, y.id_reserva), 0) + 1, id_usuario: cuenta!.id_usuario, id_unidad: id_unidad!,
-          estado_reserva: 'Aprobada', observacion: null, fecha_solicitud: new Date().toISOString().slice(0, 19),
+          estado_reserva: 'Aprobada', motivo_cancelacion: null, observaciones_recepcion: null, fecha_solicitud: new Date().toISOString().slice(0, 19),
         }]);
         avisar(`${espacioDe(r.id_espacio)} reservado.`);
       },
+      // Solo hasta 24 horas antes y si no se entregó el espacio; el residente cancela sin motivo
       cancelarReserva: (id_reserva: number) => {
-        setReservas((x) => x.map((r) => (r.id_reserva === id_reserva ? { ...r, estado_reserva: 'Cancelada' } : r)));
+        const r = reservas.find((y) => y.id_reserva === id_reserva);
+        if (!r || !puedeCancelarResidente(r)) {
+          avisar(`Ya no puedes cancelarla: faltan menos de ${HORAS_PARA_CANCELAR} horas. Habla con la administración.`);
+          return;
+        }
+        setReservas((x) => x.map((y) => (y.id_reserva === id_reserva ? { ...y, estado_reserva: 'Cancelada' } : y)));
         avisar('Reserva cancelada. El espacio quedó libre para otros vecinos.');
       },
       publicar: (p: { lugar: 'muro'; contenido: string } | { lugar: 'mercado'; titulo: string; descripcion: string | null; categoria: CategoriaMarketplace; precio: number | null }) => {
