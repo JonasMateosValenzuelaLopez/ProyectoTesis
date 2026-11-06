@@ -408,14 +408,23 @@ export type MuroPublicacion = {
   estado_aprobacion: 'Pendiente' | 'Aprobada' | 'Rechazada'; id_aprobador: number | null; fecha_aprobacion: string | null;
   estado: 0 | 1; id_moderador: number | null; fecha_moderacion: string | null;
 };
-export type CategoriaMarketplace = 'Vendo' | 'Servicio' | 'Busco';
-export const CATEGORIAS_MARKETPLACE: Record<number, CategoriaMarketplace> = { 1: 'Vendo', 2: 'Servicio', 3: 'Busco' };
-export const ID_CATEGORIA: Record<CategoriaMarketplace, number> = { Vendo: 1, Servicio: 2, Busco: 3 };
+// Tipo del aviso (columna `tipo`). Se elige al publicar y no se cambia al editar.
+export type TipoAviso = 'Vendo' | 'Servicio' | 'Busco';
+// Reglas del mercado, las mismas de la API (reglas-marketplace.ts y los DTO)
+export const PRECIO_MAXIMO = 99_999_999;
+export const MAX_AVISOS_DISPONIBLES = 20; // avisos publicados y sin cerrar por persona
+export const MIN_TITULO_AVISO = 3;
+export const MAX_TITULO_AVISO = 100;
+export const MAX_DESCRIPCION_AVISO = 500;
+// `estado` es `estado_moderacion`: 1 Publicada, 0 Oculta por la administración.
+// `cerrado_en`: quien publicó lo marcó como vendido o ya no disponible (se puede reabrir).
+// `fecha_eliminacion`: quien publicó lo eliminó (no se muestra en ninguna parte).
+// El teléfono no va en el aviso: es el de la cuenta de quien publicó (`usuarios.telefono`) y solo
+// lo ven los vecinos cuya solicitud de contacto aceptó.
 export type ProductoMarketplace = {
-  id_producto: number; id_red: number; id_usuario: number; id_unidad: number | null; id_categoria: number; titulo: string;
-  descripcion: string | null; precio: number | null; foto_url: string | null;
-  telefono_contacto: string | null; // Solo se muestra a los vecinos cuya solicitud de contacto acepta quien publicó
-  fecha_publicacion: string; estado: 0 | 1; id_moderador: number | null; fecha_moderacion: string | null;
+  id_producto: number; id_red: number; id_usuario: number; id_unidad: number | null; tipo: TipoAviso; titulo: string;
+  descripcion: string | null; precio: number | null; fecha_publicacion: string; cerrado_en: string | null;
+  estado: 0 | 1; id_moderador: number | null; fecha_moderacion: string | null; fecha_eliminacion: string | null;
 };
 export type ReportePublicacion = {
   id_reporte: number; tipo_publicacion: 'muro' | 'marketplace'; id_publicacion: number; id_usuario: number;
@@ -448,10 +457,16 @@ const oficial = (id_publicacion: number, id_red: number, id_usuario: number, tip
   ...vecino(id_publicacion, id_red, id_usuario, 0, contenido, fecha_creacion),
   id_unidad: null, tipo, titulo, estado_aprobacion: id_aprobador ? 'Aprobada' : 'Pendiente', id_aprobador, fecha_aprobacion,
 });
-const producto = (id_producto: number, id_red: number, id_usuario: number, id_unidad: number, id_categoria: number, titulo: string, descripcion: string, precio: number | null, telefono_contacto: string, fecha_publicacion: string): ProductoMarketplace => ({
-  id_producto, id_red, id_usuario, id_unidad, id_categoria, titulo, descripcion, precio, foto_url: null, telefono_contacto, fecha_publicacion,
-  estado: 1, id_moderador: null, fecha_moderacion: null,
+const producto = (id_producto: number, id_red: number, id_usuario: number, id_unidad: number, tipo: TipoAviso, titulo: string, descripcion: string, precio: number | null, fecha_publicacion: string, extra: Partial<ProductoMarketplace> = {}): ProductoMarketplace => ({
+  id_producto, id_red, id_usuario, id_unidad, tipo, titulo, descripcion, precio, fecha_publicacion, cerrado_en: null,
+  estado: 1, id_moderador: null, fecha_moderacion: null, fecha_eliminacion: null, ...extra,
 });
+
+// Teléfono de los vecinos que no tienen cuenta de prueba en la app (con la API, `usuarios.telefono`).
+// El de las cuentas de prueba sale de CUENTAS.
+export const TELEFONOS: Record<number, string> = {
+  1005: '+56957429965', 1008: '+56957452144', 1010: '+56957466930', 1014: '+56957496502', 2077: '+56965355261', 3016: '+56972297288',
+};
 
 export function muroInicial(): MuroPublicacion[] {
   return [
@@ -473,14 +488,19 @@ export function muroInicial(): MuroPublicacion[] {
 
 export function marketplaceInicial(): ProductoMarketplace[] {
   return [
-    producto(101, 1, 1014, 1013, 1, 'Bicicleta aro 26', 'En buen estado. Se puede probar en el pasaje.', 45000, '+56957496502', '2026-10-23T17:30:00'),
-    producto(102, 1, 1010, 1009, 2, 'Clases de matemáticas', 'Para básica y media. Primera clase sin costo.', null, '+56957466930', '2026-10-21T12:00:00'),
-    producto(103, 1, 1005, 1004, 3, 'Escalera de 3 metros', 'Busco quien me la preste el fin de semana.', null, '+56957429965', '2026-10-24T09:15:00'),
-    producto(104, 1, 102, 1005, 1, 'Coche de bebé plegable', 'Poco uso. Incluye cubre lluvia.', 60000, '+56961234502', '2026-10-25T11:00:00'),
-    producto(105, 1, 1008, 1007, 1, 'Mesa de ping-pong plegable', 'Con paletas y pelotas.', 80000, '+56957452144', '2026-10-19T16:00:00'),
-    producto(106, 1, 1010, 1009, 2, 'Préstamos rápidos', 'Préstamos rápidos sin papeleo, escríbeme al interno.', null, '+56957466930', '2026-10-22T12:00:00'),
-    producto(201, 2, 2077, 2077, 1, 'Empanadas de pino', 'Los domingos. Pedidos hasta el sábado.', 3500, '+56965355261', '2026-10-22T18:00:00'),
-    producto(301, 3, 3016, 3302, 1, 'Escritorio blanco de 120 cm', 'Con cajonera. Retiro en el depto.', 120000, '+56972297288', '2026-10-20T20:00:00'),
+    producto(101, 1, 1014, 1013, 'Vendo', 'Bicicleta aro 26', 'En buen estado. Se puede probar en el pasaje.', 45000, '2026-10-23T17:30:00'),
+    producto(102, 1, 1010, 1009, 'Servicio', 'Clases de matemáticas', 'Para básica y media. Primera clase sin costo.', null, '2026-10-21T12:00:00'),
+    producto(103, 1, 1005, 1004, 'Busco', 'Escalera de 3 metros', 'Busco quien me la preste el fin de semana.', null, '2026-10-24T09:15:00'),
+    producto(104, 1, 102, 1005, 'Vendo', 'Coche de bebé plegable', 'Poco uso. Incluye cubre lluvia.', 60000, '2026-10-25T11:00:00'),
+    // Vendida: Luis pidió contacto y Valentina lo rechazó antes de cerrarla
+    producto(105, 1, 1008, 1007, 'Vendo', 'Mesa de ping-pong plegable', 'Con paletas y pelotas.', 80000, '2026-10-19T16:00:00', { cerrado_en: '2026-10-26T10:00:00' }),
+    producto(106, 1, 1010, 1009, 'Servicio', 'Préstamos rápidos', 'Préstamos rápidos sin papeleo, escríbeme al interno.', null, '2026-10-22T12:00:00'),
+    // De Luis (Presidente): ya la vendió, aparece en «Mis avisos» para reabrirla
+    producto(107, 1, 102, 1005, 'Vendo', 'Silla de auto para niños', 'Hasta 18 kg. Con su manual.', 35000, '2026-10-15T10:00:00', { cerrado_en: '2026-10-24T20:00:00' }),
+    // De Rosa: la administración la ocultó por un reporte (Rosa la ve en «Mis avisos», nadie más)
+    producto(108, 1, 110, 1001, 'Vendo', 'Rifa a beneficio', 'Números a $1.000, premio sorpresa.', 1000, '2026-10-18T19:00:00', { estado: 0, id_moderador: 101, fecha_moderacion: '2026-10-20T19:10:00' }),
+    producto(201, 2, 2077, 2077, 'Vendo', 'Empanadas de pino', 'Los domingos. Pedidos hasta el sábado.', 3500, '2026-10-22T18:00:00'),
+    producto(301, 3, 3016, 3302, 'Vendo', 'Escritorio blanco de 120 cm', 'Con cajonera. Retiro en el depto.', 120000, '2026-10-20T20:00:00'),
   ];
 }
 
@@ -490,6 +510,7 @@ export function reportesIniciales(): ReportePublicacion[] {
     { id_reporte: 2, tipo_publicacion: 'muro', id_publicacion: 105, id_usuario: 1004, motivo: 'Acusación personal', fecha: '2026-10-24T09:30:00', estado: 'Pendiente' },
     { id_reporte: 3, tipo_publicacion: 'muro', id_publicacion: 105, id_usuario: 1011, motivo: 'Lenguaje ofensivo', fecha: '2026-10-24T11:02:00', estado: 'Pendiente' },
     { id_reporte: 4, tipo_publicacion: 'marketplace', id_publicacion: 106, id_usuario: 110, motivo: 'Posible estafa', fecha: '2026-10-22T15:20:00', estado: 'Pendiente' },
+    { id_reporte: 5, tipo_publicacion: 'marketplace', id_publicacion: 108, id_usuario: 1005, motivo: 'Comercio fuera del mercado', fecha: '2026-10-20T08:40:00', estado: 'Atendido' },
   ];
 }
 

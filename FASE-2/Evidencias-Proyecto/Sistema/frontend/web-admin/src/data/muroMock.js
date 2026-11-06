@@ -2,12 +2,6 @@
 // (vecinos, comunicados y normas), `marketplace_publicaciones` y `reportes_publicacion`.
 // Son las mismas filas que usa la app de residentes. `solicitudes_contacto` solo vive en la app.
 
-export const CATEGORIAS_MARKETPLACE = [
-  { id_categoria: 1, nombre_categoria: 'Vendo' },
-  { id_categoria: 2, nombre_categoria: 'Servicio' },
-  { id_categoria: 3, nombre_categoria: 'Busco' },
-];
-
 // Lo de vecinos se publica directo (Aprobada, sin aprobador ni título)
 const vecino = (id_publicacion, id_red, id_usuario, id_unidad, contenido, fecha_creacion, extra) => ({
   id_publicacion, id_red, id_usuario, id_unidad, tipo: 'Vecino', titulo: null, contenido, fecha_creacion,
@@ -18,9 +12,12 @@ const oficial = (id_publicacion, id_red, id_usuario, tipo, titulo, contenido, fe
   ...vecino(id_publicacion, id_red, id_usuario, null, contenido, fecha_creacion),
   tipo, titulo, estado_aprobacion: id_aprobador ? 'Aprobada' : 'Pendiente', id_aprobador, fecha_aprobacion,
 });
-const producto = (id_producto, id_red, id_usuario, id_unidad, id_categoria, titulo, descripcion, precio, telefono_contacto, fecha_publicacion) => ({
-  id_producto, id_red, id_usuario, id_unidad, id_categoria, titulo, descripcion, precio, foto_url: null, telefono_contacto, fecha_publicacion,
-  estado: 1, id_moderador: null, fecha_moderacion: null,
+// Avisos del marketplace. `tipo`: Vendo, Servicio o Busco. `estado` es `estado_moderacion` (1 Publicada,
+// 0 Oculta). `cerrado_en`: quien publicó lo marcó como vendido o cerrado. `fecha_eliminacion`: lo eliminó.
+// El teléfono no va en el aviso: es el de la cuenta de quien publicó.
+const producto = (id_producto, id_red, id_usuario, id_unidad, tipo, titulo, descripcion, precio, fecha_publicacion, extra) => ({
+  id_producto, id_red, id_usuario, id_unidad, tipo, titulo, descripcion, precio, fecha_publicacion, cerrado_en: null,
+  estado: 1, id_moderador: null, fecha_moderacion: null, fecha_eliminacion: null, ...extra,
 });
 const reporte = (id_reporte, tipo_publicacion, id_publicacion, id_usuario, motivo, fecha, estado = 'Pendiente') => ({
   id_reporte, tipo_publicacion, id_publicacion, id_usuario, motivo, fecha, estado,
@@ -53,18 +50,20 @@ const MURO = {
 
 const MARKETPLACE = {
   1: [
-    producto(101, 1, 1014, 1013, 1, 'Bicicleta aro 26', 'En buen estado. Se puede probar en el pasaje.', 45000, '+56957496502', '2026-10-23T17:30:00'),
-    producto(102, 1, 1010, 1009, 2, 'Clases de matemáticas', 'Para básica y media. Primera clase sin costo.', null, '+56957466930', '2026-10-21T12:00:00'),
-    producto(103, 1, 1005, 1004, 3, 'Escalera de 3 metros', 'Busco quien me la preste el fin de semana.', null, '+56957429965', '2026-10-24T09:15:00'),
-    producto(104, 1, 102, 1005, 1, 'Coche de bebé plegable', 'Poco uso. Incluye cubre lluvia.', 60000, '+56961234502', '2026-10-25T11:00:00'),
-    producto(105, 1, 1008, 1007, 1, 'Mesa de ping-pong plegable', 'Con paletas y pelotas.', 80000, '+56957452144', '2026-10-19T16:00:00'),
-    producto(106, 1, 1010, 1009, 2, 'Préstamos rápidos', 'Préstamos rápidos sin papeleo, escríbeme al interno.', null, '+56957466930', '2026-10-22T12:00:00'),
+    producto(101, 1, 1014, 1013, 'Vendo', 'Bicicleta aro 26', 'En buen estado. Se puede probar en el pasaje.', 45000, '2026-10-23T17:30:00'),
+    producto(102, 1, 1010, 1009, 'Servicio', 'Clases de matemáticas', 'Para básica y media. Primera clase sin costo.', null, '2026-10-21T12:00:00'),
+    producto(103, 1, 1005, 1004, 'Busco', 'Escalera de 3 metros', 'Busco quien me la preste el fin de semana.', null, '2026-10-24T09:15:00'),
+    producto(104, 1, 102, 1005, 'Vendo', 'Coche de bebé plegable', 'Poco uso. Incluye cubre lluvia.', 60000, '2026-10-25T11:00:00'),
+    producto(105, 1, 1008, 1007, 'Vendo', 'Mesa de ping-pong plegable', 'Con paletas y pelotas.', 80000, '2026-10-19T16:00:00', { cerrado_en: '2026-10-26T10:00:00' }),
+    producto(106, 1, 1010, 1009, 'Servicio', 'Préstamos rápidos', 'Préstamos rápidos sin papeleo, escríbeme al interno.', null, '2026-10-22T12:00:00'),
+    producto(107, 1, 102, 1005, 'Vendo', 'Silla de auto para niños', 'Hasta 18 kg. Con su manual.', 35000, '2026-10-15T10:00:00', { cerrado_en: '2026-10-24T20:00:00' }),
+    producto(108, 1, 110, 1001, 'Vendo', 'Rifa a beneficio', 'Números a $1.000, premio sorpresa.', 1000, '2026-10-18T19:00:00', { estado: 0, id_moderador: 101, fecha_moderacion: '2026-10-20T19:10:00' }),
   ],
   2: [
-    producto(201, 2, 2077, 2077, 1, 'Empanadas de pino', 'Los domingos. Pedidos hasta el sábado.', 3500, '+56965355261', '2026-10-22T18:00:00'),
+    producto(201, 2, 2077, 2077, 'Vendo', 'Empanadas de pino', 'Los domingos. Pedidos hasta el sábado.', 3500, '2026-10-22T18:00:00'),
   ],
   3: [
-    producto(301, 3, 3016, 3302, 1, 'Escritorio blanco de 120 cm', 'Con cajonera. Retiro en el depto.', 120000, '+56972297288', '2026-10-20T20:00:00'),
+    producto(301, 3, 3016, 3302, 'Vendo', 'Escritorio blanco de 120 cm', 'Con cajonera. Retiro en el depto.', 120000, '2026-10-20T20:00:00'),
   ],
 };
 
@@ -75,6 +74,7 @@ const REPORTES = {
     reporte(2, 'muro', 105, 1004, 'Acusación personal', '2026-10-24T09:30:00'),
     reporte(3, 'muro', 105, 1011, 'Lenguaje ofensivo', '2026-10-24T11:02:00'),
     reporte(4, 'marketplace', 106, 110, 'Posible estafa', '2026-10-22T15:20:00'),
+    reporte(5, 'marketplace', 108, 1005, 'Comercio fuera del mercado', '2026-10-20T08:40:00', 'Atendido'),
   ],
   2: [],
   3: [],

@@ -85,8 +85,9 @@ function Publicacion({ pub, unidad, moderar, onModerar }) {
         {unidad && <PlacaUnidad unidad={unidad} size="sm" />}
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography sx={{ fontWeight: 700 }}>{nombreUsuario(fila.id_usuario)}</Typography>
-          <Typography variant="body2" color="text.secondary">{pub.lugar === 'marketplace' ? `Marketplace · ${pub.categoria}` : 'Muro'} · {fechaHora(pub.fecha)}</Typography>
+          <Typography variant="body2" color="text.secondary">{pub.lugar === 'marketplace' ? `Marketplace · ${pub.tipo}` : 'Muro'} · {fechaHora(pub.fecha)}</Typography>
         </Box>
+        {pub.cerrado && <Chip size="small" variant="outlined" label={pub.tipo === 'Vendo' ? 'Vendido' : 'Cerrado'} />}
         {oculta && <Chip size="small" variant="outlined" label="Oculta" />}
       </Box>
       <Box sx={{ textDecoration: oculta ? 'line-through' : 'none', textDecorationColor: 'currentColor' }}>
