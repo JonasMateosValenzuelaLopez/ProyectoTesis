@@ -86,6 +86,17 @@ function reducer(state, { tipo, id_red, ...p }) {
       };
       return conLog(conDatos({ cobros: [...d.cobros, cobro], gastos_comunes: [...d.gastos_comunes, ...nuevos], correos_enviados: [...d.correos_enviados, correo] }));
     }
+    // Editar un cobro: cambia el cobro y lo que debe cada unidad por él. No envía correo.
+    case 'editarCobro':
+      return conLog(conDatos({
+        cobros: d.cobros.map((c) => (c.id_cobro === p.id_cobro ? { ...c, ...p.cambios } : c)),
+        gastos_comunes: d.gastos_comunes.map((g) => (g.id_cobro !== p.id_cobro ? g : {
+          ...g,
+          ...(p.cambios.concepto !== undefined && { descripcion: p.cambios.concepto }),
+          ...(p.cambios.fecha_vencimiento !== undefined && { fecha_vencimiento: p.cambios.fecha_vencimiento }),
+          ...(p.cambios.monto_por_unidad !== undefined && { monto_total: p.cambios.monto_por_unidad }),
+        })),
+      }));
     case 'recordatorio':
       return conLog(conDatos({
         correos_enviados: [...d.correos_enviados, {
@@ -230,6 +241,14 @@ export function FinanzasProvider({ children }) {
     };
 
     const nombreCobro = (g) => cobroPorId[g.id_cobro]?.concepto ?? g.descripcion;
+    // Igual que la API: con pagos, avisos o exenciones ya no se puede cambiar el monto del cobro
+    const cobroTieneMovimientos = (id_cobro) => {
+      const gastos = gastosPorCobro[id_cobro] ?? [];
+      const ids = new Set(gastos.map((g) => g.id_gasto));
+      return gastos.some((g) => g.estado_pago === 'Pagado' || g.estado_pago === 'Exento')
+        || d.pagos.some((pg) => ids.has(pg.id_gasto))
+        || d.exenciones.some((e) => ids.has(e.id_gasto));
+    };
     const acciones = {
       // Marca como pagados uno o más gastos (los del mes o toda la deuda anterior)
       registrarPagos: (idsGastos, mensaje) => {
@@ -255,6 +274,17 @@ export function FinanzasProvider({ children }) {
         dispatch({ tipo: 'crearCobro', id_red, cobro: { ...cobro, id_usuario_emite: id_usuario }, idsUnidades: ids,
           log: registrar('Creó un cobro', `${cobro.concepto} · ${clp(cobro.monto_por_unidad)} por unidad · aviso a ${ids.length} unidades`) });
         setAviso(`Cobro creado. Se envió un correo a ${ids.length} unidades.`);
+      },
+      // `cambios` trae solo los campos que cambiaron: concepto, monto_por_unidad o fecha_vencimiento
+      editarCobro: (id_cobro, cambios) => {
+        const cobro = cobroPorId[id_cobro];
+        const detalle = [
+          cambios.concepto !== undefined && `concepto «${cambios.concepto}»`,
+          cambios.monto_por_unidad !== undefined && `monto ${clp(cobro.monto_por_unidad)} → ${clp(cambios.monto_por_unidad)}`,
+          cambios.fecha_vencimiento !== undefined && `vence ${cambios.fecha_vencimiento.split('-').reverse().join('-')}`,
+        ].filter(Boolean).join(' · ');
+        dispatch({ tipo: 'editarCobro', id_red, id_cobro, cambios, log: registrar('Editó un cobro', `${cobro.concepto} · ${detalle}`) });
+        setAviso('Cobro actualizado.');
       },
       enviarRecordatorio: () => {
         dispatch({ tipo: 'recordatorio', id_red, destinatarios: morosos.length, id_usuario, log: registrar('Envió recordatorio de morosidad', `${morosos.length} unidades`) });
@@ -300,7 +330,7 @@ export function FinanzasProvider({ children }) {
       cobrosDelPeriodo, cobroPorId, gastoPorId, gastosPorUnidad, gastosPorCobro, categoriaPorId: Object.fromEntries(d.categorias_cobro.map((c) => [c.id_categoria, c])),
       estadosPlano, estadoUnidad, morosos, resumen, unidadPorId, fondoReserva,
       exencionesPendientes, egresosPorVisar, avisosPorValidar, correosEnviados, ultimoRecordatorio,
-      nombreUsuario, bitacora, acciones,
+      nombreUsuario, bitacora, acciones, cobroTieneMovimientos,
     };
   }, [comunidad, d, state.bitacora, id_red, cobrosDelPeriodo, cobroPorId, gastoPorId, gastosPorUnidad, gastosPorCobro, estadoUnidad, unidadPorId, id_usuario, registrar, cuentas]);
 

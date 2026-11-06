@@ -3,7 +3,7 @@ import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Tab, Tabs, TextField,
   ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
-import { EditNoteOutlined as RedactarIcon, FlagOutlined as ReporteIcon } from '@mui/icons-material';
+import { DeleteOutlined as EliminarIcon, EditNoteOutlined as RedactarIcon, FlagOutlined as ReporteIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
 import { useAdmin } from '../../context/AdminContext';
 import { useMuro } from '../../context/MuroContext';
@@ -46,6 +46,30 @@ function DialogoRedactar({ onClose }) {
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
         <Button type="submit" variant="contained" disabled={!valido}>{directo ? 'Publicar' : 'Enviar a aprobación'}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// Confirmación antes de borrar un comunicado o norma: desaparece del muro y de la app
+function DialogoEliminarOficial({ publicacion, onClose }) {
+  const { acciones } = useMuro();
+  const tipo = publicacion.tipo.toLowerCase();
+  const eliminar = () => {
+    acciones.eliminarOficial(publicacion.id_publicacion);
+    onClose();
+  };
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle>¿Eliminar {publicacion.tipo === 'Norma' ? 'esta norma' : 'este comunicado'}?</DialogTitle>
+      <DialogContent>
+        <Typography>
+          «{publicacion.titulo}» dejará de verse en el muro y en la app de los residentes. Queda registrado en la bitácora y no se puede deshacer.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} autoFocus>Cancelar</Button>
+        <Button variant="contained" color="error" onClick={eliminar}>Eliminar {tipo}</Button>
       </DialogActions>
     </Dialog>
   );
@@ -108,7 +132,8 @@ const ESTADO_OFICIAL = { Pendiente: 'Esperando aprobación', Rechazada: 'Devuelt
 export default function Muro({ lugar }) {
   const { comunidad, cargo } = useSesion();
   const { unidadPorId } = useAdmin();
-  const { vecinos, reportadas: todas, oficiales, conCargo, acciones } = useMuro();
+  const { vecinos, reportadas: todas, oficiales, conCargo, acciones, puedeEliminarOficial } = useMuro();
+  const [eliminando, setEliminando] = useState(null);
   const modera = cargosEfectivos(cargo, comunidad).includes('administrador');
   const soloMarket = lugar === 'marketplace';
   const propias = vecinos.filter((p) => !soloMarket || p.lugar === 'marketplace');
@@ -154,6 +179,13 @@ export default function Muro({ lugar }) {
                 {publicada && x.id_aprobador && x.id_aprobador !== x.id_usuario && (
                   <Typography variant="body2" color="text.secondary">Aprobado por {conCargo(x.id_aprobador)} · {fecha(x.fecha_aprobacion)}</Typography>
                 )}
+                {puedeEliminarOficial(x) && (
+                  <Box>
+                    <Button size="small" color="error" startIcon={<EliminarIcon />} onClick={() => setEliminando(x)} aria-label={`Eliminar ${x.tipo.toLowerCase()} ${x.titulo}`}>
+                      Eliminar
+                    </Button>
+                  </Box>
+                )}
               </Paper>
             );
           })}
@@ -170,6 +202,7 @@ export default function Muro({ lugar }) {
       )}
 
       {redactar && <DialogoRedactar onClose={() => setRedactar(false)} />}
+      {eliminando && <DialogoEliminarOficial publicacion={eliminando} onClose={() => setEliminando(null)} />}
     </Box>
   );
 }

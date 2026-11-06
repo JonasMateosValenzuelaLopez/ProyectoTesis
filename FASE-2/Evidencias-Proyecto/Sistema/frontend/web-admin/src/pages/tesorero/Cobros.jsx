@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import {
-  Box, Button, Chip, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography,
+  Box, Button, Chip, IconButton, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tooltip, Typography,
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, EditOutlined as EditarIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
 import { useFinanzas } from '../../context/FinanzasContext';
 import { clp, fecha, fechaHora } from '../../utils/formato';
@@ -10,11 +10,16 @@ import { puedeGestionarFinanzas } from '../../utils/permisos';
 import Encabezado from '../../components/ui/Encabezado';
 import Tarjeta from '../../components/ui/Tarjeta';
 import DialogoNuevoCobro from '../../components/finanzas/DialogoNuevoCobro';
+import DialogoEditarCobro from '../../components/finanzas/DialogoEditarCobro';
+
+// Texto solo para lectores de pantalla (encabezado de la columna de acciones)
+const visualmenteOculto = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' };
 
 export default function Cobros() {
   const { comunidad, cargo } = useSesion();
   const { datos, categoriaPorId, gastosPorCobro, correosEnviados } = useFinanzas();
   const [nuevo, setNuevo] = useState(false);
+  const [editando, setEditando] = useState(null);
   const gestiona = puedeGestionarFinanzas(cargo, comunidad);
   const categoria = (id) => categoriaPorId[id]?.nombre ?? '—';
   const cobros = [...datos.cobros].reverse();
@@ -55,6 +60,11 @@ export default function Cobros() {
                 <LinearProgress variant="determinate" value={cobrables ? (pagadas / cobrables) * 100 : 0} color="success" sx={{ flex: 1, height: 5, borderRadius: 1.5, bgcolor: 'divider' }} />
                 <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}><b>{pagadas}/{cobrables}</b> · {clp(recaudado)}</Typography>
               </Box>
+              {gestiona && (
+                <Box>
+                  <Button size="small" startIcon={<EditarIcon />} onClick={() => setEditando(c)} aria-label={`Editar ${c.concepto}`}>Editar</Button>
+                </Box>
+              )}
             </Box>
           );
         })}
@@ -71,6 +81,7 @@ export default function Cobros() {
               <TableCell sx={{ width: 180 }}>Pagadas</TableCell>
               <TableCell align="right">Recaudado</TableCell>
               <TableCell>Vence</TableCell>
+              {gestiona && <TableCell align="right" sx={{ width: 64 }}><Box component="span" sx={visualmenteOculto}>Acciones</Box></TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -92,11 +103,18 @@ export default function Cobros() {
                   </TableCell>
                   <TableCell align="right">{clp(recaudado)}</TableCell>
                   <TableCell>{fecha(c.fecha_vencimiento)}</TableCell>
+                  {gestiona && (
+                    <TableCell align="right">
+                      <Tooltip title="Editar cobro">
+                        <IconButton size="small" onClick={() => setEditando(c)} aria-label={`Editar ${c.concepto}`}><EditarIcon fontSize="small" /></IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
             {cobros.length === 0 && (
-              <TableRow><TableCell colSpan={6}><Typography color="text.secondary" sx={{ py: 2 }}>Todavía no hay cobros. Crea el primero con «Nuevo cobro».</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={gestiona ? 7 : 6}><Typography color="text.secondary" sx={{ py: 2 }}>Todavía no hay cobros. Crea el primero con «Nuevo cobro».</Typography></TableCell></TableRow>
             )}
           </TableBody>
         </Table>
@@ -121,6 +139,7 @@ export default function Cobros() {
       </Tarjeta>
 
       <DialogoNuevoCobro open={nuevo} onClose={() => setNuevo(false)} />
+      {editando && <DialogoEditarCobro key={editando.id_cobro} cobro={editando} onClose={() => setEditando(null)} />}
     </Box>
   );
 }
