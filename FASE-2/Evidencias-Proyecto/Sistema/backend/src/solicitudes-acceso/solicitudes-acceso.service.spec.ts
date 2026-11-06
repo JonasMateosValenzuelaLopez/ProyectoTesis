@@ -86,6 +86,7 @@ describe('SolicitudesAccesoService', () => {
     findOne: jest.Mock;
     findOneBy: jest.Mock;
     exists: jest.Mock;
+    find: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
     restore: jest.Mock;
@@ -140,6 +141,7 @@ describe('SolicitudesAccesoService', () => {
         if (entidad === SolicitudAcceso) return Promise.resolve(solicitud);
         if (entidad === Membresia) return Promise.resolve(residente);
         if (entidad === Residencia) return Promise.resolve(residencia);
+        if (entidad === Unidad) return Promise.resolve(unidad);
         if (entidad === Usuario) {
           return Promise.resolve(
             'identificador' in opciones.where ? porIdentificador : porCorreo,
@@ -189,6 +191,7 @@ describe('SolicitudesAccesoService', () => {
       findOne: jest.fn(),
       findOneBy: jest.fn(),
       exists: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       create: jest.fn((entidad: unknown, datos: object) => {
         const creado = { ...datos };
         if (entidad === Usuario) {

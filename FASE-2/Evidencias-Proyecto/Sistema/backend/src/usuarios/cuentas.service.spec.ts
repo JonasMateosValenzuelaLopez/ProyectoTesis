@@ -1,7 +1,8 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { EntityManager, In, IsNull, Not } from 'typeorm';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { CuentasService } from './cuentas.service';
+import { Unidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from './entities/membresia.entity';
 import { Residencia, TipoResidencia } from './entities/residencia.entity';
 import { Usuario } from './entities/usuario.entity';
@@ -35,7 +36,9 @@ describe('CuentasService', () => {
     manager = {
       findOne: jest.fn().mockResolvedValue(null),
       find: jest.fn().mockResolvedValue([]),
-      insert: jest.fn().mockResolvedValue({}),
+      insert: jest
+        .fn()
+        .mockResolvedValue({ identifiers: [{ idResidencia: 30 }] }),
       update: jest.fn().mockResolvedValue({}),
       restore: jest.fn().mockResolvedValue({}),
       create: jest.fn((_entidad: unknown, datos: object) => datos),
@@ -194,8 +197,36 @@ describe('CuentasService', () => {
     );
   });
 
-  describe('asignarResidencia', () => {
+  describe('asignarResidencia, asegurarTitular y marcarTitular', () => {
+    const UNIDAD = { idUnidad: 12, idRed: 3 } as Unidad;
+    const residencia = (
+      idResidencia: number,
+      idUsuario: number,
+      titular: 1 | null = null,
+    ) => ({ idResidencia, idUsuario, titular }) as Residencia;
+
+    const configurar = ({
+      unidad = UNIDAD as Unidad | null,
+      vigente = null as Partial<Residencia> | null,
+      residencias = [] as Residencia[],
+      conAcceso = [] as number[],
+    } = {}) => {
+      manager.findOne.mockImplementation((entidad: unknown) =>
+        Promise.resolve(entidad === Unidad ? unidad : vigente),
+      );
+      manager.find.mockImplementation((entidad: unknown) =>
+        Promise.resolve(
+          entidad === Residencia
+            ? residencias
+            : conAcceso.map((idUsuario) => ({ idUsuario })),
+        ),
+      );
+      manager.update.mockResolvedValue({ affected: 1 });
+    };
+
     it('debe crear la residencia cuando no hay una vigente en esa unidad', async () => {
+      configurar();
+
       await target.asignarResidencia(
         comoManager(),
         7,
@@ -203,6 +234,10 @@ describe('CuentasService', () => {
         TipoResidencia.ARRENDATARIO,
       );
 
+      expect(manager.findOne).toHaveBeenCalledWith(Unidad, {
+        where: { idUnidad: 12 },
+        lock: { mode: 'pessimistic_write' },
+      });
       expect(manager.insert).toHaveBeenCalledWith(Residencia, {
         idUsuario: 7,
         idUnidad: 12,
@@ -213,9 +248,10 @@ describe('CuentasService', () => {
     });
 
     it('debe actualizar solo el tipo de una residencia vigente', async () => {
-      manager.findOne.mockResolvedValue({
-        idResidencia: 4,
-        tipo: TipoResidencia.PROPIETARIO,
+      configurar({
+        vigente: { idResidencia: 4, tipo: TipoResidencia.PROPIETARIO },
+        residencias: [residencia(4, 7, 1)],
+        conAcceso: [7],
       });
 
       await target.asignarResidencia(
@@ -225,12 +261,128 @@ describe('CuentasService', () => {
         TipoResidencia.ARRENDATARIO,
       );
 
+      expect(manager.update).toHaveBeenCalledTimes(1);
       expect(manager.update).toHaveBeenCalledWith(
         Residencia,
         { idResidencia: 4 },
         { tipo: TipoResidencia.ARRENDATARIO },
       );
       expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('debe rechazar una unidad que no existe sin crear la residencia', async () => {
+      configurar({ unidad: null });
+
+      await expect(
+        target.asignarResidencia(
+          comoManager(),
+          7,
+          12,
+          TipoResidencia.PROPIETARIO,
+        ),
+      ).rejects.toThrow(new NotFoundException('Unidad no encontrada'));
+
+      expect(manager.insert).not.toHaveBeenCalled();
+    });
+
+    it('debe dejar como titular al nuevo residente de una vivienda sin titular', async () => {
+      configurar({ residencias: [residencia(30, 7)], conAcceso: [7] });
+
+      await target.asignarResidencia(
+        comoManager(),
+        7,
+        12,
+        TipoResidencia.PROPIETARIO,
+      );
+
+      expect(manager.find).toHaveBeenCalledWith(Membresia, {
+        select: { idUsuario: true },
+        where: expect.objectContaining({
+          idRed: 3,
+          idUsuario: In([7]),
+          activo: true,
+        }),
+      });
+      expect(manager.update).toHaveBeenCalledWith(
+        Residencia,
+        { idUnidad: 12, titular: 1, idResidencia: Not(30) },
+        { titular: null },
+      );
+      expect(manager.update).toHaveBeenCalledWith(
+        Residencia,
+        { idResidencia: 30, idUnidad: 12 },
+        { titular: 1 },
+      );
+    });
+
+    it('no debe tocar al titular cuando la vivienda ya tiene uno con acceso', async () => {
+      configurar({
+        residencias: [residencia(20, 5, 1), residencia(30, 7)],
+        conAcceso: [5, 7],
+      });
+
+      const resultado = await target.asegurarTitular(comoManager(), 3, 12);
+
+      expect(resultado).toBeNull();
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('debe traspasar la titularidad al primer residente con acceso cuando el titular quedó sin acceso', async () => {
+      configurar({
+        residencias: [
+          residencia(20, 5, 1),
+          residencia(30, 7),
+          residencia(31, 8),
+        ],
+        conAcceso: [7, 8],
+      });
+
+      const resultado = await target.asegurarTitular(comoManager(), 3, 12);
+
+      expect(resultado).toBe(7);
+      expect(manager.find).toHaveBeenCalledWith(Residencia, {
+        select: { idResidencia: true, idUsuario: true, titular: true },
+        where: expect.objectContaining({ idUnidad: 12 }),
+        order: { idResidencia: 'ASC' },
+      });
+      expect(manager.update).toHaveBeenCalledWith(
+        Residencia,
+        { idUnidad: 12, titular: 1, idResidencia: Not(30) },
+        { titular: null },
+      );
+      expect(manager.update).toHaveBeenCalledWith(
+        Residencia,
+        { idResidencia: 30, idUnidad: 12 },
+        { titular: 1 },
+      );
+    });
+
+    it('debe dejar la vivienda como está cuando ningún residente tiene acceso', async () => {
+      configurar({ residencias: [residencia(20, 5, 1)], conAcceso: [] });
+
+      const resultado = await target.asegurarTitular(comoManager(), 3, 12);
+
+      expect(resultado).toBeNull();
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
+    it('no debe consultar membresías cuando la vivienda no tiene residentes', async () => {
+      configurar();
+
+      const resultado = await target.asegurarTitular(comoManager(), 3, 12);
+
+      expect(resultado).toBeNull();
+      expect(manager.find).toHaveBeenCalledTimes(1);
+    });
+
+    it('debe rechazar marcar una residencia que no es de la vivienda', async () => {
+      manager.update
+        .mockResolvedValueOnce({ affected: 1 })
+        .mockResolvedValueOnce({ affected: 0 });
+
+      await expect(target.marcarTitular(comoManager(), 12, 99)).rejects.toThrow(
+        new NotFoundException('La residencia no es de esta vivienda'),
+      );
     });
   });
 

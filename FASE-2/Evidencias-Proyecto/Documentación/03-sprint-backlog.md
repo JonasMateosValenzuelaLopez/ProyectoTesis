@@ -62,11 +62,12 @@ Los Sprints 0 a 2 se reconstruyeron desde el historial de git, la Guía 2.4 y lo
 
 ## Sprint 5: Accesos y cierre (9 al 11 nov.)
 **Objetivo:** completar accesos y dejar el sistema listo para la entrega.
-**Historias:** HU-23 a HU-27.
+**Historias:** HU-21 a HU-27.
 
 | Tarea | Responsable | Estado |
 |---|---|---|
 | Implementar espacios comunes y reservas, con entrega y recepción en conserjería | Camila | Terminada |
+| Implementar votaciones, encuestas y actas, con titular por vivienda | Camila | Terminada |
 | Implementar invitaciones QR y conserjería | Camila | Pendiente |
 | Conectar las vistas correspondientes | Jonas | Pendiente |
 | Ajustar Docker y levantar el sistema | Equipo | Pendiente |

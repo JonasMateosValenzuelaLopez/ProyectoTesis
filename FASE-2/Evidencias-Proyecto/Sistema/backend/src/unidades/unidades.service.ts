@@ -15,9 +15,14 @@ import {
   RedVecinal,
   TipoRedVecinal,
 } from '../redes-vecinales/entities/red-vecinal.entity';
+import { CuentasService } from '../usuarios/cuentas.service';
 import { Membresia } from '../usuarios/entities/membresia.entity';
 import { Residencia } from '../usuarios/entities/residencia.entity';
-import { CrearLoteUnidadesDto, EditarUnidadDto } from './dto/unidades.dto';
+import {
+  CambiarTitularDto,
+  CrearLoteUnidadesDto,
+  EditarUnidadDto,
+} from './dto/unidades.dto';
 import { Unidad } from './entities/unidad.entity';
 import { errorLote, generarLote } from './lote-unidades';
 
@@ -37,6 +42,7 @@ export class UnidadesService {
     private readonly membresiasRepository: Repository<Membresia>,
     private readonly dataSource: DataSource,
     private readonly bitacoraService: BitacoraService,
+    private readonly cuentasService: CuentasService,
   ) {}
 
   async listar(red: ContextoRed) {
@@ -71,6 +77,7 @@ export class UnidadesService {
         idUsuario: residencia.idUsuario,
         nombre: nombreCompleto(residencia.usuario),
         tipoResidencia: residencia.tipo,
+        titular: residencia.titular === 1,
       })),
     }));
   }
@@ -230,6 +237,69 @@ export class UnidadesService {
       where: { idUnidad, idRed: red.idRed },
     });
     return this.serializar(unidad);
+  }
+
+  async cambiarTitular(
+    red: ContextoRed,
+    idActor: number,
+    idUnidad: number,
+    dto: CambiarTitularDto,
+  ) {
+    const cambiado = await this.dataSource.transaction(async (manager) => {
+      const unidad = await manager.findOne(Unidad, {
+        where: { idUnidad, idRed: red.idRed },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!unidad) {
+        throw new NotFoundException('Unidad no encontrada');
+      }
+      const residencia = await manager.findOne(Residencia, {
+        where: { idUnidad, idUsuario: dto.idUsuario, ...condicionVigente() },
+      });
+      if (!residencia) {
+        throw new BadRequestException(
+          'Esta persona no es residente vigente de la vivienda',
+        );
+      }
+      const conAcceso = await this.cuentasService.conAcceso(
+        manager,
+        red.idRed,
+        [dto.idUsuario],
+      );
+      if (!conAcceso.has(dto.idUsuario)) {
+        throw new ConflictException(
+          'Esta persona tiene la cuenta desactivada; reactívala antes de dejarla como titular',
+        );
+      }
+      if (residencia.titular === 1) {
+        return false;
+      }
+      await this.cuentasService.marcarTitular(
+        manager,
+        idUnidad,
+        residencia.idResidencia,
+      );
+      await this.bitacoraService.registrar(
+        {
+          ambito: AmbitoBitacora.COMUNIDAD,
+          idRed: red.idRed,
+          idUsuario: idActor,
+          accion: 'cambiar_titular',
+          entidad: 'unidades',
+          idEntidad: idUnidad,
+          detalle: {
+            numeroIdentificador: unidad.numeroIdentificador,
+            idUsuario: dto.idUsuario,
+          },
+        },
+        manager,
+      );
+      return true;
+    });
+    if (cambiado) {
+      await this.bitacoraService.marcarActividad(red.idRed);
+    }
+    return { idUnidad, idUsuarioTitular: dto.idUsuario };
   }
 
   private serializar(unidad: Unidad) {

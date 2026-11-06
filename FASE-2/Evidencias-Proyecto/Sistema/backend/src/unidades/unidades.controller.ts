@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
@@ -19,7 +20,11 @@ import type {
   UsuarioAutenticado,
 } from '../common/interfaces/jwt-payload.interface';
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
-import { CrearLoteUnidadesDto, EditarUnidadDto } from './dto/unidades.dto';
+import {
+  CambiarTitularDto,
+  CrearLoteUnidadesDto,
+  EditarUnidadDto,
+} from './dto/unidades.dto';
 import { UnidadesService } from './unidades.service';
 
 export const LECTORES_UNIDADES = [
@@ -64,5 +69,22 @@ export class UnidadesController {
     @Body() dto: EditarUnidadDto,
   ) {
     return this.unidadesService.editar(red, usuario.idUsuario, idUnidad, dto);
+  }
+
+  @Put(':idUnidad/titular')
+  @Roles(RolUsuario.ADMINISTRADOR)
+  @Throttle(LIMITE_ESCRITURA)
+  cambiarTitular(
+    @Param('idUnidad', ParseIdPipe) idUnidad: number,
+    @RedActual() red: ContextoRed,
+    @UsuarioActual() usuario: UsuarioAutenticado,
+    @Body() dto: CambiarTitularDto,
+  ) {
+    return this.unidadesService.cambiarTitular(
+      red,
+      usuario.idUsuario,
+      idUnidad,
+      dto,
+    );
   }
 }

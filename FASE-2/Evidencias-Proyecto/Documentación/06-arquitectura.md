@@ -31,7 +31,8 @@ EntreCasas usa una arquitectura en capas, con un backend modular único que expo
 | `common` | Guards, filtro de errores, pipes, validadores y utilidades | Implementado |
 | `reservas` | Espacios comunes con sus horarios, reservas, cancelaciones y entrega y recepción en conserjería | Implementado |
 | `redes-vecinales` | Datos de la comunidad: cuenta de transferencia y umbral de visado | Plantilla por implementar |
-| Marketplace, votaciones y actas, invitaciones QR | App móvil y directiva | Por implementar |
+| `votaciones` | Votaciones y encuestas con un voto por vivienda, y libro de actas | Implementado |
+| Marketplace, invitaciones QR | App móvil y conserjería | Por implementar |
 
 ## Decisiones
 - **Multi-comunidad:** cada petición indica su comunidad con el header `X-Red-Id`. El JWT solo lleva el usuario, y los cargos se consultan en cada petición para que los cambios apliquen al instante.

@@ -6,6 +6,7 @@ export enum TipoNotificacion {
   RECORDATORIO_MOROSIDAD = 'Recordatorio de morosidad',
   RECORDATORIO_VOTACION = 'Recordatorio de votación',
   NUEVO_COMUNICADO = 'Nuevo comunicado',
+  NUEVA_VOTACION = 'Nueva votación',
 }
 
 @Entity('notificaciones_enviadas')

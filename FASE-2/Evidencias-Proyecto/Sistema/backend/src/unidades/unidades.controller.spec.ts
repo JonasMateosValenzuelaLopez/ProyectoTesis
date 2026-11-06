@@ -32,7 +32,7 @@ describe('UnidadesController', () => {
     expect(roles).not.toContain(RolUsuario.RESIDENTE);
   });
 
-  it.each([['crearLote'], ['editar']] as const)(
+  it.each([['crearLote'], ['editar'], ['cambiarTitular']] as const)(
     'debe dejar %s solo al Administrador y limitarlo a 30 por minuto',
     (nombre) => {
       expect(reflector.get(ROLES_KEY, metodo(nombre))).toEqual([

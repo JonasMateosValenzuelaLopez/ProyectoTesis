@@ -22,6 +22,7 @@ import { RolesModule } from './roles/roles.module';
 import { SolicitudesAccesoModule } from './solicitudes-acceso/solicitudes-acceso.module';
 import { UnidadesModule } from './unidades/unidades.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
+import { VotacionesModule } from './votaciones/votaciones.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     SolicitudesAccesoModule,
     UnidadesModule,
     UsuariosModule,
+    VotacionesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

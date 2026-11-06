@@ -46,6 +46,7 @@ describe('ResidentesService', () => {
     asignarResidencia: jest.Mock;
     tienePassword: jest.Mock;
     conPassword: jest.Mock;
+    asegurarTitular: jest.Mock;
   };
   let mockAuthService: {
     emitirTokenPassword: jest.Mock;
@@ -55,6 +56,7 @@ describe('ResidentesService', () => {
   let mockBitacoraService: { registrar: jest.Mock; marcarActividad: jest.Mock };
   let membresiasDeLaPersona: Membresia[];
   let titulares: Membresia[];
+  let residenciasDeLaPersona: Residencia[];
 
   const red: ContextoRed = {
     idRed: 3,
@@ -96,6 +98,7 @@ describe('ResidentesService', () => {
     jest.useFakeTimers({ now: AHORA });
     membresiasDeLaPersona = [membresia(7, RolUsuario.RESIDENTE)];
     titulares = [];
+    residenciasDeLaPersona = [];
     mockMembresiasRepository = {
       find: jest.fn(() => Promise.resolve(membresiasDeLaPersona)),
     };
@@ -108,9 +111,13 @@ describe('ResidentesService', () => {
       findOneByOrFail: jest
         .fn()
         .mockResolvedValue({ idRed: 3, nombre: 'Robles' }),
-      find: jest.fn((_entidad: unknown, opciones: { where: object }) =>
+      find: jest.fn((entidad: unknown, opciones: { where: object }) =>
         Promise.resolve(
-          'idRol' in opciones.where ? titulares : membresiasDeLaPersona,
+          entidad === Residencia
+            ? residenciasDeLaPersona
+            : 'idRol' in opciones.where
+              ? titulares
+              : membresiasDeLaPersona,
         ),
       ),
       update: jest.fn().mockResolvedValue({ affected: 1 }),
@@ -130,6 +137,7 @@ describe('ResidentesService', () => {
       asignarResidencia: jest.fn().mockResolvedValue(undefined),
       tienePassword: jest.fn().mockResolvedValue(false),
       conPassword: jest.fn().mockResolvedValue(new Set<number>()),
+      asegurarTitular: jest.fn().mockResolvedValue(null),
     };
     mockAuthService = {
       emitirTokenPassword: jest.fn().mockResolvedValue('token-1'),
@@ -577,11 +585,58 @@ describe('ResidentesService', () => {
       expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
         expect.objectContaining({
           accion: 'desactivar_persona',
-          detalle: { idUsuario: 7, cargos: ['Secretario'] },
+          detalle: {
+            idUsuario: 7,
+            cargos: ['Secretario'],
+            nuevosTitulares: [],
+          },
         }),
         mockManager,
       );
       expect(mockBitacoraService.marcarActividad).toHaveBeenCalledWith(3);
+    });
+
+    it('debe traspasar la titularidad de sus viviendas a otro residente con acceso', async () => {
+      residenciasDeLaPersona = [
+        { idUnidad: 12 } as Residencia,
+        { idUnidad: 14 } as Residencia,
+      ];
+      mockCuentasService.asegurarTitular
+        .mockResolvedValueOnce(8)
+        .mockResolvedValueOnce(null);
+
+      await target.desactivar(red, 1, 7);
+
+      expect(mockManager.find).toHaveBeenCalledWith(Residencia, {
+        select: { idUnidad: true },
+        where: expect.objectContaining({ idUsuario: 7, unidad: { idRed: 3 } }),
+      });
+      expect(mockCuentasService.asegurarTitular).toHaveBeenNthCalledWith(
+        1,
+        mockManager,
+        3,
+        12,
+      );
+      expect(mockCuentasService.asegurarTitular).toHaveBeenNthCalledWith(
+        2,
+        mockManager,
+        3,
+        14,
+      );
+      expect(mockManager.update.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCuentasService.asegurarTitular.mock.invocationCallOrder[0],
+      );
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'desactivar_persona',
+          detalle: {
+            idUsuario: 7,
+            cargos: [],
+            nuevosTitulares: [{ idUnidad: 12, idUsuario: 8 }],
+          },
+        }),
+        mockManager,
+      );
     });
 
     it('no debe dejar que alguien se desactive a sí mismo', async () => {
@@ -619,7 +674,38 @@ describe('ResidentesService', () => {
         RolUsuario.RESIDENTE,
       );
       expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
-        expect.objectContaining({ accion: 'reactivar_persona' }),
+        expect.objectContaining({
+          accion: 'reactivar_persona',
+          detalle: { idUsuario: 7, nuevosTitulares: [] },
+        }),
+        mockManager,
+      );
+    });
+
+    it('debe dejarla de titular en las viviendas que quedaron sin titular con acceso', async () => {
+      residenciasDeLaPersona = [{ idUnidad: 12 } as Residencia];
+      mockCuentasService.asegurarTitular.mockResolvedValue(7);
+
+      await target.reactivar(red, 1, 7);
+
+      expect(
+        mockCuentasService.asignarMembresia.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        mockCuentasService.asegurarTitular.mock.invocationCallOrder[0],
+      );
+      expect(mockCuentasService.asegurarTitular).toHaveBeenCalledWith(
+        mockManager,
+        3,
+        12,
+      );
+      expect(mockBitacoraService.registrar).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accion: 'reactivar_persona',
+          detalle: {
+            idUsuario: 7,
+            nuevosTitulares: [{ idUnidad: 12, idUsuario: 7 }],
+          },
+        }),
         mockManager,
       );
     });

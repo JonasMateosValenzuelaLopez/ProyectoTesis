@@ -1,7 +1,12 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { EntityManager, In, IsNull, Not } from 'typeorm';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { condicionVigente, fechaHoy } from '../common/utils/vigencia';
+import { Unidad } from '../unidades/entities/unidad.entity';
 import { Membresia } from './entities/membresia.entity';
 import { Residencia, TipoResidencia } from './entities/residencia.entity';
 import { Usuario } from './entities/usuario.entity';
@@ -114,6 +119,13 @@ export class CuentasService {
     idUnidad: number,
     tipo: TipoResidencia,
   ) {
+    const unidad = await manager.findOne(Unidad, {
+      where: { idUnidad },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!unidad) {
+      throw new NotFoundException('Unidad no encontrada');
+    }
     const vigente = await manager.findOne(Residencia, {
       where: { idUsuario, idUnidad, ...condicionVigente() },
     });
@@ -125,15 +137,85 @@ export class CuentasService {
           { tipo },
         );
       }
-      return;
+    } else {
+      await manager.insert(Residencia, {
+        idUsuario,
+        idUnidad,
+        tipo,
+        desde: fechaHoy(),
+        hasta: null,
+      });
     }
-    await manager.insert(Residencia, {
-      idUsuario,
-      idUnidad,
-      tipo,
-      desde: fechaHoy(),
-      hasta: null,
+    await this.asegurarTitular(manager, unidad.idRed, idUnidad);
+  }
+
+  async asegurarTitular(
+    manager: EntityManager,
+    idRed: number,
+    idUnidad: number,
+  ): Promise<number | null> {
+    const residencias = await manager.find(Residencia, {
+      select: { idResidencia: true, idUsuario: true, titular: true },
+      where: { idUnidad, ...condicionVigente() },
+      order: { idResidencia: 'ASC' },
     });
+    const conAcceso = await this.conAcceso(
+      manager,
+      idRed,
+      residencias.map((residencia) => residencia.idUsuario),
+    );
+    const habilitadas = residencias.filter((residencia) =>
+      conAcceso.has(residencia.idUsuario),
+    );
+    if (
+      habilitadas.length === 0 ||
+      habilitadas.some((residencia) => residencia.titular === 1)
+    ) {
+      return null;
+    }
+    const [nueva] = habilitadas;
+    await this.marcarTitular(manager, idUnidad, nueva.idResidencia);
+    return nueva.idUsuario;
+  }
+
+  async marcarTitular(
+    manager: EntityManager,
+    idUnidad: number,
+    idResidencia: number,
+  ) {
+    await manager.update(
+      Residencia,
+      { idUnidad, titular: 1, idResidencia: Not(idResidencia) },
+      { titular: null },
+    );
+    const { affected } = await manager.update(
+      Residencia,
+      { idResidencia, idUnidad },
+      { titular: 1 },
+    );
+    if (affected !== 1) {
+      throw new NotFoundException('La residencia no es de esta vivienda');
+    }
+  }
+
+  async conAcceso(
+    manager: EntityManager,
+    idRed: number,
+    ids: number[],
+  ): Promise<Set<number>> {
+    if (ids.length === 0) {
+      return new Set<number>();
+    }
+    const membresias = await manager.find(Membresia, {
+      select: { idUsuario: true },
+      where: {
+        idRed,
+        idUsuario: In(ids),
+        activo: true,
+        ...condicionVigente(),
+      },
+    });
+    return new Set(membresias.map((membresia) => membresia.idUsuario));
   }
 
   tienePassword(manager: EntityManager, idUsuario: number) {
