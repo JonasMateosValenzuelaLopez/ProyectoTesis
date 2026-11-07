@@ -1,6 +1,6 @@
-import { Redirect } from 'expo-router';
+import EnConexion from '@/components/ec/EnConexion';
 
-// El historial de pagos ahora vive en la pestaña Finanzas; este enlace antiguo lleva allá.
+// Se conecta con la API en la fase 4. La versión anterior, con datos de prueba, está en el commit d22b2ee.
 export default function Pagos() {
-  return <Redirect href="/finanzas" />;
+  return <EnConexion titulo="Pagos" fase={4} hoja />;
 }

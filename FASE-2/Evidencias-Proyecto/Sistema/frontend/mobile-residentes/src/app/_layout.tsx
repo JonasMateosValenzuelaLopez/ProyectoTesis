@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts, Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold,
 } from '@expo-google-fonts/archivo';
-import { AppProvider } from '@/context/App';
+import { SesionProvider } from '@/context/Sesion';
 import { TemaProvider } from '@/context/Tema';
 import { useTema } from '@/constants/tema';
 import Aviso from '@/components/ec/Aviso';
@@ -41,7 +41,7 @@ function Raiz() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={tema}>
-        <AppProvider>
+        <SesionProvider>
           <View style={{ flex: 1, backgroundColor: t.paper }}>
             <StatusBar style={t.oscuro ? 'light' : 'dark'} />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.paper } }}>
@@ -59,7 +59,7 @@ function Raiz() {
             </Stack>
             <Aviso />
           </View>
-        </AppProvider>
+        </SesionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

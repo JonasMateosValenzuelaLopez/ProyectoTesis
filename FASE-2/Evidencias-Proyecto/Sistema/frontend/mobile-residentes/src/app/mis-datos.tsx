@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
-import { useApp } from '@/context/App';
+import { useSesion } from '@/context/Sesion';
+import * as auth from '@/api/auth';
+import { ErrorApi, mensajeDe } from '@/api/cliente';
 import { normalizarTelefono, telefono } from '@/utils/formato';
 import Hoja from '@/components/ec/Hoja';
 import Texto from '@/components/ec/Texto';
@@ -9,42 +11,66 @@ import Campo from '@/components/ec/Campo';
 import Boton from '@/components/ec/Boton';
 
 const correoValido = (c: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c);
+// Mensaje del campo si la API lo marcó; si no, el mensaje general
+const errorDe = (e: unknown, campo: string) => (e instanceof ErrorApi && e.campos?.[campo]) || mensajeDe(e);
 
-// Teléfono y correo de la cuenta (`usuarios.telefono` y `usuarios.correo`), como la API:
+// Teléfono y correo de la cuenta, como la API (auth/perfil/telefono y auth/perfil/correo):
 // el teléfono se cambia o se quita al guardar; el correo nuevo se confirma con un código de 6 dígitos
 // que llega a ese correo, y mientras tanto la cuenta sigue con el anterior.
 // El nombre y el RUT no se cambian aquí: los corrige la administración.
 export default function MisDatos() {
-  const { cuenta, cambioCorreo, acciones } = useApp();
-  const [tel, setTel] = useState(telefono(cuenta?.telefono));
+  const { perfil, acciones } = useSesion();
+  const [tel, setTel] = useState(telefono(perfil?.telefono));
+  const [errorTel, setErrorTel] = useState<string | null>(null);
   const [correo, setCorreo] = useState('');
+  const [pedido, setPedido] = useState<{ correo: string; mensaje: string } | null>(null);
   const [codigo, setCodigo] = useState('');
-  // Código de prueba: con la API llega por correo; aquí se muestra para poder probar
-  const [codigoPrueba, setCodigoPrueba] = useState<string | null>(null);
-  const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
-  const [intento, setIntento] = useState(false);
-  if (!cuenta) return null;
+  const [errorCorreo, setErrorCorreo] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState<'telefono' | 'correo' | null>(null);
+  if (!perfil) return null;
 
   const nuevoTelefono = tel.trim() ? normalizarTelefono(tel) : null;
-  const errorTelefono = !!tel.trim() && !nuevoTelefono && 'Escribe un celular de 9 dígitos, por ejemplo 9 6123 4501';
-  const telefonoSinCambios = nuevoTelefono === cuenta.telefono;
+  const telInvalido = !!tel.trim() && !nuevoTelefono;
   const c = correo.trim().toLowerCase();
-  const errorCorreo = !correoValido(c) ? 'Revisa el correo' : c.length > 100 ? 'El correo no puede superar 100 caracteres' : false;
 
-  const guardarTelefono = () => {
-    setIntento(true);
-    if (errorTelefono) return;
-    acciones.actualizarTelefono(nuevoTelefono);
+  const guardarTelefono = async () => {
+    if (telInvalido) { setErrorTel('Escribe un celular de 9 dígitos, por ejemplo 9 6123 4501'); return; }
+    setEnviando('telefono');
+    try {
+      acciones.actualizarPerfil(await auth.actualizarTelefono(nuevoTelefono));
+      setErrorTel(null);
+      acciones.avisar(nuevoTelefono ? 'Tu teléfono quedó actualizado.' : 'Quitaste tu teléfono.');
+    } catch (e) {
+      setErrorTel(errorDe(e, 'telefono'));
+    } finally {
+      setEnviando(null);
+    }
   };
-  const pedirCodigo = () => {
-    if (errorCorreo) { setIntento(true); return; }
-    const r = acciones.pedirCambioCorreo(c);
-    if (r.ok) { setCodigoPrueba(r.codigo); setCodigo(''); setErrorCodigo(null); }
+  const pedirCodigo = async () => {
+    if (!correoValido(c)) { setErrorCorreo('Revisa el correo'); return; }
+    setEnviando('correo');
+    try {
+      const r = await auth.pedirCambioCorreo(c);
+      setPedido({ correo: c, mensaje: r.mensaje });
+      setCodigo('');
+      setErrorCorreo(null);
+    } catch (e) {
+      setErrorCorreo(errorDe(e, 'correo'));
+    } finally {
+      setEnviando(null);
+    }
   };
-  const confirmar = () => {
-    const error = acciones.confirmarCambioCorreo(codigo.replace(/\s/g, ''));
-    setErrorCodigo(error);
-    if (!error) { setCorreo(''); setCodigoPrueba(null); router.back(); }
+  const confirmar = async () => {
+    setEnviando('correo');
+    try {
+      acciones.actualizarPerfil(await auth.confirmarCambioCorreo(codigo));
+      acciones.avisar('Tu correo quedó actualizado. Le avisamos también a tu correo anterior.');
+      router.back();
+    } catch (e) {
+      setErrorCorreo(errorDe(e, 'codigo'));
+    } finally {
+      setEnviando(null);
+    }
   };
 
   return (
@@ -54,35 +80,32 @@ export default function MisDatos() {
       <Tarjeta>
         <Texto v="etiqueta">Teléfono</Texto>
         <Campo
-          etiqueta="Teléfono celular (opcional)" value={tel} onChangeText={setTel} keyboardType="phone-pad" autoComplete="tel" placeholder="+56 9 6123 4501"
-          error={intento && errorTelefono} ayuda="Si lo dejas vacío, la conserjería no podrá llamarte y no podrás publicar en el mercado."
+          etiqueta="Teléfono celular (opcional)" value={tel} onChangeText={(v) => { setTel(v); setErrorTel(null); }} keyboardType="phone-pad" autoComplete="tel" placeholder="+56 9 6123 4501"
+          error={errorTel ?? false} ayuda="Si lo dejas vacío, la conserjería no podrá llamarte y no podrás publicar en el mercado."
         />
-        <Boton tipo="secundario" texto={tel.trim() ? 'Guardar teléfono' : 'Quitar teléfono'} disabled={telefonoSinCambios} onPress={guardarTelefono} />
+        <Boton tipo="secundario" texto={tel.trim() ? 'Guardar teléfono' : 'Quitar teléfono'} cargando={enviando === 'telefono'} disabled={nuevoTelefono === perfil.telefono} onPress={guardarTelefono} />
       </Tarjeta>
 
       <Tarjeta>
         <Texto v="etiqueta">Correo</Texto>
-        <Texto>Tu correo es <Texto v="fuerte">{cuenta.correo}</Texto>.</Texto>
-        {!cambioCorreo ? (
+        <Texto>Tu correo es <Texto v="fuerte">{perfil.correo}</Texto>.</Texto>
+        {!pedido ? (
           <>
             <Campo
-              etiqueta="Correo nuevo" value={correo} onChangeText={setCorreo} keyboardType="email-address" autoCapitalize="none" autoComplete="email"
-              maxLength={100} error={intento && !!correo && errorCorreo}
+              etiqueta="Correo nuevo" value={correo} onChangeText={(v) => { setCorreo(v); setErrorCorreo(null); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email"
+              maxLength={100} error={errorCorreo ?? false}
             />
-            <Boton tipo="secundario" texto="Enviarme un código" disabled={!correo.trim()} onPress={pedirCodigo} />
+            <Boton tipo="secundario" texto="Enviarme un código" cargando={enviando === 'correo'} disabled={!correo.trim()} onPress={pedirCodigo} />
           </>
         ) : (
           <>
-            <Texto v="suave">Si {cambioCorreo.correo} está disponible, te enviamos un código de 6 dígitos. Vence en 10 minutos. Mientras no lo escribas, tu cuenta sigue con el correo actual.</Texto>
-            {codigoPrueba
-              ? <Texto v="chico">Código de prueba (con la API llega al correo): {codigoPrueba}</Texto>
-              : <Texto v="chico">Prueba: ese correo ya lo usa otra cuenta, así que no se envió ningún código.</Texto>}
+            <Texto v="suave">{pedido.mensaje} Mientras no lo escribas, tu cuenta sigue con el correo actual.</Texto>
             <Campo
-              etiqueta="Código" value={codigo} onChangeText={(v) => { setCodigo(v.replace(/\D/g, '')); setErrorCodigo(null); }}
-              keyboardType="number-pad" maxLength={6} autoComplete="one-time-code" textContentType="oneTimeCode" error={errorCodigo ?? false}
+              etiqueta="Código" value={codigo} onChangeText={(v) => { setCodigo(v.replace(/\D/g, '')); setErrorCorreo(null); }}
+              keyboardType="number-pad" maxLength={6} autoComplete="one-time-code" textContentType="oneTimeCode" error={errorCorreo ?? false}
             />
-            <Boton texto="Confirmar correo" disabled={codigo.length !== 6} onPress={confirmar} />
-            <Boton tipo="texto" texto="Usar otro correo" onPress={() => { setCodigoPrueba(null); setCodigo(''); setErrorCodigo(null); acciones.descartarCambioCorreo(); }} />
+            <Boton texto="Confirmar correo" cargando={enviando === 'correo'} disabled={codigo.length !== 6} onPress={confirmar} />
+            <Boton tipo="texto" texto="Usar otro correo" onPress={() => { setPedido(null); setCodigo(''); setErrorCorreo(null); }} />
           </>
         )}
       </Tarjeta>

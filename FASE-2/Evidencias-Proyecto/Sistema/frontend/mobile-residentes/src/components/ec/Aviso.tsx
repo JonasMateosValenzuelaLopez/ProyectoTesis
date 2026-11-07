@@ -1,7 +1,7 @@
 import Animated, { Easing, FadeIn, FadeOut, SlideInDown, SlideOutDown, useReducedMotion } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '@/context/App';
+import { useSesion } from '@/context/Sesion';
 import { useTema } from '@/constants/tema';
 import { motion } from '@/constants/tokens';
 import Texto from './Texto';
@@ -12,7 +12,7 @@ const [x1, y1, x2, y2] = motion.ease.out;
 const curva = Easing.bezier(x1, y1, x2, y2);
 
 export default function Aviso() {
-  const { aviso } = useApp();
+  const { aviso } = useSesion();
   const t = useTema();
   const insets = useSafeAreaInsets();
   const reducido = useReducedMotion();

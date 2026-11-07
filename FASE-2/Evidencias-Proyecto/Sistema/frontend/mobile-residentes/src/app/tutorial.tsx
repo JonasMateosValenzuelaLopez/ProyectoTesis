@@ -4,9 +4,8 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
-import { useApp } from '@/context/App';
+import { useSesion } from '@/context/Sesion';
 import { F, useTema } from '@/constants/tema';
-import { espaciosActivos, tipoUnidad } from '@/data/demo';
 import Texto from '@/components/ec/Texto';
 import Boton from '@/components/ec/Boton';
 import PlacaUnidad from '@/components/ec/PlacaUnidad';
@@ -20,19 +19,17 @@ type Paso = { clave: ClaveEscena; icono: Icono; pestana?: string; titulo: string
 export default function Tutorial() {
   const t = useTema();
   const insets = useSafeAreaInsets();
-  const { cuenta, unidad, comunidad, tiene, guiaPendiente, tutorialPendiente, acciones } = useApp();
+  const { perfil, unidad, comunidad, tiene, tutorialPendiente, acciones } = useSesion();
   // Si se abrió solo al entrar, después sigue la guía de bienvenida
   const [primeraVez] = useState(tutorialPendiente);
   const [n, setN] = useState(0);
-  if (!cuenta || !unidad || !comunidad) return null;
+  if (!perfil || !unidad || !comunidad) return null;
 
-  const casa = tipoUnidad(unidad) === 'Departamento' ? 'tu departamento' : 'tu casa';
-  const conReservas = tiene('reservas') && espaciosActivos(comunidad).length > 0;
-  const espacio = espaciosActivos(comunidad)[0];
-  const hora = (h: string) => h.slice(0, 5);
+  const casa = unidad.tipoUnidad === 'Departamento' ? 'tu departamento' : 'tu casa';
+  // Los espacios y sus horarios llegan al conectar Reservas (fase 5); la escena usa un ejemplo genérico
+  const conReservas = tiene('reservas');
   const opciones = {
     cobros: tiene('cobros'), votaciones: tiene('votaciones'), muro: tiene('muro'), conserjeria: tiene('conserjeria'),
-    espacio: espacio?.nombre, bloques: espacio?.espacios_bloques.map((b) => `${hora(b.hora_inicio)}–${hora(b.hora_fin)}`),
   };
   // Poco texto por paso: la escena muestra cómo se usa y los puntos dicen lo que no se ve en ella
   const pasos: Paso[] = [
@@ -56,7 +53,7 @@ export default function Tutorial() {
       ].filter(Boolean) as string[],
     }] : []),
     ...(conReservas ? [{
-      clave: 'reservas' as ClaveEscena, icono: 'calendar' as Icono, pestana: 'Reservas', titulo: espaciosActivos(comunidad).length > 1 ? 'Reservar sin cuaderno' : `Reservar el ${espacio!.nombre.toLowerCase()}`, texto: 'Eliges el día y un horario libre. Listo.',
+      clave: 'reservas' as ClaveEscena, icono: 'calendar' as Icono, pestana: 'Reservas', titulo: 'Reservar sin cuaderno', texto: 'Eliges el día y un horario libre. Listo.',
       puntos: ['Si cambias de planes, cancélala para que otro la use.'],
     }] : []),
     ...(tiene('marketplace') ? [{
@@ -78,7 +75,7 @@ export default function Tutorial() {
   const ultimo = n === total - 1;
   const terminar = () => {
     if (router.canGoBack()) router.back(); else router.replace('/(tabs)');
-    acciones.marcarTutorialVisto(); // al quedar visto, Inicio abre la guía de bienvenida si falta
+    acciones.marcarTutorialVisto(); // POST auth/tutorial-visto (lado app)
   };
   const tinta = portada ? t.sidebarStrong : t.ink;
 
@@ -100,9 +97,9 @@ export default function Tutorial() {
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20, gap: 18, justifyContent: portada ? 'center' : 'flex-start' }}>
         {portada ? (
           <>
-            <PlacaUnidad tipo={tipoUnidad(unidad)} numero={unidad.numero_identificador} size="lg" />
+            <PlacaUnidad tipo={unidad.tipoUnidad} numero={unidad.numeroIdentificador} size="lg" />
             <View style={{ gap: 6 }}>
-              <Texto v="fuerte" color={tinta}>{primeraVez ? `Hola, ${cuenta.nombre}` : 'Tutorial'}</Texto>
+              <Texto v="fuerte" color={tinta}>{primeraVez ? `Hola, ${perfil.nombre}` : 'Tutorial'}</Texto>
               <Texto v="titulo" accessibilityRole="header" color={tinta} style={{ fontSize: 34, lineHeight: 38 }}>Así funciona EntreCasas</Texto>
               <Texto color={t.sidebarInk}>
                 La app de {comunidad.nombre}. Abajo están las pestañas; la placa de arriba en Inicio dice con qué vivienda estás.
@@ -144,7 +141,7 @@ export default function Tutorial() {
         {n > 0 && <Boton tipo="secundario" texto="Atrás" style={{ flex: 1 }} onPress={() => setN(n - 1)} />}
         <Boton
           tipo={portada ? 'portada' : 'principal'} style={{ flex: ultimo ? 2 : 1 }}
-          texto={portada ? 'Empezar' : !ultimo ? 'Siguiente' : primeraVez && guiaPendiente ? 'Ver mi comunidad' : 'Listo'}
+          texto={portada ? 'Empezar' : !ultimo ? 'Siguiente' : 'Listo'}
           onPress={() => (ultimo ? terminar() : setN(n + 1))}
         />
       </View>
