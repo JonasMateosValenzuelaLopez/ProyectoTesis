@@ -14,6 +14,31 @@ USE `entrecasas_db`;
 /*M!100616 SET @OLD_NOTE_VERBOSITY=@@NOTE_VERBOSITY, NOTE_VERBOSITY=0 */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE IF NOT EXISTS `accesos_retenciones` (
+  `id_retencion` int(11) NOT NULL AUTO_INCREMENT,
+  `id_red` int(11) NOT NULL,
+  `desde` datetime NOT NULL,
+  `hasta` datetime NOT NULL,
+  `motivo` varchar(300) NOT NULL,
+  `creada_por` int(11) DEFAULT NULL,
+  `liberada_en` datetime DEFAULT NULL,
+  `liberada_por` int(11) DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_retencion`),
+  KEY `idx_retencion_red` (`id_red`,`liberada_en`),
+  KEY `creada_por` (`creada_por`),
+  KEY `liberada_por` (`liberada_por`),
+  CONSTRAINT `fk_retencion_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `fk_retencion_creada_por` FOREIGN KEY (`creada_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
+  CONSTRAINT `fk_retencion_liberada_por` FOREIGN KEY (`liberada_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
+  CONSTRAINT `chk_retencion_rango` CHECK (`hasta` > `desde`),
+  CONSTRAINT `chk_retencion_motivo` CHECK (char_length(trim(`motivo`)) >= 10)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE IF NOT EXISTS `actas` (
   `id_acta` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
@@ -40,6 +65,28 @@ CREATE TABLE IF NOT EXISTS `actas` (
   CONSTRAINT `fk_acta_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `chk_acta_publicada` CHECK (`publicada` = 1 and `publicada_en` is not null or `publicada` = 0 and `publicada_en` is null),
   CONSTRAINT `chk_acta_unidades` CHECK (`unidades_presentes` is null or `unidades_presentes` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE IF NOT EXISTS `auth_cambios_correo` (
+  `id_cambio` int(11) NOT NULL AUTO_INCREMENT,
+  `id_usuario` int(11) NOT NULL,
+  `correo_nuevo` varchar(100) DEFAULT NULL,
+  `codigo_hash` char(64) NOT NULL,
+  `expira` datetime NOT NULL,
+  `intentos` tinyint(3) unsigned NOT NULL DEFAULT 0,
+  `usado` tinyint(1) NOT NULL DEFAULT 0,
+  `confirmado_en` datetime DEFAULT NULL,
+  `fecha_creacion` datetime NOT NULL DEFAULT current_timestamp(),
+  `fecha_actualizacion` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `fecha_eliminacion` datetime DEFAULT NULL,
+  PRIMARY KEY (`id_cambio`),
+  KEY `idx_cambio_correo_usuario` (`id_usuario`,`usado`),
+  CONSTRAINT `fk_cambio_correo_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `chk_cambio_correo_pendiente` CHECK (`usado` = 1 or `correo_nuevo` is not null),
+  CONSTRAINT `chk_cambio_correo_confirmado` CHECK (`confirmado_en` is null or `usado` = 1),
+  CONSTRAINT `chk_cambio_correo_intentos` CHECK (`intentos` <= 5)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
@@ -602,7 +649,7 @@ CREATE TABLE IF NOT EXISTS `redes_vecinales` (
 CREATE TABLE IF NOT EXISTS `registro_accesos` (
   `id_acceso` int(11) NOT NULL AUTO_INCREMENT,
   `id_red` int(11) NOT NULL,
-  `id_visitante` int(11) NOT NULL,
+  `id_visitante` int(11) DEFAULT NULL,
   `id_unidad` int(11) NOT NULL,
   `id_invitacion` int(11) DEFAULT NULL,
   `categoria` enum('Visita','Delivery','Proveedor','Servicio') NOT NULL DEFAULT 'Visita',
@@ -622,6 +669,7 @@ CREATE TABLE IF NOT EXISTS `registro_accesos` (
   KEY `id_visitante` (`id_visitante`),
   KEY `id_unidad` (`id_unidad`),
   KEY `idx_acceso_red_ingreso` (`id_red`,`fecha_ingreso`),
+  KEY `idx_acceso_creacion` (`fecha_creacion`),
   KEY `validado_por` (`validado_por`),
   KEY `idx_acceso_patente` (`patente`),
   KEY `autorizado_por` (`autorizado_por`),
@@ -630,7 +678,7 @@ CREATE TABLE IF NOT EXISTS `registro_accesos` (
   CONSTRAINT `fk_acceso_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `fk_acceso_unidad` FOREIGN KEY (`id_unidad`) REFERENCES `unidades` (`id_unidad`) ON DELETE CASCADE,
   CONSTRAINT `fk_acceso_validado_por` FOREIGN KEY (`validado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
-  CONSTRAINT `fk_acceso_visitante` FOREIGN KEY (`id_visitante`) REFERENCES `visitantes` (`id_visitante`) ON DELETE CASCADE,
+  CONSTRAINT `fk_acceso_visitante` FOREIGN KEY (`id_visitante`) REFERENCES `visitantes` (`id_visitante`) ON DELETE SET NULL,
   CONSTRAINT `chk_acceso_ingreso` CHECK (`estado_autorizacion` = 'Aprobado' = (`fecha_ingreso` is not null)),
   CONSTRAINT `chk_acceso_autorizacion` CHECK (`estado_autorizacion` = 'Pendiente de Confirmación' = (`autorizado_via` is null)),
   CONSTRAINT `chk_acceso_salida` CHECK (`fecha_salida` is null or `fecha_ingreso` is not null and `fecha_salida` >= `fecha_ingreso`)

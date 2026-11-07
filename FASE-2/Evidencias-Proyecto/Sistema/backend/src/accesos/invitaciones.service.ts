@@ -21,12 +21,10 @@ import { BitacoraService } from '../bitacora/bitacora.service';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import { CodigoError } from '../common/errores/codigo-error.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
-import { sumarDias } from '../common/utils/fechas';
 import { condicionVigente } from '../common/utils/vigencia';
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { Residencia } from '../usuarios/entities/residencia.entity';
 import { nombresPorId } from '../usuarios/nombres-por-id';
-import { finDelDia } from '../votaciones/reglas-votaciones';
 import { CrearInvitacionDto } from './dto/accesos.dto';
 import { Invitacion } from './entities/invitacion.entity';
 import {
@@ -35,6 +33,7 @@ import {
 } from './presentacion-accesos';
 import {
   generarCodigo,
+  inicioDelDia,
   MAX_DIAS_ANTICIPACION,
   MAX_DURACION_MS,
   MAX_INVITACIONES_LISTADAS,
@@ -46,9 +45,6 @@ const INTENTOS_CODIGO = 5;
 
 const errorDeFechas = (campo: 'validaDesde' | 'validaHasta', mensaje: string) =>
   new BadRequestException({ message: mensaje, campos: { [campo]: mensaje } });
-
-const inicioDelDia = (fecha: string) =>
-  new Date(finDelDia(sumarDias(fecha, -1)).getTime() + 1000);
 
 @Injectable()
 export class InvitacionesService {

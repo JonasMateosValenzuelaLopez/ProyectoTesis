@@ -38,10 +38,10 @@ export class RegistroAcceso extends EntidadAuditada {
   @Column({ name: 'id_red', type: 'int' })
   idRed: number;
 
-  @Column({ name: 'id_visitante', type: 'int' })
-  idVisitante: number;
+  @Column({ name: 'id_visitante', type: 'int', nullable: true })
+  idVisitante: number | null;
 
-  @ManyToOne(() => Visitante, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Visitante, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'id_visitante' })
   visitante: Visitante | null;
 

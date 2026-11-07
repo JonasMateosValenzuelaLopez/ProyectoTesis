@@ -89,9 +89,7 @@ describe('IdentificadorUsuarioDto', () => {
       correo: `${'a'.repeat(95)}@correo.cl`,
     });
 
-    expect(mensajes).toContain(
-      'El correo no puede superar 100 caracteres',
-    );
+    expect(mensajes).toContain('El correo no puede superar 100 caracteres');
   });
 
   it('debe exigir RUT o correo', async () => {

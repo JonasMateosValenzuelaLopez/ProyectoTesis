@@ -1,5 +1,8 @@
 import { randomInt } from 'node:crypto';
 import { RolUsuario } from '../common/enums/rol.enum';
+import { sumarDias, sumarMeses } from '../common/utils/fechas';
+import { fechaHoy } from '../common/utils/vigencia';
+import { finDelDia } from '../votaciones/reglas-votaciones';
 import { Invitacion } from './entities/invitacion.entity';
 import {
   EstadoAutorizacion,
@@ -15,6 +18,16 @@ export const VENTANA_PENDIENTE_MS = 30 * MINUTO_MS;
 
 export const limitePendiente = (ahora: Date = new Date()) =>
   new Date(ahora.getTime() - VENTANA_PENDIENTE_MS);
+
+export const RETENCION_ACCESOS_MESES = 12;
+export const MAX_DIAS_RETENCION = 31;
+export const VISITA_ANONIMIZADA = 'Visita anonimizada';
+
+export const inicioDelDia = (fecha: string) =>
+  new Date(finDelDia(sumarDias(fecha, -1)).getTime() + 1000);
+
+export const limiteConservacion = (ahora: Date = new Date()) =>
+  inicioDelDia(sumarMeses(fechaHoy(ahora), -RETENCION_ACCESOS_MESES));
 
 export const decisionAcceso = (
   aprobado: boolean,

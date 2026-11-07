@@ -10,6 +10,7 @@ import { RolUsuario } from '../common/enums/rol.enum';
 import { AutorizacionesController } from './autorizaciones.controller';
 import { InvitacionesController } from './invitaciones.controller';
 import { PorteriaController } from './porteria.controller';
+import { RetencionesController } from './retenciones.controller';
 
 const reflector = new Reflector();
 const limite = (metodo: object) =>
@@ -20,6 +21,7 @@ describe('Controladores de accesos', () => {
     [InvitacionesController, CodigoModulo.INVITACIONES_QR],
     [PorteriaController, CodigoModulo.CONSERJERIA],
     [AutorizacionesController, CodigoModulo.CONSERJERIA],
+    [RetencionesController, CodigoModulo.CONSERJERIA],
   ] as const)(
     '%p debe exigir sesión, comunidad activa y el módulo %s',
     (controlador, modulo) => {
@@ -34,6 +36,12 @@ describe('Controladores de accesos', () => {
   it('la garita debe quedar solo para Conserje y Administrador', () => {
     expect(reflector.get(ROLES_KEY, PorteriaController)).toEqual([
       RolUsuario.CONSERJE,
+      RolUsuario.ADMINISTRADOR,
+    ]);
+  });
+
+  it('debe dejar las retenciones por incidente solo al Administrador, no a la garita', () => {
+    expect(reflector.get(ROLES_KEY, RetencionesController)).toEqual([
       RolUsuario.ADMINISTRADOR,
     ]);
   });
@@ -53,6 +61,8 @@ describe('Controladores de accesos', () => {
     [PorteriaController.prototype.ingresoSinInvitacion, 60],
     [PorteriaController.prototype.registrarSalida, 60],
     [PorteriaController.prototype.resolverPorTelefono, 60],
+    [RetencionesController.prototype.crear, 10],
+    [RetencionesController.prototype.liberar, 10],
   ])('debe limitar las escrituras (%#) a %i por minuto', (metodo, valor) => {
     expect(limite(metodo)).toBe(valor);
     expect(Reflect.getMetadata('THROTTLER:TTLdefault', metodo)).toBe(60_000);
@@ -64,6 +74,7 @@ describe('Controladores de accesos', () => {
     [PorteriaController.prototype.validar],
     [PorteriaController.prototype.registrarSalida],
     [PorteriaController.prototype.resolverPorTelefono],
+    [RetencionesController.prototype.liberar],
   ])('debe responder 200 en las acciones que no crean filas (%#)', (metodo) => {
     expect(Reflect.getMetadata(HTTP_CODE_METADATA, metodo)).toBe(HttpStatus.OK);
   });

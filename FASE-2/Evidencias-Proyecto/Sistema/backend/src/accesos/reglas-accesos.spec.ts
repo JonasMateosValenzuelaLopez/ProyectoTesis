@@ -8,6 +8,8 @@ import {
   decisionAcceso,
   estadoInvitacion,
   generarCodigo,
+  inicioDelDia,
+  limiteConservacion,
   limitePendiente,
   normalizarCodigo,
   resultadoValidacion,
@@ -227,6 +229,29 @@ describe('reglas-accesos', () => {
 
       expect(resultado.nombre).toHaveLength(50);
       expect(resultado.apellido).toHaveLength(50);
+    });
+  });
+
+  describe('conservación de datos de visitas', () => {
+    it('debe ubicar el inicio de un día en la medianoche de Chile', () => {
+      expect(inicioDelDia('2026-10-01')).toEqual(
+        new Date('2026-10-01T03:00:00Z'),
+      );
+      expect(inicioDelDia('2026-06-01')).toEqual(
+        new Date('2026-06-01T04:00:00Z'),
+      );
+    });
+
+    it('debe conservar 12 meses contados desde el inicio del mismo día del año anterior', () => {
+      expect(limiteConservacion(AHORA)).toEqual(
+        new Date('2025-11-06T03:00:00Z'),
+      );
+    });
+
+    it('debe usar el día de Chile aunque en UTC ya sea el día siguiente', () => {
+      expect(limiteConservacion(new Date('2026-11-07T01:00:00Z'))).toEqual(
+        new Date('2025-11-06T03:00:00Z'),
+      );
     });
   });
 });

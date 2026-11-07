@@ -12,7 +12,11 @@ import {
   MinLength,
 } from 'class-validator';
 import { recortar } from '../../common/utils/texto';
-import { EsFechaHora } from '../../common/validators/fecha.validator';
+import {
+  EsFecha,
+  EsFechaHora,
+  NoFutura,
+} from '../../common/validators/fecha.validator';
 import {
   EsIdentificador,
   NormalizarIdentificador,
@@ -92,6 +96,26 @@ export class CodigoInvitacionDto {
 export class DecisionAccesoDto {
   @IsBoolean({ message: 'aprobado debe ser true o false' })
   aprobado: boolean;
+}
+
+export class CrearRetencionDto {
+  @IsString({ message: 'Indica desde qué día retener los registros' })
+  @EsFecha()
+  @NoFutura()
+  desde: string;
+
+  @IsString({ message: 'Indica hasta qué día retener los registros' })
+  @EsFecha()
+  @NoFutura()
+  hasta: string;
+
+  @Transform(normalizarNombre)
+  @IsString({ message: 'Explica el incidente que justifica la retención' })
+  @MinLength(10, {
+    message: 'Explica el incidente en al menos 10 caracteres',
+  })
+  @MaxLength(300, { message: 'El motivo no puede superar 300 caracteres' })
+  motivo: string;
 }
 
 export class BusquedaPorteriaDto {

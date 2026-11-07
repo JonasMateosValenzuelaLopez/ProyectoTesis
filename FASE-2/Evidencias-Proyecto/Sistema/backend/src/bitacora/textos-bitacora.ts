@@ -52,6 +52,9 @@ export const TEXTO_ACCION: Record<string, string> = {
   editar_acta: 'Editó un acta',
   publicar_acta: 'Publicó un acta',
   eliminar_acta: 'Eliminó un borrador de acta',
+  retener_registros_acceso:
+    'Retuvo registros de acceso por un incidente para que no se anonimicen',
+  liberar_retencion_acceso: 'Liberó una retención de registros de acceso',
 };
 
 export const textoAccion = (accion: string) => TEXTO_ACCION[accion] ?? accion;

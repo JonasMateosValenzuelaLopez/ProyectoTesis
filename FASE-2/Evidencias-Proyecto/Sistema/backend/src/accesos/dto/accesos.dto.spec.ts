@@ -5,6 +5,7 @@ import {
   BusquedaPorteriaDto,
   CodigoInvitacionDto,
   CrearInvitacionDto,
+  CrearRetencionDto,
   DecisionAccesoDto,
   IngresoSinInvitacionDto,
 } from './accesos.dto';
@@ -160,6 +161,49 @@ describe('DTO de accesos', () => {
       [{ q: 'a'.repeat(51) }, 'La búsqueda no puede superar 50 caracteres'],
     ])('con %j debe responder «%s»', async (datos, mensaje) => {
       const { mensajes } = await validar(BusquedaPorteriaDto, datos);
+
+      expect(mensajes).toContain(mensaje);
+    });
+  });
+
+  describe('CrearRetencionDto', () => {
+    beforeEach(() => {
+      jest.useFakeTimers({ now: new Date('2026-11-06T15:00:00Z') });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('debe aceptar un rango de días pasados con un motivo y normalizar sus espacios', async () => {
+      const { dto, mensajes } = await validar(CrearRetencionDto, {
+        desde: '2026-10-01',
+        hasta: '2026-11-06',
+        motivo: '  Robo   en estacionamientos ',
+      });
+
+      expect(mensajes).toEqual([]);
+      expect(dto.motivo).toBe('Robo en estacionamientos');
+    });
+
+    it.each([
+      [{ hasta: '2026-11-07' }, 'La fecha no puede ser futura'],
+      [
+        { desde: '2026-02-30' },
+        'La fecha debe tener el formato AAAA-MM-DD y existir',
+      ],
+      [{ motivo: 'Robo' }, 'Explica el incidente en al menos 10 caracteres'],
+      [
+        { motivo: 'a'.repeat(301) },
+        'El motivo no puede superar 300 caracteres',
+      ],
+    ])('con %j debe responder «%s»', async (cambios, mensaje) => {
+      const { mensajes } = await validar(CrearRetencionDto, {
+        desde: '2026-10-01',
+        hasta: '2026-10-15',
+        motivo: 'Robo en estacionamientos',
+        ...cambios,
+      });
 
       expect(mensajes).toContain(mensaje);
     });
