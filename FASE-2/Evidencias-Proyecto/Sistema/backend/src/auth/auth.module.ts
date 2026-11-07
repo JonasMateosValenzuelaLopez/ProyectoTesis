@@ -7,18 +7,22 @@ import type { StringValue } from 'ms';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { CambioCorreo } from './entities/cambio-correo.entity';
 import { CodigoOtp } from './entities/codigo-otp.entity';
 import { TokenPassword } from './entities/token-password.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PlataformaGuard } from './guards/plataforma.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { MisDatosController } from './mis-datos.controller';
+import { MisDatosService } from './mis-datos.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { TareaCambiosCorreo } from './tarea-cambios-correo.service';
 
 @Global()
 @Module({
   imports: [
     UsuariosModule,
-    TypeOrmModule.forFeature([TokenPassword, CodigoOtp]),
+    TypeOrmModule.forFeature([TokenPassword, CodigoOtp, CambioCorreo]),
     PassportModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
@@ -30,9 +34,11 @@ import { JwtStrategy } from './strategies/jwt.strategy';
       }),
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MisDatosController],
   providers: [
     AuthService,
+    MisDatosService,
+    TareaCambiosCorreo,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,

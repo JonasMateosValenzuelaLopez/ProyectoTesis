@@ -841,6 +841,42 @@ describe('AuthService', () => {
     });
   });
 
+  describe('nuevaSesion', () => {
+    it('debe emitir un token nuevo con el perfil y las comunidades activas', async () => {
+      mockUsuariosRepository.findOneBy.mockResolvedValue(crearUsuario());
+      prepararComunidadVilla();
+      mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
+
+      const resultado = await target.nuevaSesion(7);
+
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith({ sub: 7 });
+      expect(resultado).toEqual({
+        accessToken: 'jwt-firmado',
+        tokenType: 'Bearer',
+        usuario: { ...usuarioSerializado, comunidades: [comunidadVilla] },
+      });
+    });
+
+    it('no debe emitir sesión a una cuenta bloqueada', async () => {
+      mockUsuariosRepository.findOneBy.mockResolvedValue(
+        crearUsuario({ bloqueado: true }),
+      );
+
+      await expect(target.nuevaSesion(7)).rejects.toThrow(
+        new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA),
+      );
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('debe responder 404 si la cuenta no existe', async () => {
+      mockUsuariosRepository.findOneBy.mockResolvedValue(null);
+
+      await expect(target.nuevaSesion(99)).rejects.toThrow(
+        new NotFoundException('Usuario no encontrado'),
+      );
+    });
+  });
+
   describe('marcarTutorialVisto', () => {
     it('debe marcar solo el tutorial de la app del usuario indicado', async () => {
       await target.marcarTutorialVisto(7, LadoTutorial.APP);

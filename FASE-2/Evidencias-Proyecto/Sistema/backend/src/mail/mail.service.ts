@@ -1,16 +1,12 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport, Transporter } from 'nodemailer';
+import { enmascararCorreo } from '../common/utils/correo';
 
 export interface CorreoSaliente {
   para: string;
   asunto: string;
   texto: string;
-}
-
-export function enmascararCorreo(correo: string): string {
-  const [usuario, dominio] = correo.split('@');
-  return dominio ? `${usuario.slice(0, 1)}***@${dominio}` : '***';
 }
 
 @Injectable()

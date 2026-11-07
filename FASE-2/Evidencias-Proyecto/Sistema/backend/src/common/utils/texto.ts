@@ -11,6 +11,12 @@ export const quitarEspacios = ({ value }: { value: unknown }) => {
   return limpio === '' ? undefined : limpio;
 };
 
+export const limpiarTelefono = ({ value }: { value: unknown }) => {
+  const limpio =
+    typeof value === 'string' ? value.replace(/[\s()-]/g, '') : value;
+  return limpio === '' ? undefined : limpio;
+};
+
 export const normalizarTextoLargo = ({ value }: { value: unknown }) =>
   recortarOpcional({
     value: typeof value === 'string' ? value.replace(/\r\n?/g, '\n') : value,

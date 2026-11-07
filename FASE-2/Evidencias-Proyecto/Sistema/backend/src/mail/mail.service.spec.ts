@@ -1,7 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport } from 'nodemailer';
-import { CorreoSaliente, enmascararCorreo, MailService } from './mail.service';
+import { CorreoSaliente, MailService } from './mail.service';
 
 jest.mock('nodemailer', () => ({ createTransport: jest.fn() }));
 
@@ -96,15 +96,6 @@ describe('MailService', () => {
     });
   });
 
-  describe('enmascararCorreo', () => {
-    it.each([
-      ['ana@correo.cl', 'a***@correo.cl'],
-      ['sin-arroba', '***'],
-    ])('debe convertir "%s" en "%s"', (correo, esperado) => {
-      expect(enmascararCorreo(correo)).toBe(esperado);
-    });
-  });
-
   describe('urlFrontend', () => {
     it('debe unir la ruta sin duplicar la barra final de FRONTEND_URL', () => {
       const target = crearTarget({ FRONTEND_URL: 'https://panel.cl/' });
@@ -138,7 +129,7 @@ describe('MailService', () => {
 
       expect(resultado).toBe(false);
       expect(espiaError).toHaveBeenCalledWith(
-        'No se pudo enviar el correo "Recupera tu contraseña de EntreCasas" a a***@correo.cl',
+        'No se pudo enviar el correo "Recupera tu contraseña de EntreCasas" a a***a@correo.cl',
         expect.any(String),
       );
     });

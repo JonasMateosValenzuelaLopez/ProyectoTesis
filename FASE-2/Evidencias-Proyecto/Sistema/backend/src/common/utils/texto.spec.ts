@@ -1,4 +1,5 @@
 import {
+  limpiarTelefono,
   normalizarTextoLargo,
   quitarEspacios,
   recortar,
@@ -38,6 +39,22 @@ describe('texto', () => {
 
     it('debe convertir un texto solo de espacios en undefined', () => {
       expect(quitarEspacios({ value: '   ' })).toBeUndefined();
+    });
+  });
+
+  describe('limpiarTelefono', () => {
+    it('debe quitar espacios, guiones y paréntesis', () => {
+      expect(limpiarTelefono({ value: ' +56 (9) 1234-5678 ' })).toBe(
+        '+56912345678',
+      );
+    });
+
+    it('debe convertir un texto solo de separadores en undefined', () => {
+      expect(limpiarTelefono({ value: ' ( - ) ' })).toBeUndefined();
+    });
+
+    it('debe dejar pasar lo que no es texto para que lo rechace el validador', () => {
+      expect(limpiarTelefono({ value: 56912345678 })).toBe(56912345678);
     });
   });
 

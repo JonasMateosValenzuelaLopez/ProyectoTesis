@@ -229,6 +229,14 @@ export class AuthService {
     return { ...this.serializarUsuario(usuario), comunidades: activas };
   }
 
+  async nuevaSesion(idUsuario: number) {
+    const usuario = await this.usuariosRepository.findOneBy({ idUsuario });
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return this.iniciarSesion(usuario);
+  }
+
   async marcarTutorialVisto(
     idUsuario: number,
     lado: LadoTutorial,
