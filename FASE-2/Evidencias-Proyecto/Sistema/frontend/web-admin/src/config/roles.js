@@ -32,3 +32,13 @@ export const rolesEfectivos = (idRol, comunidad) => (
 export const comunidadesPanel = (usuario) => (usuario?.comunidades ?? [])
   .map((comunidad) => ({ comunidad, roles: rolesPanel(comunidad) }))
   .filter((g) => g.roles.length > 0);
+
+// Algunos endpoints devuelven el cargo por su nombre (`NOMBRE_ROL` del backend): «Administrador», «Presidente»…
+export const ID_ROL_POR_NOMBRE = {
+  Administrador: RolUsuario.ADMINISTRADOR,
+  Tesorero: RolUsuario.TESORERO,
+  Secretario: RolUsuario.SECRETARIO,
+  Presidente: RolUsuario.PRESIDENTE,
+  Conserje: RolUsuario.CONSERJE,
+  Residente: RolUsuario.RESIDENTE,
+};

@@ -9,11 +9,11 @@ const TAMANOS = {
   lg: { pad: '8px', radio: '12px', interior: '8px 18px 6px', borde: 2.5, radioInt: '7px', numero: '3.2rem', etiqueta: '0.72rem' },
 };
 
-// Con `unidad` (fila de `unidades`) deduce tipo y número; `tipo` y `numero` sirven para la placa de la marca.
+// Con `unidad` (como la devuelve la API: `tipo`, `numeroIdentificador`) toma tipo y número; `tipo` y `numero` sirven para la placa de la marca.
 export default function PlacaUnidad({ unidad, tipo: tipoMarca, numero: numeroMarca, size = 'md', invertida = false, sx }) {
   const t = TAMANOS[size];
   const tipo = unidad ? tipoUnidad(unidad) : tipoMarca ?? 'Casa';
-  const numero = unidad ? unidad.numero_identificador : numeroMarca;
+  const numero = unidad ? unidad.numeroIdentificador : numeroMarca;
   const etiqueta = tipo === 'Departamento' ? 'DEPTO' : tipo.toUpperCase();
   return (
     <Box

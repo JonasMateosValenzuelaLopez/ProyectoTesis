@@ -15,10 +15,20 @@ import VistaPendiente from './pages/VistaPendiente';
 import { TODAS_LAS_RUTAS } from './config/navegacion';
 import { SECCIONES_PLATAFORMA } from './config/plataforma';
 
+// Plataforma (fase 2)
+import Comunidades from './pages/plataforma/Comunidades';
+import NuevaComunidad from './pages/plataforma/NuevaComunidad';
+import FichaComunidad from './pages/plataforma/FichaComunidad';
+import BitacoraPlataforma from './pages/plataforma/BitacoraPlataforma';
+
 // Vistas conectadas con la API. Las demás rutas del menú muestran VistaPendiente:
 // «En conexión» hasta su fase, o «Próximamente» si la API aún no tiene esa función.
 const VISTAS = {};
-const VISTAS_PLATAFORMA = {};
+const VISTAS_PLATAFORMA = {
+  '/plataforma': <Comunidades />,
+  '/plataforma/nueva': <NuevaComunidad />,
+  '/plataforma/bitacora': <BitacoraPlataforma />,
+};
 const RUTAS_PLATAFORMA = SECCIONES_PLATAFORMA.flatMap((s) => s.items);
 
 function App() {
@@ -47,6 +57,7 @@ function App() {
         <Route path="/plataforma" element={<PlataformaProtegida />}>
           <Route index element={VISTAS_PLATAFORMA['/plataforma'] ?? <VistaPendiente />} />
           <Route path="mi-cuenta" element={<MiCuenta />} />
+          <Route path="comunidades/:id" element={<FichaComunidad />} />
           {RUTAS_PLATAFORMA.filter((i) => i.ruta !== '/plataforma').map((i) => (
             <Route key={i.ruta} path={i.ruta.replace('/plataforma/', '')} element={VISTAS_PLATAFORMA[i.ruta] ?? <VistaPendiente />} />
           ))}

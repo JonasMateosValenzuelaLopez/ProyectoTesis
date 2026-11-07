@@ -19,7 +19,8 @@ export const diasHasta = (valor, desde = new Date()) => {
   return Math.round(ms / 86400000);
 };
 
-export const nombreUnidad = (u) => (u ? `${tipoUnidad(u) === 'Departamento' ? 'Depto' : 'Casa'} ${u.numero_identificador}` : '');
+// «Depto 502» o «Casa 14», con los campos de la API (`tipo`, `numeroIdentificador`)
+export const nombreUnidad = (u) => (u ? `${tipoUnidad(u) === 'Departamento' ? 'Depto' : 'Casa'} ${u.numeroIdentificador}` : '');
 // Nombre de una persona con los campos del backend (`nombre`, `primerApellido`, `segundoApellido`)
 export const nombreCompleto = (u) => (u ? [u.nombre, u.primerApellido, u.segundoApellido].filter(Boolean).join(' ') : '');
 export const nombreCorto = (u) => (u ? `${u.nombre} ${u.primerApellido}` : '');
