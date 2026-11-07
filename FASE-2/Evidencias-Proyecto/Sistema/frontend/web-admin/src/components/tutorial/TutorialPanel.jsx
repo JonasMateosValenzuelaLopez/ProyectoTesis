@@ -6,12 +6,13 @@ import { roles } from '../../tokens';
 import { pasosTutorial } from '../../config/tutorial';
 import { modulosActivos } from '../../config/modulos';
 import SelloCargo from '../marca/SelloCargo';
+import { PLATAFORMA, RolUsuario } from '../../config/roles';
 import Escena from './Escenas';
 
 const entra = keyframes`from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; }`;
 
-// Tutorial del panel para el cargo con que se está trabajando. Se abre solo la primera vez que alguien
-// entra con ese cargo en esa comunidad, y después desde el botón «?» de la barra.
+// Tutorial del panel para el cargo con que se está trabajando. Como la API lo marca visto por persona
+// (`tutorialPanelVisto`), se abre solo la primera vez que alguien entra al panel; después, desde el botón «?».
 // `primeraVez` cambia «Cerrar» por «Saltar» y el último botón por «Empezar a trabajar».
 export default function TutorialPanel({ open, onClose, usuario, cargo, comunidad, primeraVez }) {
   const [n, setN] = useState(0);
@@ -25,7 +26,7 @@ export default function TutorialPanel({ open, onClose, usuario, cargo, comunidad
   const opciones = {
     modulos: Object.fromEntries(modulosActivos(comunidad).map((m) => [m, true])),
     espacio: comunidad?.espacios_comunes?.[0]?.nombre,
-    recordar: cargo === 'secretario',
+    recordar: cargo === RolUsuario.SECRETARIO,
   };
   const rol = roles[cargo]?.label ?? '';
 
@@ -50,7 +51,7 @@ export default function TutorialPanel({ open, onClose, usuario, cargo, comunidad
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
               <SelloCargo cargo={cargo} size={34} />
               <Typography color="text.secondary" sx={{ fontWeight: 600 }}>
-                {cargo === 'plataforma' ? 'Equipo EntreCasas' : `${rol} · ${comunidad?.nombre}`}
+                {cargo === PLATAFORMA ? 'Equipo EntreCasas' : `${rol} · ${comunidad?.nombre}`}
               </Typography>
             </Box>
             <Typography id="tutorial-titulo" variant="h2" component="h2">

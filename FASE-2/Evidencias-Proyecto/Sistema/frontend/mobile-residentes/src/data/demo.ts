@@ -28,6 +28,7 @@ export type Unidad = { id_unidad: number; id_red: number; numero_identificador: 
 export type Residencia = {
   id_residencia: number; id_usuario: number; id_unidad: number; relacion: 'Propietario' | 'Arrendatario';
   estado: 'Pendiente' | 'Activa' | 'Rechazada' | 'Inactiva';
+  fecha_desde: string; // Desde qué día vive ahí: solo ve las invitaciones de la vivienda creadas desde ese día
   fecha_guia_vista: string | null; // P9: null = aún no ve la guía de bienvenida de esta unidad
   // Titular de la vivienda: vota por ella y recibe los avisos de votaciones (uno por vivienda)
   titular: 1 | null;
@@ -65,7 +66,7 @@ const modulos = (...m: Modulo[]) => m.map((modulo) => ({ modulo, activo: 1 as co
 export const COMUNIDADES: Comunidad[] = [
   {
     id_red: 1, nombre: 'Condominio Las Palmas', tipo: 'Condominio', direccion: 'Pasaje Los Aromos 1450, Temuco',
-    banco: 'Banco Estado', tipo_cuenta: 'Cuenta corriente', numero_cuenta: '62900145872', titular_cuenta: 'Comunidad Condominio Las Palmas', rut_titular: '65.142.380-6', correo_pagos: 'pagos@laspalmas.cl',
+    banco: 'Banco Estado', tipo_cuenta: 'Cuenta corriente', numero_cuenta: '62900145872', titular_cuenta: 'Comunidad Condominio Las Palmas', rut_titular: '65.142.380-5', correo_pagos: 'pagos@laspalmas.cl',
     red_modulos: modulos('muro', 'marketplace', 'votaciones', 'reservas', 'cobros', 'invitaciones_qr', 'administrador_externo'),
     espacios_comunes: [espacio(1, 1, 'Quincho', 25, 'Se entrega limpio. Viernes y sábado hasta la 01:00.', BLOQUES_QUINCHO)],
   },
@@ -80,7 +81,7 @@ export const COMUNIDADES: Comunidad[] = [
   },
   {
     id_red: 3, nombre: 'Edificio Torre Andes', tipo: 'Edificio', direccion: 'Av. Alemania 0890, Temuco',
-    banco: 'Banco de Chile', tipo_cuenta: 'Cuenta corriente', numero_cuenta: '00-158-74123-09', titular_cuenta: 'Comunidad Edificio Torre Andes', rut_titular: '65.230.118-K', correo_pagos: 'pagos@torreandes.cl',
+    banco: 'Banco de Chile', tipo_cuenta: 'Cuenta corriente', numero_cuenta: '00-158-74123-09', titular_cuenta: 'Comunidad Edificio Torre Andes', rut_titular: '65.230.118-5', correo_pagos: 'pagos@torreandes.cl',
     red_modulos: modulos('muro', 'marketplace', 'votaciones', 'reservas', 'cobros', 'invitaciones_qr', 'conserjeria', 'administrador_externo'),
     espacios_comunes: [
       espacio(3, 1, 'Quincho', 20, 'Se retira y se devuelve en conserjería.', BLOQUES_QUINCHO),
@@ -108,8 +109,12 @@ export const UNIDADES: Record<number, Unidad> = Object.fromEntries([
 let siguiente = 1;
 // Andrés (Casa 27) y el Depto 502 del usuario demo llegaron hace poco: aún no ven la guía de bienvenida
 const SIN_GUIA = new Set(['112-2027', '109-3502']);
+// Desde cuándo vive cada uno (`residencias.desde`). Rosa vive en la Casa 1 desde 2025; Tomás llegó en
+// septiembre de 2026, así que no ve las invitaciones que Rosa creó antes de esa fecha.
+const DESDE: Record<string, string> = { '110-1001': '2025-06-01', '113-1001': '2026-09-15' };
 const residencia = (id_usuario: number, id_unidad: number, relacion: Residencia['relacion']): Residencia => ({
   id_residencia: siguiente++, id_usuario, id_unidad, relacion, estado: 'Activa',
+  fecha_desde: DESDE[`${id_usuario}-${id_unidad}`] ?? '2026-03-01',
   fecha_guia_vista: SIN_GUIA.has(`${id_usuario}-${id_unidad}`) ? null : '2026-03-01T10:00:00',
   titular: null,
 });
@@ -268,12 +273,33 @@ export type Invitacion = {
 };
 // Una visita en la garita. Sin invitación nace «Pendiente de Confirmación» y el residente responde en la app
 // (o la garita le escribe por WhatsApp o le llama: `autorizado_via` = 'Teléfono').
+// `fecha_creacion` es la llegada a la garita; `fecha_ingreso` queda vacía hasta que se aprueba.
 export type RegistroAcceso = {
   id_acceso: number; id_visitante: number; id_unidad: number; id_invitacion: number | null; categoria: 'Visita' | 'Delivery' | 'Proveedor' | 'Servicio';
-  patente: string | null; metodo: 'QR' | 'Manual'; fecha_ingreso: string; fecha_salida: string | null;
+  patente: string | null; metodo: 'QR' | 'Manual'; fecha_creacion: string; fecha_ingreso: string | null; fecha_salida: string | null;
   estado_autorizacion: 'Aprobado' | 'Rechazado' | 'Pendiente de Confirmación'; autorizado_via: 'Invitación' | 'App' | 'Teléfono' | null;
-  id_usuario_autoriza: number | null; id_usuario_registra: number | null; codigo_qr_validado: 0 | 1;
+  id_usuario_autoriza: number | null; id_usuario_registra: number | null;
 };
+
+// Reglas de invitaciones y portería, las mismas de la API (reglas-accesos.ts y los DTO)
+export const MAX_INVITACIONES_VIGENTES = 30; // invitaciones sin usar por vivienda
+export const MAX_DURACION_HORAS = 24;
+export const MAX_DIAS_ANTICIPACION = 60;
+export const MIN_NOMBRE_VISITA = 2;
+export const MAX_NOMBRE_VISITA = 100;
+export const PATENTE = /^[A-Z0-9]{4,8}$/;
+// Una llegada sin invitación espera la respuesta del residente 30 minutos; después expira
+export const VENTANA_PENDIENTE_MIN = 30;
+export const pendienteVigente = (a: Pick<RegistroAcceso, 'estado_autorizacion' | 'fecha_creacion'>, ahora = Date.now()) =>
+  a.estado_autorizacion === 'Pendiente de Confirmación' && ahora - new Date(a.fecha_creacion).getTime() < VENTANA_PENDIENTE_MIN * 60000;
+// Código de invitación: «EC-» y dos bloques de 4, sin letras ni números que se confunden (0, O, 1, I, L)
+const ALFABETO_CODIGO = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
+export const generarCodigo = () => {
+  const bloque = () => Array.from({ length: 4 }, () => ALFABETO_CODIGO[Math.floor(Math.random() * ALFABETO_CODIGO.length)]).join('');
+  return `EC-${bloque()}-${bloque()}`;
+};
+// Patente sin espacios, puntos ni guiones, en mayúsculas («rt-kd 45» → «RTKD45»)
+export const normalizarPatente = (texto: string) => texto.toUpperCase().replace(/[\s.·-]/g, '');
 const pad2 = (n: number) => String(n).padStart(2, '0');
 // DATETIME local, como lo guarda MariaDB
 export const fechaHoraLocal = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
@@ -282,15 +308,19 @@ const diaA = (n: number, h: number, m = 0) => { const d = new Date(); d.setDate(
 
 // Un delivery o una empresa sin apellido se guarda con apellido vacío
 const visitante = (id_visitante: number, nombre: string, apellido = '', rut: string | null = null, tipo: Visitante['tipo'] = 'Esporádico'): Visitante => ({ id_visitante, rut, nombre, apellido, tipo });
-const invitacion = (id_invitacion: number, codigo: string, id_unidad: number, id_usuario: number, id_visitante: number, tipo: Invitacion['tipo'], fecha_desde: string, fecha_hasta: string, patente: string | null, estado: Invitacion['estado']): Invitacion => ({
-  id_invitacion, codigo, id_unidad, id_usuario, id_visitante, tipo, fecha_desde, fecha_hasta, patente, estado, fecha_creacion: fecha_desde,
+const invitacion = (id_invitacion: number, codigo: string, id_unidad: number, id_usuario: number, id_visitante: number, tipo: Invitacion['tipo'], fecha_desde: string, fecha_hasta: string, patente: string | null, estado: Invitacion['estado'], fecha_creacion = fecha_desde): Invitacion => ({
+  id_invitacion, codigo, id_unidad, id_usuario, id_visitante, tipo, fecha_desde, fecha_hasta, patente, estado, fecha_creacion,
 });
-const acceso = (id_acceso: number, id_visitante: number, id_unidad: number, categoria: RegistroAcceso['categoria'], fecha_ingreso: string, fecha_salida: string | null, extra: Partial<RegistroAcceso> = {}): RegistroAcceso => ({
-  id_acceso, id_visitante, id_unidad, id_invitacion: null, categoria, patente: null, metodo: 'Manual', fecha_ingreso, fecha_salida,
-  estado_autorizacion: 'Aprobado', autorizado_via: null, id_usuario_autoriza: null, id_usuario_registra: null, codigo_qr_validado: 0, ...extra,
-});
+// Aprobado: llega e ingresa a la misma hora. Pendiente: `fecha_ingreso` queda vacía.
+const acceso = (id_acceso: number, id_visitante: number, id_unidad: number, categoria: RegistroAcceso['categoria'], llegada: string, fecha_salida: string | null, extra: Partial<RegistroAcceso> = {}): RegistroAcceso => {
+  const fila: RegistroAcceso = {
+    id_acceso, id_visitante, id_unidad, id_invitacion: null, categoria, patente: null, metodo: 'Manual', fecha_creacion: llegada, fecha_ingreso: llegada, fecha_salida,
+    estado_autorizacion: 'Aprobado', autorizado_via: null, id_usuario_autoriza: null, id_usuario_registra: null, ...extra,
+  };
+  return fila.estado_autorizacion === 'Aprobado' ? fila : { ...fila, fecha_ingreso: null };
+};
 const conQR = (id_invitacion: number, id_usuario_registra: number): Partial<RegistroAcceso> => ({
-  id_invitacion, metodo: 'QR', autorizado_via: 'Invitación', codigo_qr_validado: 1, id_usuario_registra,
+  id_invitacion, metodo: 'QR', autorizado_via: 'Invitación', id_usuario_registra,
 });
 
 export function visitantesIniciales(): Visitante[] {
@@ -306,18 +336,20 @@ export function visitantesIniciales(): Visitante[] {
 // Quien invita es el residente de la unidad (`id_usuario`, igual que en Residentes y cargos del panel)
 export function invitacionesIniciales(): Invitacion[] {
   return [
-    invitacion(101, 'EC-6L4S2', 1009, 1010, 101, 'Visita', haceMin(60), haceMin(-240), 'HJTR19', 'Esperada'),
-    invitacion(102, 'EC-8D1F7', 1001, 110, 102, 'Proveedor', diaA(0, 9), diaA(0, 13), null, 'Salió'),
-    invitacion(103, 'EC-3F9K7', 1001, 110, 103, 'Visita', diaA(0, 18), diaA(0, 22), 'PFGH62', 'Esperada'),
-    invitacion(301, 'EC-4K7Q2', 3502, 3008, 301, 'Visita', haceMin(30), haceMin(-180), 'RTKD45', 'Esperada'),
-    invitacion(302, 'EC-9P3M8', 3301, 3015, 302, 'Proveedor', haceMin(10), haceMin(-120), null, 'Esperada'),
-    invitacion(303, 'EC-2H6W1', 3104, 3026, 303, 'Visita', haceMin(-90), haceMin(-300), null, 'Esperada'),
-    invitacion(304, 'EC-7B5N3', 3602, 3004, 304, 'Visita', haceMin(120), haceMin(-60), 'KLPR12', 'Adentro'),
-    invitacion(305, 'EC-1X8C4', 3203, 3021, 305, 'Visita', haceMin(600), haceMin(240), null, 'Esperada'),
-    invitacion(306, 'EC-5T2R9', 3401, 3011, 306, 'Visita', haceMin(300), haceMin(120), null, 'Salió'),
-    invitacion(307, 'EC-3V9J6', 3201, 3019, 307, 'Servicio', diaA(0, 9), diaA(0, 13), 'FHJK88', 'Cancelada'),
-    invitacion(308, 'EC-7M2D4', 3502, 3008, 308, 'Visita', diaA(2, 19), diaA(2, 23), null, 'Esperada'),
-    invitacion(309, 'EC-8R4Z1', 3502, 3008, 309, 'Visita', diaA(-3, 15), diaA(-3, 19), null, 'Salió'),
+    invitacion(101, 'EC-6K4S-2HMP', 1009, 1010, 101, 'Visita', haceMin(60), haceMin(-240), 'HJTR19', 'Esperada'),
+    invitacion(102, 'EC-8D7F-3QWT', 1001, 110, 102, 'Proveedor', diaA(0, 9), diaA(0, 13), null, 'Salió'),
+    invitacion(103, 'EC-3F9K-7RNB', 1001, 110, 103, 'Visita', diaA(0, 18), diaA(0, 22), 'PFGH62', 'Esperada'),
+    // Rosa la creó antes de que llegara Tomás: él no la ve
+    invitacion(104, 'EC-5JZP-9CXD', 1001, 110, 101, 'Visita', '2026-08-10T16:00:00', '2026-08-10T20:00:00', null, 'Cancelada', '2026-08-09T12:00:00'),
+    invitacion(301, 'EC-4K7Q-2VBN', 3502, 3008, 301, 'Visita', haceMin(30), haceMin(-180), 'RTKD45', 'Esperada'),
+    invitacion(302, 'EC-9P3M-8HJS', 3301, 3015, 302, 'Proveedor', haceMin(10), haceMin(-120), null, 'Esperada'),
+    invitacion(303, 'EC-2H6W-4TYE', 3104, 3026, 303, 'Visita', haceMin(-90), haceMin(-300), null, 'Esperada'),
+    invitacion(304, 'EC-7B5N-3GKA', 3602, 3004, 304, 'Visita', haceMin(120), haceMin(-60), 'KLPR12', 'Adentro'),
+    invitacion(305, 'EC-6X8C-4MZQ', 3203, 3021, 305, 'Visita', haceMin(600), haceMin(240), null, 'Esperada'),
+    invitacion(306, 'EC-5T2R-9DWF', 3401, 3011, 306, 'Visita', haceMin(300), haceMin(120), null, 'Salió'),
+    invitacion(307, 'EC-3V9J-6PRU', 3201, 3019, 307, 'Servicio', diaA(0, 9), diaA(0, 13), 'FHJK88', 'Cancelada'),
+    invitacion(308, 'EC-7M2D-4SHX', 3502, 3008, 308, 'Visita', diaA(2, 19), diaA(2, 23), null, 'Esperada'),
+    invitacion(309, 'EC-8R4Z-5NCV', 3502, 3008, 309, 'Visita', diaA(-3, 15), diaA(-3, 19), null, 'Salió'),
   ];
 }
 
@@ -331,6 +363,8 @@ export function accesosIniciales(): RegistroAcceso[] {
     acceso(304, 309, 3502, 'Visita', diaA(-3, 15, 10), diaA(-3, 18, 40), conQR(309, 108)),
     acceso(305, 311, 3603, 'Visita', haceMin(2), null, { estado_autorizacion: 'Pendiente de Confirmación', id_usuario_registra: 108 }),
     acceso(306, 312, 3502, 'Delivery', haceMin(1), null, { estado_autorizacion: 'Pendiente de Confirmación', id_usuario_registra: 108 }),
+    // Nadie respondió en 30 minutos: expiró y la app ya no la muestra
+    acceso(102, 103, 1001, 'Visita', haceMin(45), null, { estado_autorizacion: 'Pendiente de Confirmación', id_usuario_registra: 101 }),
   ];
 }
 

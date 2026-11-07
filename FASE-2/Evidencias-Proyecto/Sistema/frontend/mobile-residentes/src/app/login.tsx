@@ -75,7 +75,7 @@ function CuentasPrueba({ onElegir }: { onElegir: (c: Cuenta) => void }) {
 // Entrada con RUT y clave, o con un código de un solo uso que llega al correo.
 export default function Login() {
   const t = useTema();
-  const { acciones } = useApp();
+  const { acciones, claveDe } = useApp();
   const [rut, setRut] = useState('');
   const [metodo, setMetodo] = useState<'clave' | 'codigo'>('clave');
   const [clave, setClave] = useState('');
@@ -96,7 +96,7 @@ export default function Login() {
       setEnviadoA(c ? ocultarCorreo(c.correo) : 'tu correo registrado');
       return;
     }
-    const ok = metodo === 'clave' ? clave === CLAVE_PRUEBA : codigo === CODIGO_PRUEBA;
+    const ok = metodo === 'clave' ? clave === (c ? claveDe(c.id_usuario) : CLAVE_PRUEBA) : codigo === CODIGO_PRUEBA;
     if (ok && !c && SOLO_PANEL.includes(r)) return setError('panel');
     if (!ok || !c) return setError(metodo === 'clave' ? 'RUT o clave incorrectos.' : 'El código no es válido o ya venció.');
     // Primero el saludo con la placa de la vivienda; al terminar, se abre la sesión
@@ -113,7 +113,7 @@ export default function Login() {
   const elegir = (c: Cuenta) => {
     setRut(c.rut);
     setMetodo('clave');
-    setClave(CLAVE_PRUEBA);
+    setClave(claveDe(c.id_usuario));
     setEnviadoA(null);
     setError(null);
   };

@@ -1,8 +1,12 @@
 import { useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, TextField, Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Paper, TextField, Typography,
 } from '@mui/material';
 import { useSesion } from '../../context/SesionContext';
+import { cargosEfectivos } from '../../config/navegacion';
+import { AVISADOS_CAMBIO_CUENTA, TIPOS_CUENTA, enmascararCuenta, erroresDatosComunidad, limpiarNumeroCuenta, maxLargo } from '../../utils/comunidad';
+import { formatearRut } from '../../utils/rut';
+import { roles } from '../../tokens';
 import { useAdmin } from '../../context/AdminContext';
 import { useConserjeria } from '../../context/ConserjeriaContext';
 import Encabezado from '../../components/ui/Encabezado';
@@ -24,36 +28,64 @@ const desde = (c) => ({
   espacios: espaciosActivos(c).map(({ id_espacio, nombre, descripcion, capacidad, espacios_bloques }) => ({ id_espacio, nombre, descripcion, capacidad, espacios_bloques })),
 });
 
+// Cómo se guarda cada dato de la cuenta (la API limpia espacios y puntos del número y da formato al RUT)
+const limpio = (k, v) => {
+  const t = v.trim().replace(/\s+/g, ' ');
+  if (!t) return null;
+  if (k === 'numero_cuenta') return limpiarNumeroCuenta(t);
+  if (k === 'rut_titular') return formatearRut(t);
+  if (k === 'correo_pagos') return t.toLowerCase();
+  return t;
+};
+
 // Datos generales de la comunidad: los ve el residente en la app y se usan en el plano.
+// Como la API: la directiva (Presidente, Tesorero, Secretario) los ve sin editar; solo la administración los cambia.
 export default function RedVecinal() {
-  const { comunidad } = useSesion();
+  const { comunidad, cargo } = useSesion();
   const { acciones } = useAdmin();
   const { reservas, unidadPorId, espacioDe, acciones: conserjeria } = useConserjeria();
+  const puedeEditar = cargosEfectivos(cargo, comunidad).includes('administrador');
   const [form, setForm] = useState(() => desde(comunidad));
+  const [intento, setIntento] = useState(false);
   // Reservas que se cancelarán si se confirma el guardado (null = sin confirmación pendiente)
   const [porCancelar, setPorCancelar] = useState(null);
   const original = desde(comunidad);
   const cambios = JSON.stringify(form) !== JSON.stringify(original);
-  const valido = form.nombre.trim() && form.direccion.trim() && espaciosValidos(form.espacios);
+  const errores = erroresDatosComunidad(form);
+  const valido = !Object.keys(errores).length && espaciosValidos(form.espacios);
 
   const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const espaciosForm = () => form.espacios.map((x) => ({ ...x, nombre: x.nombre.trim() }));
   const aplicar = (afectadas) => {
+    const bancarios = Object.fromEntries(BANCARIOS.map(([k]) => [k, limpio(k, form[k])]));
+    // Si cambió la cuenta, la API avisa por correo al Administrador, al Presidente y al Tesorero
+    const cambioCuenta = BANCARIOS.some(([k]) => bancarios[k] !== (comunidad[k] ?? null));
+    const quienes = AVISADOS_CAMBIO_CUENTA.map((c) => roles[c].label).join(', ').replace(/, ([^,]*)$/, ' y $1');
     acciones.guardarComunidad({
-      nombre: form.nombre.trim(), direccion: form.direccion.trim(), espacios_comunes: conEspacios(comunidad, espaciosForm()),
-      ...Object.fromEntries(BANCARIOS.map(([k]) => [k, form[k].trim() || null])),
-    });
+      nombre: form.nombre.trim().replace(/\s+/g, ' '), direccion: form.direccion.trim(), espacios_comunes: conEspacios(comunidad, espaciosForm()),
+      ...bancarios,
+    }, cambioCuenta
+      ? `Datos guardados. Avisamos por correo a ${quienes} que la cuenta para transferencias cambió (${bancarios.numero_cuenta ? `${bancarios.banco}, ${enmascararCuenta(bancarios.numero_cuenta)}` : 'ahora sin cuenta'}).`
+      : undefined);
     // Como la API: quitar un espacio o cambiar un horario cancela sus reservas y avisa a los residentes
     conserjeria.cancelarPorEspacios(afectadas);
     setPorCancelar(null);
   };
   const guardar = (e) => {
     e.preventDefault();
+    setIntento(true);
     if (!valido) return;
     const afectadas = reservasAfectadas(espaciosActivos(comunidad), espaciosForm(), reservas);
     if (afectadas.length) setPorCancelar(afectadas);
     else aplicar([]);
   };
+
+  if (!puedeEditar) return <DatosSoloLectura comunidad={comunidad} />;
+
+  const campo = (k) => ({
+    name: k, value: form[k], onChange: cambiar, error: intento && !!errores[k], helperText: intento && errores[k],
+    slotProps: { htmlInput: { maxLength: maxLargo(k) } },
+  });
 
   return (
     <Box component="form" onSubmit={guardar} sx={{ maxWidth: 820 }}>
@@ -65,8 +97,8 @@ export default function RedVecinal() {
 
       <Box sx={{ display: 'grid', gap: 2.5 }}>
         <Tarjeta titulo="General">
-          <TextField required label="Nombre" name="nombre" value={form.nombre} onChange={cambiar} />
-          <TextField required label="Dirección" name="direccion" value={form.direccion} onChange={cambiar} />
+          <TextField required label="Nombre" {...campo('nombre')} />
+          <TextField required label="Dirección" {...campo('direccion')} />
           <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1, bgcolor: 'background.default' }}>
             <Typography variant="body2" color="text.secondary">Tipo de comunidad</Typography>
             <Typography sx={{ fontWeight: 700 }}>{comunidad.tipo} · {comunidad.unidades.length} unidades</Typography>
@@ -76,8 +108,17 @@ export default function RedVecinal() {
 
         <Tarjeta titulo="Datos para transferencias" extra="La app se los muestra al residente cuando va a pagar">
           <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
-            {BANCARIOS.map(([k, etiqueta]) => <TextField key={k} label={etiqueta} name={k} value={form[k]} onChange={cambiar} />)}
+            {BANCARIOS.map(([k, etiqueta]) => (k === 'tipo_cuenta' ? (
+              <TextField key={k} select label={etiqueta} {...campo(k)}>
+                <MenuItem value=""><em>Sin cuenta</em></MenuItem>
+                {TIPOS_CUENTA.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+              </TextField>
+            ) : <TextField key={k} label={etiqueta} {...campo(k)} />))}
           </Box>
+          {intento && errores.cuenta && <Alert severity="warning" variant="outlined">{errores.cuenta}</Alert>}
+          <Typography variant="body2" color="text.secondary">
+            Si cambias la cuenta, avisamos por correo al Administrador, al Presidente y al Tesorero, para que nadie desvíe los pagos sin que la directiva lo sepa.
+          </Typography>
         </Tarjeta>
 
         <Tarjeta titulo="Espacios comunes" extra="Con sus horarios reservables, si el módulo de reservas está activo">
@@ -91,7 +132,7 @@ export default function RedVecinal() {
         }}>
           {cambios && <Typography variant="body2" sx={{ fontWeight: 700, mr: 'auto' }}>Tienes cambios sin guardar</Typography>}
           {cambios && <Button onClick={() => setForm(original)}>Descartar</Button>}
-          <Button type="submit" variant="contained" disabled={!cambios || !valido}>Guardar cambios</Button>
+          <Button type="submit" variant="contained" disabled={!cambios}>Guardar cambios</Button>
         </Box>
       </Box>
 
@@ -122,6 +163,48 @@ export default function RedVecinal() {
           </DialogActions>
         </Dialog>
       )}
+    </Box>
+  );
+}
+
+// Lo que ve la directiva: los mismos datos, sin poder cambiarlos
+function DatosSoloLectura({ comunidad }) {
+  const dato = (etiqueta, valor) => (
+    <Box key={etiqueta}>
+      <Typography variant="body2" color="text.secondary">{etiqueta}</Typography>
+      <Typography sx={{ fontWeight: 700 }}>{valor || '—'}</Typography>
+    </Box>
+  );
+  const espacios = espaciosActivos(comunidad);
+  return (
+    <Box sx={{ maxWidth: 820 }}>
+      <Encabezado
+        contexto={comunidad.nombre}
+        titulo="Datos de la comunidad"
+        descripcion="Los residentes ven estos datos en la app. Solo la administración puede cambiarlos."
+      />
+      <Box sx={{ display: 'grid', gap: 2.5 }}>
+        <Tarjeta titulo="General">
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+            {dato('Nombre', comunidad.nombre)}
+            {dato('Dirección', comunidad.direccion)}
+            {dato('Tipo de comunidad', `${comunidad.tipo} · ${comunidad.unidades.length} unidades`)}
+          </Box>
+        </Tarjeta>
+        <Tarjeta titulo="Datos para transferencias" extra="La app se los muestra al residente cuando va a pagar">
+          {comunidad.numero_cuenta ? (
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+              {BANCARIOS.map(([k, etiqueta]) => dato(etiqueta, comunidad[k]))}
+            </Box>
+          ) : <Typography color="text.secondary">La comunidad no muestra una cuenta para transferencias.</Typography>}
+        </Tarjeta>
+        <Tarjeta titulo="Espacios comunes">
+          {espacios.length
+            ? espacios.map((e) => dato(e.nombre, [e.capacidad ? `Capacidad ${e.capacidad}` : null, e.descripcion].filter(Boolean).join(' · ')))
+            : <Typography color="text.secondary">Sin espacios comunes.</Typography>}
+        </Tarjeta>
+        <Alert severity="info" variant="outlined">Si algún dato está mal, pídele a la administración que lo corrija.</Alert>
+      </Box>
     </Box>
   );
 }

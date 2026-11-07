@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
+import { createContext, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useSesion } from './SesionContext';
 import { useFinanzas } from './FinanzasContext';
 import { useAdmin } from './AdminContext';
@@ -6,6 +6,8 @@ import { conserjeriaInicial, conserjeriaVacia, diaISO, fechaHoraLocal } from '..
 import { residentes } from '../data/finanzasMock';
 import { nombreUnidad } from '../utils/formato';
 import { tieneModulo } from '../config/modulos';
+import { MENSAJE_RESULTADO, expiraEn, revisarCodigo } from '../utils/porteria';
+import { VISITA_ANONIMIZADA, anonimizado, errorRetencion, limiteConservacion } from '../utils/conservacion';
 
 // Estado de portería de cada comunidad con las filas de la base: `visitantes`, `invitaciones`,
 // `registro_accesos`, `vehiculos` y `reservas`. El monitor muestra los ingresos y salidas de
@@ -14,6 +16,7 @@ const ConserjeriaContext = createContext(null);
 
 // En la demo, si nadie resuelve antes, el residente acepta desde la app a los 30 segundos
 const RESPUESTA_APP_MS = 30000;
+const VISIBLE_EXPIRADA_MS = 2 * 3600000;
 const siguienteId = (filas, campo) => filas.reduce((m, f) => Math.max(m, f[campo]), 0) + 1;
 // Nombre del visitante como se muestra (un delivery o una empresa tiene apellido vacío)
 const nombreVisitante = (v) => (v ? [v.nombre, v.apellido].filter(Boolean).join(' ') : 'Visitante');
@@ -28,9 +31,8 @@ function reducer(state, { tipo, id_red, ...p }) {
       const inv = d.invitaciones.find((i) => i.id_invitacion === p.id_invitacion);
       const fila = {
         id_acceso: siguienteId(d.registro_accesos, 'id_acceso'), id_visitante: inv.id_visitante, id_unidad: inv.id_unidad, id_invitacion: inv.id_invitacion,
-        categoria: inv.tipo, patente: inv.patente, metodo: p.metodo, fecha_ingreso: ahora, fecha_salida: null,
+        categoria: inv.tipo, patente: inv.patente, metodo: p.metodo, fecha_creacion: ahora, fecha_ingreso: ahora, fecha_salida: null,
         estado_autorizacion: 'Aprobado', autorizado_via: 'Invitación', id_usuario_autoriza: null, id_usuario_registra: p.id_usuario,
-        codigo_qr_validado: p.metodo === 'QR' ? 1 : 0,
       };
       return con({
         invitaciones: d.invitaciones.map((i) => (i.id_invitacion === inv.id_invitacion ? { ...i, estado: 'Adentro' } : i)),
@@ -49,8 +51,8 @@ function reducer(state, { tipo, id_red, ...p }) {
         visitantes: [...d.visitantes, { id_visitante, rut: null, nombre: p.nombre, apellido: p.apellido, tipo: 'Esporádico' }],
         registro_accesos: [...d.registro_accesos, {
           id_acceso: p.id_acceso, id_visitante, id_unidad: p.id_unidad, id_invitacion: null, categoria: p.categoria, patente: p.patente || null,
-          metodo: 'Manual', fecha_ingreso: ahora, fecha_salida: null, estado_autorizacion: 'Pendiente de Confirmación', autorizado_via: null,
-          id_usuario_autoriza: null, id_usuario_registra: p.id_usuario, codigo_qr_validado: 0,
+          metodo: 'Manual', fecha_creacion: ahora, fecha_ingreso: null, fecha_salida: null, estado_autorizacion: 'Pendiente de Confirmación', autorizado_via: null,
+          id_usuario_autoriza: null, id_usuario_registra: p.id_usuario,
         }],
       });
     }
@@ -61,13 +63,25 @@ function reducer(state, { tipo, id_red, ...p }) {
         registro_accesos: d.registro_accesos.map((x) => (x.id_acceso === p.id_acceso ? {
           ...x, estado_autorizacion: p.aprobada ? 'Aprobado' : 'Rechazado', autorizado_via: p.via, id_usuario_autoriza: p.id_usuario_autoriza,
           // Si lo autorizan, la hora de ingreso es cuando pasó la barrera
-          fecha_ingreso: p.aprobada ? ahora : x.fecha_ingreso,
+          fecha_ingreso: p.aprobada ? ahora : null,
         } : x)),
       });
     }
     case 'cambiarReserva':
       return con({ reservas: d.reservas.map((r) => (r.id_reserva === p.id_reserva ? { ...r, ...p.cambios } : r)) });
     // Cancelación en bloque al quitar un espacio o cambiar sus horarios (cada una con su motivo)
+    // `accesos_retenciones`: el período queda fuera de la anonimización hasta que se libere
+    case 'crearRetencion':
+      return con({
+        accesos_retenciones: [...d.accesos_retenciones, {
+          id_retencion: siguienteId(d.accesos_retenciones, 'id_retencion'), desde: p.desde, hasta: p.hasta, motivo: p.motivo,
+          creada_por: p.id_usuario, fecha_creacion: ahora, liberada_en: null, liberada_por: null,
+        }],
+      });
+    case 'liberarRetencion':
+      return con({
+        accesos_retenciones: d.accesos_retenciones.map((r) => (r.id_retencion === p.id_retencion && !r.liberada_en ? { ...r, liberada_en: ahora, liberada_por: p.id_usuario } : r)),
+      });
     case 'cancelarVarias': {
       const motivos = new Map(p.lista.map((x) => [x.id_reserva, x.motivo]));
       return con({ reservas: d.reservas.map((r) => (motivos.has(r.id_reserva) ? { ...r, estado_reserva: 'Cancelada', motivo_cancelacion: motivos.get(r.id_reserva) } : r)) });
@@ -88,6 +102,12 @@ export function ConserjeriaProvider({ children }) {
   });
   const id_red = comunidad.id_red;
   const d = state[id_red];
+  // Hora con la que se decide qué llegadas expiraron; avanza cada 15 segundos
+  const [reloj, setReloj] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setReloj(Date.now()), 15000);
+    return () => clearInterval(t);
+  }, []);
   const enVivo = tieneModulo(comunidad, 'conserjeria');
   // Llegadas que en la demo responde el residente desde la app (no es una columna de la base)
   const simularApp = useRef(new Set());
@@ -103,7 +123,7 @@ export function ConserjeriaProvider({ children }) {
         dispatch({ tipo: 'resolverAutorizacion', id_red, id_acceso: s.id_acceso, aprobada: true, via: 'App', id_usuario_autoriza: ocupantes[s.id_unidad]?.[0]?.id_usuario ?? null });
         finanzas.anotar('Ingreso autorizado por el residente', `${persona} a ${nombreUnidad(u)} (app)`,
           `${residentes[s.id_unidad] ?? nombreUnidad(u)} autorizó en la app. Puede pasar ${persona}.`);
-      }, Math.max(0, new Date(s.fecha_ingreso).getTime() + RESPUESTA_APP_MS - Date.now())));
+      }, Math.max(0, new Date(s.fecha_creacion).getTime() + RESPUESTA_APP_MS - Date.now())));
     return () => timers.forEach(clearTimeout);
   }, [d.registro_accesos, d.visitantes, id_red, comunidad.unidades, finanzas, ocupantes]);
 
@@ -114,6 +134,14 @@ export function ConserjeriaProvider({ children }) {
     const espacioDe = (r) => comunidad.espacios_comunes?.find((e) => e.id_espacio === r.id_espacio)?.nombre ?? 'Espacio';
     const visitantePorId = Object.fromEntries(d.visitantes.map((v) => [v.id_visitante, v]));
     const persona = (id_visitante) => nombreVisitante(visitantePorId[id_visitante]);
+    // Registros de acceso de hace más de 12 meses: anonimizados salvo que una retención activa los cubra
+    const historialAntiguo = d.registro_accesos
+      .filter((a) => a.fecha_creacion.slice(0, 10) < limiteConservacion())
+      .map((a) => {
+        const oculto = anonimizado(a.fecha_creacion, d.accesos_retenciones);
+        return { ...a, anonimizado: oculto, persona: oculto ? VISITA_ANONIMIZADA : persona(a.id_visitante), patente: oculto ? null : a.patente };
+      })
+      .sort((a, b) => b.fecha_creacion.localeCompare(a.fecha_creacion));
     const esDeHoy = (fecha) => fecha.slice(0, 10) === hoy;
     // Residente que responde por la unidad (con la API, quien toque «Autorizar» en la app)
     const residenteDe = (id_unidad) => ocupantes[id_unidad]?.[0]?.id_usuario ?? null;
@@ -133,10 +161,19 @@ export function ConserjeriaProvider({ children }) {
         ...(a.fecha_salida ? [{ ...base, clave: `${a.id_acceso}-salida`, sentido: 'salida', fecha: a.fecha_salida, metodo: 'Salida registrada' }] : []),
       ];
     }).sort((a, b) => b.fecha.localeCompare(a.fecha));
+    // Llegadas sin invitación sin respuesta. Expiran a los 30 minutos (`expiraEn`): la pantalla las muestra
+    // como expiradas hasta 2 horas después, para que la garita sepa que debe registrarlas de nuevo.
     const porAutorizar = d.registro_accesos
-      .filter((a) => a.estado_autorizacion === 'Pendiente de Confirmación')
-      .map((a) => ({ ...a, persona: persona(a.id_visitante) }))
-      .sort((a, b) => a.fecha_ingreso.localeCompare(b.fecha_ingreso));
+      .filter((a) => a.estado_autorizacion === 'Pendiente de Confirmación' && reloj - expiraEn(a) < VISIBLE_EXPIRADA_MS)
+      .map((a) => ({ ...a, persona: persona(a.id_visitante), expira: expiraEn(a) }))
+      .sort((a, b) => a.fecha_creacion.localeCompare(b.fecha_creacion));
+    // Quien invitó sigue viviendo en la vivienda (con la API, residencia vigente y acceso a la comunidad)
+    const invitanteVigente = (inv) => !!ocupantes[inv.id_unidad]?.some((o) => o.id_usuario === inv.id_usuario);
+    // Como la API: la invitación debe estar vigente para dejar pasar a la visita, también a mano
+    const errorIngreso = (inv) => {
+      const r = revisarCodigo(d.invitaciones, inv.codigo, invitanteVigente);
+      return r.resultado === 'valido' ? null : MENSAJE_RESULTADO[r.resultado];
+    };
 
     // Vehículos y estacionamiento de cada unidad, para buscar por patente
     const vehiculos = {};
@@ -145,6 +182,8 @@ export function ConserjeriaProvider({ children }) {
 
     const acciones = {
       ingresoInvitacion: (inv, metodo = 'QR') => {
+        const error = errorIngreso(inv);
+        if (error) { finanzas.avisar(`${error}.`); return; }
         dispatch({ tipo: 'ingresoInvitacion', id_red, id_invitacion: inv.id_invitacion, metodo, id_usuario: yo.id_usuario });
         finanzas.anotar('Registró un ingreso', `${inv.visitante} a ${nombreUnidad(unidadPorId[inv.id_unidad])} (${metodo})`,
           `${inv.visitante} ingresó. Se avisó a ${nombreUnidad(unidadPorId[inv.id_unidad])}.`);
@@ -169,10 +208,29 @@ export function ConserjeriaProvider({ children }) {
       // WhatsApp y llamada quedan como `autorizado_via` = 'Teléfono'
       resolverAutorizacion: (s, aprobada, via = 'Teléfono') => {
         const u = unidadPorId[s.id_unidad];
+        if (Date.now() >= expiraEn(s)) {
+          finanzas.avisar('La solicitud de ingreso expiró: registra la llegada de nuevo.');
+          return;
+        }
         dispatch({ tipo: 'resolverAutorizacion', id_red, id_acceso: s.id_acceso, aprobada, via, id_usuario_autoriza: residenteDe(s.id_unidad) });
         finanzas.anotar(aprobada ? 'Registró un ingreso autorizado' : 'Registró un ingreso rechazado',
           `${s.categoria} ${s.persona} a ${nombreUnidad(u)} (${via.toLowerCase()})`,
           aprobada ? `Ingreso de ${s.persona} registrado.` : `${residentes[u.id_unidad] ?? 'El residente'} no autorizó. No dejes pasar a ${s.persona}.`);
+      },
+      // Conservación de datos (Ley 21.719): solo la administración retiene o libera un período
+      crearRetencion: ({ desde, hasta, motivo }) => {
+        const error = errorRetencion({ desde, hasta, motivo });
+        if (error) { finanzas.avisar(`${Object.values(error)[0]}.`); return false; }
+        const m = motivo.trim().replace(/\s+/g, ' ');
+        dispatch({ tipo: 'crearRetencion', id_red, desde, hasta, motivo: m, id_usuario: yo.id_usuario });
+        finanzas.anotar('Retuvo registros de acceso', `${desde} al ${hasta} · ${m}`, 'Retención creada. Los registros de esos días no se anonimizarán mientras siga activa.');
+        return true;
+      },
+      liberarRetencion: (r) => {
+        if (r.liberada_en) { finanzas.avisar('La retención ya estaba liberada.'); return; }
+        dispatch({ tipo: 'liberarRetencion', id_red, id_retencion: r.id_retencion, id_usuario: yo.id_usuario });
+        finanzas.anotar('Liberó una retención de registros de acceso', `${r.desde} al ${r.hasta}`,
+          'Retención liberada. Si esos registros tienen más de 12 meses, se anonimizan esta noche.');
       },
       entregarEspacio: (r) => {
         const e = espacioDe(r);
@@ -200,14 +258,17 @@ export function ConserjeriaProvider({ children }) {
     };
 
     return {
-      ...d, hoy, enVivo, unidadPorId, invitaciones, visitasHoy, accesos, porAutorizar, vehiculos, estacionamientos,
+      ...d, hoy, enVivo, unidadPorId, invitaciones, visitasHoy, accesos, porAutorizar, vehiculos, estacionamientos, invitanteVigente,
+      porAutorizarVigentes: porAutorizar.filter((a) => reloj < a.expira),
+      historialAntiguo,
+      retenciones: [...d.accesos_retenciones].sort((a, b) => Number(!!a.liberada_en) - Number(!!b.liberada_en) || b.desde.localeCompare(a.desde)),
       esperadas: visitasHoy.filter((i) => i.estado === 'Esperada'),
       adentro: invitaciones.filter((i) => i.estado === 'Adentro'),
       reservasHoy: d.reservas.filter((r) => r.fecha_reserva === hoy && r.estado_reserva !== 'Cancelada'),
       espacioDe,
       acciones,
     };
-  }, [d, id_red, comunidad, enVivo, finanzas, yo, ocupantes]);
+  }, [d, id_red, comunidad, enVivo, finanzas, yo, ocupantes, reloj]);
 
   return <ConserjeriaContext.Provider value={valor}>{children}</ConserjeriaContext.Provider>;
 }

@@ -23,7 +23,7 @@ export default function BusquedaRapida() {
       ...(vehiculos[u.id_unidad] ?? []).map((v) => v.patente),
     ];
     return campos.some((c) => normalizar(c).includes(q));
-  }).slice(0, 6);
+  }).slice(0, 8); // Como la API: hasta 8 resultados
 
   return (
     <Box sx={{ display: 'grid', gap: 1.5 }}>

@@ -104,7 +104,7 @@ function EnPorteria() {
     <Tarjeta key={v.id_acceso} acento={t.signal}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <Ionicons name="notifications" size={20} color={t.oscuro ? t.signal : t.signalInk} />
-        <Texto v="etiqueta" style={{ flex: 1 }}>En portería ahora · {hace(v.fecha_ingreso)}</Texto>
+        <Texto v="etiqueta" style={{ flex: 1 }}>En portería ahora · {hace(v.fecha_creacion)}</Texto>
       </View>
       <View style={{ gap: 2 }}>
         <Texto v="subtitulo">{v.persona}</Texto>
@@ -177,7 +177,7 @@ export default function Inicio() {
   const porVotar = votaciones.filter((v) => v.estado === 'Abierta' && !miVoto(v.id_votacion));
   const oficial = publicaciones.filter((p) => p.oficial).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
   const accesos = [
-    tiene('invitaciones_qr') && { clave: 'i', icono: 'qr-code' as const, titulo: 'Invitar una visita', detalle: 'Comparte un código QR para portería', ruta: '/invitar' as const },
+    tiene('invitaciones_qr') && tiene('conserjeria') && { clave: 'i', icono: 'qr-code' as const, titulo: 'Invitar una visita', detalle: 'Comparte un código QR para portería', ruta: '/invitar' as const },
     tiene('reservas') && espaciosActivos(comunidad).length > 0 && {
       clave: 'r', icono: 'calendar' as const, titulo: 'Reservar un espacio', ruta: '/reservar' as const,
       detalle: proximaReserva ? `Tienes el ${espacioDe(proximaReserva.id_espacio).toLowerCase()} ${cuando(proximaReserva.fecha_reserva)}, de ${hora(proximaReserva.hora_inicio)} a ${hora(proximaReserva.hora_fin)}` : espaciosActivos(comunidad).map((e) => e.nombre).join(', '),
@@ -224,7 +224,7 @@ export default function Inicio() {
               <Fila
                 key={i.id_invitacion} borde={n > 0} titulo={i.visitante}
                 detalle={i.estado === 'Adentro' ? 'Ya ingresó' : `${cuando(i.fecha_desde)}, de ${horaMinuto(i.fecha_desde)} a ${horaMinuto(i.fecha_hasta)}`}
-                derecha={<Chip texto={i.codigo} tono="senal" codigo />}
+                derecha={i.estado === 'Adentro' ? <Chip texto="Ingresó" tono="ok" /> : i.codigo ? <Chip texto={i.codigo} tono="senal" codigo /> : <Chip texto={`Invitó ${i.invitadaPor.split(' ')[0]}`} />}
                 onPress={() => router.push({ pathname: '/invitacion/[id]', params: { id: String(i.id_invitacion) } })}
               />
             ))}

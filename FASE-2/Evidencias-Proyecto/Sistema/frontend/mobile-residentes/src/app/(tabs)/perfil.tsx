@@ -94,6 +94,7 @@ export default function Perfil() {
         <Fila titulo="Correo" detalle={cuenta.correo} />
         <Fila titulo="Teléfono" detalle={telefono(cuenta.telefono) || 'Sin teléfono'} />
         <Boton tipo="secundario" texto="Actualizar correo o teléfono" icono="create-outline" onPress={() => router.push('/mis-datos')} style={{ marginTop: 12 }} />
+        <Boton tipo="texto" texto="Cambiar contraseña" icono="key-outline" onPress={() => router.push('/cambiar-clave')} style={{ marginTop: 4 }} />
       </Tarjeta>
 
       <Tarjeta>

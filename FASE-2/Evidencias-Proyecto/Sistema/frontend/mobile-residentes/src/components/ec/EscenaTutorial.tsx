@@ -291,7 +291,7 @@ function Visitas({ conserjeria }: Opciones) {
       <View style={{ flex: 1, gap: 6 }}>
         <Fuerte>Visita de Camila</Fuerte>
         <Chico>Sábado, 15:00 a 22:00</Chico>
-        <Chip texto="EC-4K7P2" tono="senal" codigo />
+        <Chip texto="EC-4K7P-2QHM" tono="senal" codigo />
         <Estados cambios={[0.64]}>
           <Chico>{conserjeria ? 'Conserjería la escanea al llegar' : 'Se valida en la entrada'}</Chico>
           <Chip texto="Camila llegó" tono="ok" />

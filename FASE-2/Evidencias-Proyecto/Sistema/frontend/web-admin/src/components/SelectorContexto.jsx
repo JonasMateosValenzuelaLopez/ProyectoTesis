@@ -7,14 +7,14 @@ import { roles } from '../tokens';
 import SelloCargo from './marca/SelloCargo';
 
 // Selector de comunidad y cargo. Una persona puede tener varios cargos en
-// varias comunidades (tabla membresias); aquí elige con cuál está actuando.
+// varias comunidades (`comunidades[].roles` del perfil); aquí elige con cuál está actuando.
 export default function SelectorContexto() {
   const { comunidad, cargo, porComunidad, cambiarContexto } = useSesion();
   const navigate = useNavigate();
   const [ancla, setAncla] = useState(null);
 
-  const elegir = (id_red, nuevoCargo) => {
-    cambiarContexto(id_red, nuevoCargo);
+  const elegir = (idRed, idRol) => {
+    cambiarContexto(idRed, idRol);
     setAncla(null);
     navigate('/panel');
   };
@@ -46,14 +46,14 @@ export default function SelectorContexto() {
       </ButtonBase>
 
       <Menu anchorEl={ancla} open={Boolean(ancla)} onClose={() => setAncla(null)} slotProps={{ paper: { variant: 'outlined', sx: { minWidth: 260, mt: 0.5 } } }}>
-        {porComunidad.flatMap(({ comunidad: c, cargos }) => [
-          <ListSubheader key={`h${c.id_red}`} sx={{ lineHeight: '32px', fontWeight: 700 }}>
+        {porComunidad.flatMap(({ comunidad: c, roles: cargos }) => [
+          <ListSubheader key={`h${c.idRed}`} sx={{ lineHeight: '32px', fontWeight: 700 }}>
             {c.nombre} · {c.tipo}
           </ListSubheader>,
           ...cargos.map((cg) => {
-            const activo = c.id_red === comunidad.id_red && cg === cargo;
+            const activo = c.idRed === comunidad.idRed && cg === cargo;
             return (
-              <MenuItem key={`${c.id_red}-${cg}`} selected={activo} onClick={() => elegir(c.id_red, cg)}>
+              <MenuItem key={`${c.idRed}-${cg}`} selected={activo} onClick={() => elegir(c.idRed, cg)}>
                 <ListItemIcon><SelloCargo cargo={cg} /></ListItemIcon>
                 <ListItemText primary={roles[cg].label} />
                 {activo && <CheckIcon fontSize="small" color="primary" />}

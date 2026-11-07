@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { Navigate, useMatch, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Box, IconButton, Tooltip, Typography } from '@mui/material';
-import { Logout as LogoutIcon } from '@mui/icons-material';
+import { Logout as LogoutIcon, ManageAccountsOutlined as CuentaIcon } from '@mui/icons-material';
 import { useSesion } from '../context/SesionContext';
-import { PlataformaProvider, usePlataforma } from '../context/PlataformaContext';
 import { SECCIONES_PLATAFORMA, activoPlataforma } from '../config/plataforma';
 import MarcoPanel from './MarcoPanel';
 import { nombreCorto } from '../utils/formato';
-import { esPlataforma } from '../config/roles';
+import { PLATAFORMA } from '../config/roles';
+import { Cargando } from './PanelProtegido';
 import SelectorTema from './SelectorTema';
 import PasoSesion from './marca/PasoSesion';
 import BotonTutorial from './tutorial/BotonTutorial';
@@ -20,38 +20,36 @@ function Etiqueta() {
   );
 }
 
-// Lo que se está mirando: todas las comunidades, o la que tiene abierta la ficha.
+// Lo que se está mirando (la ficha de una comunidad mostrará su nombre al conectarse en la fase 2)
 function BarraContexto() {
-  const ficha = useMatch('/plataforma/comunidades/:id');
-  const { redPorId } = usePlataforma();
-  const red = ficha && redPorId[Number(ficha.params.id)];
   return (
     <Box sx={{ minWidth: 0 }}>
       <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.2 }}>Administración de plataforma</Typography>
-      <Typography noWrap sx={{ fontWeight: 700, lineHeight: 1.3 }}>{red ? red.nombre : 'Todas las comunidades'}</Typography>
+      <Typography noWrap sx={{ fontWeight: 700, lineHeight: 1.3 }}>Todas las comunidades</Typography>
     </Box>
   );
 }
 
 // Panel del equipo EntreCasas: solo para cuentas de plataforma.
 export default function PlataformaProtegida() {
-  const { usuario, bloqueados, cerrarSesion } = useSesion();
+  const { usuario, esPlataforma, cargando, cerrarSesion } = useSesion();
   const [saliendo, setSaliendo] = useState(false);
   const navigate = useNavigate();
-  if (!usuario) return <Navigate to="/login" replace />;
-  if (!esPlataforma(usuario)) return <Navigate to="/panel" replace />;
+  const location = useLocation();
+  if (cargando) return <Cargando />;
+  if (!usuario) return <Navigate to="/login" replace state={{ desde: location.pathname }} />;
+  if (!esPlataforma) return <Navigate to="/panel" replace />;
 
   const salir = () => {
     cerrarSesion();
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
   return (
-    <PlataformaProvider>
+    <>
       {saliendo && <PasoSesion tipo="salir" nombre={usuario.nombre} alTerminar={salir} />}
       <MarcoPanel
         secciones={SECCIONES_PLATAFORMA}
-        contadores={{ bloqueados: bloqueados.length }}
         etiquetaMenu="Menú de plataforma"
         marca={<Etiqueta />}
         activo={activoPlataforma}
@@ -62,7 +60,12 @@ export default function PlataformaProtegida() {
             <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', md: 'block' } }}>
               {nombreCorto(usuario)}
             </Typography>
-            <BotonTutorial cargo="plataforma" />
+            <Tooltip title="Mi cuenta">
+              <IconButton aria-label="Mi cuenta" onClick={() => navigate('/plataforma/mi-cuenta')} sx={{ color: 'text.secondary' }}>
+                <CuentaIcon />
+              </IconButton>
+            </Tooltip>
+            <BotonTutorial cargo={PLATAFORMA} />
             <SelectorTema />
             <Tooltip title="Cerrar sesión">
               <IconButton aria-label="Cerrar sesión" onClick={() => setSaliendo(true)} sx={{ color: 'text.secondary' }}>
@@ -72,6 +75,6 @@ export default function PlataformaProtegida() {
           </>
         )}
       />
-    </PlataformaProvider>
+    </>
   );
 }

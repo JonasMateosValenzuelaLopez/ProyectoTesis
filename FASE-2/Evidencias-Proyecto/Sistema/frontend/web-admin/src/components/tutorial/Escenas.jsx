@@ -467,7 +467,7 @@ const ESCENAS = {
         <Box sx={{ position: 'absolute', left: 0, right: 0, height: 3, bgcolor: 'secondary.main', boxShadow: '0 0 10px', color: 'secondary.main', animation: `${escanea} ${DURACION} linear infinite`, [reducido]: { display: 'none' } }} />
       </Box>
       <Box sx={{ display: 'grid', gap: 0.75 }}>
-        <Pastilla texto="EC-4K7P2" tono="senal" />
+        <Pastilla texto="EC-4K7P-2QHM" tono="senal" />
         <Entra en={36}><Fuerte>Camila Soto · visita</Fuerte><Chico>Para el Depto 502 · hasta las 22:00</Chico></Entra>
         <Estados cambios={[36, 58]}>
           <Chico>Escaneando…</Chico>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   COBROS, CUENTAS, PERSONAS, ROLES, TELEFONOS, UNIDADES, comunidadPorId, cuentasIniciales, tieneModulo, tipoUnidad, invitacionesIniciales,
   MAX_AVISOS_DISPONIBLES, MAX_DESCRIPCION_AVISO, MAX_TITULO_AVISO, MIN_TITULO_AVISO, PRECIO_MAXIMO, type ProductoMarketplace, type TipoAviso,
@@ -6,11 +6,13 @@ import {
   ACTAS, ACTA_ACUERDOS, CONTACTOS, TOTAL_UNIDADES, VOTACIONES, VOTACION_OPCIONES, type VotacionDetalle,
   EMERGENCIAS, GUIAS, diaISO, diaSemanaHoy, diasDe, espaciosActivos, fichasIniciales, type HogarFicha,
   HORAS_PARA_CANCELAR, MAX_BLOQUES_POR_DIA, puedeCancelarResidente, yaPaso, titularDe,
+  CLAVE_PRUEBA, MAX_DIAS_ANTICIPACION, MAX_DURACION_HORAS, MAX_INVITACIONES_VIGENTES, MAX_NOMBRE_VISITA, MIN_NOMBRE_VISITA, PATENTE, generarCodigo, pendienteVigente,
   type Cargo, type Cuenta, type Invitacion, type Pago, type Modulo, type RegistroAcceso, type Reserva, type SolicitudContacto, type Visitante,
 } from '@/data/demo';
 import { roles } from '@/constants/tokens';
 import { estadoCuenta, gastosSinPagar } from '@/utils/cuenta';
 import { diasHasta } from '@/utils/formato';
+import { errorClaveNueva } from '@/utils/clave';
 
 // Estado de la app del residente: quién entró, con qué vivienda está actuando y los datos
 // de su comunidad. Vive en memoria (se reinicia al cerrar la app), como el panel web.
@@ -39,13 +41,31 @@ const nombreDe = (id_usuario: number) => {
 };
 const AppContext = createContext<Valor | null>(null);
 
-const LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-const nuevoCodigo = () => `EC-${Array.from({ length: 5 }, () => LETRAS[Math.floor(Math.random() * LETRAS.length)]).join('')}`;
+// Un cambio de correo esperando su código (`auth_cambios_correo`): vence en 10 minutos y admite 5 intentos.
+// `codigo` es null si el correo ya lo usa otra cuenta: la API responde lo mismo pero no envía nada.
+type CambioCorreo = { id_usuario: number; correo: string; codigo: string | null; expira: number; intentos: number };
+const MINUTOS_CODIGO_CORREO = 10;
+const MAX_INTENTOS_CODIGO = 5;
+export const MENSAJE_CODIGO_INVALIDO = 'El código no es válido o ya expiró.';
+// Para las acciones (no se llaman durante el render)
+const msAhora = () => Date.now();
+const codigoSeisDigitos = () => String(Math.floor(100000 + Math.random() * 900000));
+const CADA_MEDIO_MINUTO = 30000;
 
 function useValor() {
+  // Hora con la que se calculan las invitaciones vencidas y las llegadas a portería que expiran.
+  // Avanza cada 30 segundos para que las pantallas se actualicen solas.
+  const [reloj, setReloj] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setReloj(Date.now()), CADA_MEDIO_MINUTO);
+    return () => clearInterval(id);
+  }, []);
   const [cuenta, setCuenta] = useState<Cuenta | null>(null);
   // Correo y teléfono que cada vecino cambió desde Perfil (columnas `correo` y `telefono` de `usuarios`)
   const [datosEditados, setDatosEditados] = useState<Record<number, Pick<Cuenta, 'correo' | 'telefono'>>>({});
+  const [cambioCorreo, setCambioCorreo] = useState<CambioCorreo | null>(null);
+  // Contraseñas que se cambiaron en esta sesión (las demás usan la clave de prueba)
+  const [claves, setClaves] = useState<Record<number, string>>({});
   const [id_unidad, setIdUnidad] = useState<number | null>(null);
   // Filas de `gastos_comunes` y `pagos` de las viviendas (las de cobros vienen fijas en COBROS)
   const [cuentas, setCuentas] = useState(cuentasIniciales);
@@ -163,15 +183,77 @@ function useValor() {
     } : null;
     const misFichas = fichas.filter((f) => f.id_unidad === id_unidad);
 
+    // Correo y teléfono de la cuenta (`usuarios`), recordados para cuando vuelva a entrar
+    const guardarDatos = (cambios: Partial<Pick<Cuenta, 'correo' | 'telefono'>>) => {
+      if (!cuenta) return;
+      const datos = { correo: cuenta.correo, telefono: cuenta.telefono, ...cambios };
+      setCuenta({ ...cuenta, ...datos });
+      setDatosEditados((x) => ({ ...x, [cuenta.id_usuario]: datos }));
+    };
+
+    // Como la API: cada residente ve las invitaciones de su vivienda creadas desde el día en que llegó.
+    // El código y el RUT los ve solo quien invitó; el resto de la casa ve quién la creó.
+    const ahoraMs = reloj;
+    const vencida = (i: Invitacion) => i.estado === 'Esperada' && new Date(i.fecha_hasta).getTime() <= ahoraMs;
+    const misInvitaciones = invitaciones
+      .filter((i) => i.id_unidad === id_unidad && !!miResidencia && i.fecha_creacion >= miResidencia.fecha_desde)
+      .map((i) => {
+        const creador = i.id_usuario === cuenta?.id_usuario;
+        return {
+          ...i, visitante: nombreVisitante(i.id_visitante), creador, invitadaPor: nombreDe(i.id_usuario), vencida: vencida(i),
+          codigo: creador ? i.codigo : null, rut: creador ? visitantes.find((v) => v.id_visitante === i.id_visitante)?.rut ?? null : null,
+        };
+      });
+    // Invitaciones de la vivienda que siguen esperando a su visita (la API permite 30)
+    const sinUsar = invitaciones.filter((i) => i.id_unidad === id_unidad && i.estado === 'Esperada' && !vencida(i)).length;
+
     const acciones = {
       iniciarSesion: (c: Cuenta) => { setCuenta({ ...c, ...datosEditados[c.id_usuario] }); setIdUnidad(c.residencias.find((r) => r.estado === 'Activa')!.id_unidad); },
       cerrarSesion: () => { setCuenta(null); setIdUnidad(null); },
-      // La API hará UPDATE de `usuarios` (el correo es único: si ya lo usa otra cuenta, responde con error)
-      actualizarDatos: (datos: Pick<Cuenta, 'correo' | 'telefono'>) => {
+      // PUT auth/perfil/telefono: se cambia o se quita (null)
+      actualizarTelefono: (telefono: string | null) => {
         if (!cuenta) return;
-        setCuenta({ ...cuenta, ...datos });
-        setDatosEditados((x) => ({ ...x, [cuenta.id_usuario]: datos }));
-        avisar('Tus datos quedaron actualizados.');
+        guardarDatos({ telefono });
+        avisar(telefono ? 'Tu teléfono quedó actualizado.' : 'Quitaste tu teléfono.');
+      },
+      // POST auth/perfil/correo: manda un código de 6 dígitos al correo nuevo. Mientras no se confirme,
+      // la cuenta sigue con el correo anterior. Si el correo ya lo usa otra cuenta, responde lo mismo
+      // (para no revelar qué correos existen), pero no envía código. Devuelve el código de prueba.
+      pedirCambioCorreo: (correo: string): { ok: boolean; codigo: string | null } => {
+        if (!cuenta) return { ok: false, codigo: null };
+        if (correo === cuenta.correo.toLowerCase()) { avisar('Ese ya es el correo de tu cuenta.'); return { ok: false, codigo: null }; }
+        const ocupado = CUENTAS.some((c) => c.id_usuario !== cuenta.id_usuario && (datosEditados[c.id_usuario]?.correo ?? c.correo).toLowerCase() === correo);
+        const codigo = ocupado ? null : codigoSeisDigitos();
+        setCambioCorreo({ id_usuario: cuenta.id_usuario, correo, codigo, expira: msAhora() + MINUTOS_CODIGO_CORREO * 60000, intentos: 0 });
+        avisar(`Si el correo está disponible, te enviamos un código de 6 dígitos. Vence en ${MINUTOS_CODIGO_CORREO} minutos.`);
+        return { ok: true, codigo };
+      },
+      // POST auth/perfil/correo/confirmacion: al quinto intento fallido el código deja de servir
+      confirmarCambioCorreo: (codigo: string): string | null => {
+        const c = cambioCorreo;
+        if (!cuenta || !c || c.id_usuario !== cuenta.id_usuario || msAhora() > c.expira || c.intentos >= MAX_INTENTOS_CODIGO) return MENSAJE_CODIGO_INVALIDO;
+        if (!c.codigo || c.codigo !== codigo) {
+          setCambioCorreo(c.intentos + 1 >= MAX_INTENTOS_CODIGO ? null : { ...c, intentos: c.intentos + 1 });
+          return MENSAJE_CODIGO_INVALIDO;
+        }
+        guardarDatos({ correo: c.correo });
+        setCambioCorreo(null);
+        avisar('Tu correo quedó actualizado. Le avisamos también a tu correo anterior.');
+        return null;
+      },
+      // Volver a escribir otro correo (el código pendiente deja de servir)
+      descartarCambioCorreo: () => setCambioCorreo(null),
+      // PUT auth/perfil/password: pide la actual; la nueva sigue las reglas de la API y no puede ser igual
+      cambiarClave: (actual: string, nueva: string): string | null => {
+        if (!cuenta) return null;
+        const vigente = claves[cuenta.id_usuario] ?? CLAVE_PRUEBA;
+        if (actual !== vigente) return 'La contraseña actual no es correcta.';
+        if (nueva === vigente) return 'La nueva contraseña debe ser distinta de la actual.';
+        const error = errorClaveNueva(nueva);
+        if (error) return error;
+        setClaves((x) => ({ ...x, [cuenta.id_usuario]: nueva }));
+        avisar('Contraseña actualizada. Cerramos la sesión en tus otros dispositivos y te avisamos por correo.');
+        return null;
       },
       cambiarUnidad: (id: number) => { setIdUnidad(id); avisar(`Ahora ves ${tipoUnidad(UNIDADES[id]) === 'Departamento' ? 'el Depto' : 'la Casa'} ${UNIDADES[id].numero_identificador}.`); },
       // Crea un pago Pendiente por cada gasto que cubre la transferencia, del más antiguo al más nuevo.
@@ -197,8 +279,23 @@ function useValor() {
         setCuentas((x) => ({ ...x, pagos: [...x.pagos, ...nuevos] }));
         avisar('Aviso enviado. La administración marcará el pago cuando vea la transferencia.');
       },
-      // Crea la invitación y, si la visita es nueva, su fila en `visitantes` (el RUT es único: si ya existe, se reutiliza)
-      crearInvitacion: (inv: { nombre: string; rut: string | null; tipo: Invitacion['tipo']; fecha_desde: string; fecha_hasta: string; patente: string | null }) => {
+      // Crea la invitación y, si la visita es nueva, su fila en `visitantes` (el RUT es único: si ya existe, se reutiliza).
+      // Como la API: hace falta conserjería, dura hasta 24 horas, se crea hasta 60 días antes y la vivienda
+      // tiene hasta 30 sin usar. Devuelve null (con el aviso) si no se pudo crear.
+      crearInvitacion: (inv: { nombre: string; rut: string | null; tipo: Invitacion['tipo']; fecha_desde: string; fecha_hasta: string; patente: string | null }): Invitacion | null => {
+        if (!cuenta || !id_unidad) return null;
+        const desde = new Date(inv.fecha_desde).getTime();
+        const hasta = new Date(inv.fecha_hasta).getTime();
+        const error = !tiene('conserjeria') ? 'Tu comunidad no tiene conserjería que valide las invitaciones.'
+          : inv.nombre.length < MIN_NOMBRE_VISITA || inv.nombre.length > MAX_NOMBRE_VISITA ? `El nombre debe tener entre ${MIN_NOMBRE_VISITA} y ${MAX_NOMBRE_VISITA} caracteres.`
+            : inv.patente && !PATENTE.test(inv.patente) ? 'La patente debe tener entre 4 y 8 letras o números, sin espacios.'
+              : hasta <= desde ? 'La hora de término debe ser posterior a la de inicio.'
+                : hasta <= msAhora() ? 'La invitación debe terminar en el futuro.'
+                  : hasta - desde > MAX_DURACION_HORAS * 3600000 ? `Una invitación puede durar como máximo ${MAX_DURACION_HORAS} horas.`
+                    : desde > msAhora() + MAX_DIAS_ANTICIPACION * 86400000 ? `Solo puedes invitar con hasta ${MAX_DIAS_ANTICIPACION} días de anticipación.`
+                      : sinUsar >= MAX_INVITACIONES_VIGENTES ? `Tu vivienda puede tener hasta ${MAX_INVITACIONES_VIGENTES} invitaciones por usar. Cancela alguna para crear otra.`
+                        : null;
+        if (error) { avisar(error); return null; }
         const existente = inv.rut ? visitantes.find((v) => v.rut === inv.rut) : undefined;
         const [primero, ...resto] = inv.nombre.split(' ');
         const id_visitante = existente?.id_visitante ?? siguiente(visitantes, (v) => v.id_visitante);
@@ -208,25 +305,38 @@ function useValor() {
             : { id_visitante, rut: inv.rut, nombre: inv.nombre, apellido: '', tipo: 'Esporádico' }]);
         }
         const nueva: Invitacion = {
-          id_invitacion: siguiente(invitaciones, (i) => i.id_invitacion), codigo: nuevoCodigo(), id_unidad: id_unidad!, id_usuario: cuenta!.id_usuario, id_visitante,
+          id_invitacion: siguiente(invitaciones, (i) => i.id_invitacion), codigo: generarCodigo(), id_unidad, id_usuario: cuenta.id_usuario, id_visitante,
           tipo: inv.tipo, fecha_desde: inv.fecha_desde, fecha_hasta: inv.fecha_hasta, patente: inv.patente, estado: 'Esperada', fecha_creacion: ahora(),
         };
         setInvitaciones((x) => [...x, nueva]);
         return nueva;
       },
+      // Cualquiera de la vivienda que la ve puede cancelarla, mientras la visita no haya entrado ni haya vencido
       cancelarInvitacion: (id_invitacion: number) => {
-        setInvitaciones((x) => x.map((i) => (i.id_invitacion === id_invitacion ? { ...i, estado: 'Cancelada' } : i)));
+        const i = misInvitaciones.find((x) => x.id_invitacion === id_invitacion);
+        const error = !i ? 'Invitación no encontrada.'
+          : i.estado === 'Cancelada' ? 'La invitación ya estaba cancelada.'
+            : i.estado === 'Adentro' || i.estado === 'Salió' ? 'La visita ya ingresó: la invitación no se puede cancelar.'
+              : i.vencida ? 'La invitación ya venció.' : null;
+        if (error) { avisar(error); return; }
+        setInvitaciones((x) => x.map((y) => (y.id_invitacion === id_invitacion ? { ...y, estado: 'Cancelada' } : y)));
         avisar('Invitación cancelada. El código ya no abre la entrada.');
       },
       // La respuesta llega a la garita al instante (con la API, por WebSocket). Si autoriza, la hora
-      // de ingreso es cuando pasa la barrera.
+      // de ingreso es cuando pasa la barrera. Después de 30 minutos sin respuesta, la llegada expira.
       responderPorteria: (id_acceso: number, autoriza: boolean) => {
-        const v = accesos.find((x) => x.id_acceso === id_acceso);
+        const v = accesos.find((x) => x.id_acceso === id_acceso && x.id_unidad === id_unidad);
+        if (!v) { avisar('Ingreso no encontrado.'); return; }
+        if (v.estado_autorizacion !== 'Pendiente de Confirmación') {
+          avisar(v.estado_autorizacion === 'Aprobado' ? 'Este ingreso ya fue aprobado.' : 'Este ingreso ya fue rechazado.');
+          return;
+        }
+        if (!pendienteVigente(v)) { avisar('La solicitud de ingreso expiró: la conserjería debe registrar la llegada de nuevo.'); return; }
         setAccesos((x) => x.map((y) => (y.id_acceso === id_acceso ? {
           ...y, estado_autorizacion: autoriza ? 'Aprobado' : 'Rechazado', autorizado_via: 'App', id_usuario_autoriza: cuenta?.id_usuario ?? null,
-          fecha_ingreso: autoriza ? ahora() : y.fecha_ingreso,
+          fecha_ingreso: autoriza ? ahora() : null,
         } : y)));
-        avisar(autoriza ? `Listo. Conserjería dejará pasar a ${v ? nombreVisitante(v.id_visitante) : 'tu visita'}.` : 'Avisamos a conserjería que no autorizas el ingreso.');
+        avisar(autoriza ? `Listo. Conserjería dejará pasar a ${nombreVisitante(v.id_visitante)}.` : 'Avisamos a conserjería que no autorizas el ingreso.');
       },
       // Como la API: el horario no puede haber pasado ni estar tomado, y la vivienda tiene hasta 2 horarios por día en un espacio
       reservar: (r: Pick<Reserva, 'id_espacio' | 'fecha_reserva' | 'hora_inicio' | 'hora_fin' | 'cantidad_invitados'>) => {
@@ -431,12 +541,14 @@ function useValor() {
     return {
       cuenta, unidad, comunidad, cargo, relacion, esTitular, nombreTitular, tiene, aviso,
       estado,
-      misInvitaciones: invitaciones.filter((i) => i.id_unidad === id_unidad)
-        .map((i) => ({ ...i, visitante: nombreVisitante(i.id_visitante), rut: visitantes.find((v) => v.id_visitante === i.id_visitante)?.rut ?? null })),
+      misInvitaciones,
+      sinUsar,
+      cambioCorreo: cambioCorreo && cambioCorreo.id_usuario === cuenta?.id_usuario && reloj < cambioCorreo.expira ? { correo: cambioCorreo.correo } : null,
+      claveDe: (id_usuario: number) => claves[id_usuario] ?? CLAVE_PRUEBA,
       reservasComunidad: reservas.filter((r) => idsEspacios.has(r.id_espacio) && r.estado_reserva !== 'Cancelada' && r.estado_reserva !== 'Rechazada'),
       espacioDe,
       misReservas: reservas.filter((r) => r.id_unidad === id_unidad),
-      enPorteria: accesos.filter((a) => a.id_unidad === id_unidad && a.estado_autorizacion === 'Pendiente de Confirmación')
+      enPorteria: accesos.filter((a) => a.id_unidad === id_unidad && pendienteVigente(a, ahoraMs))
         .map((a) => ({ ...a, persona: nombreVisitante(a.id_visitante) })),
       publicaciones,
       misDisponibles,
@@ -468,7 +580,7 @@ function useValor() {
       miVoto: (id_votacion: number) => votos.find((v) => v.id_votacion === id_votacion && v.id_unidad === id_unidad)?.id_opcion ?? null,
       acciones,
     };
-  }, [cuenta, datosEditados, id_unidad, cuentas, visitantes, invitaciones, accesos, reservas, muro, productos, reportes, solicitudes, votos, fichas, guiasVistas, tutorialesVistos, aviso]);
+  }, [reloj, cuenta, datosEditados, cambioCorreo, claves, id_unidad, cuentas, visitantes, invitaciones, accesos, reservas, muro, productos, reportes, solicitudes, votos, fichas, guiasVistas, tutorialesVistos, aviso]);
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {

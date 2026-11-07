@@ -1,13 +1,9 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { Box, Typography, IconButton, Tooltip } from '@mui/material';
-import { Logout as LogoutIcon } from '@mui/icons-material';
+import { Logout as LogoutIcon, ManageAccountsOutlined as CuentaIcon } from '@mui/icons-material';
 import { useSesion } from '../context/SesionContext';
 import { menuPara, puedeVer, TODAS_LAS_RUTAS } from '../config/navegacion';
-import { useFinanzas } from '../context/FinanzasContext';
-import { useAdmin } from '../context/AdminContext';
-import { useMuro } from '../context/MuroContext';
-import { useConserjeria } from '../context/ConserjeriaContext';
 import MarcoPanel from './MarcoPanel';
 import SelectorTema from './SelectorTema';
 import PasoSesion from './marca/PasoSesion';
@@ -22,18 +18,8 @@ export default function DashboardLayout() {
   const [saliendo, setSaliendo] = useState(false);
 
   const secciones = menuPara(cargo, comunidad);
-  const { morosos, resumen } = useFinanzas();
-  const { solicitudesPendientes } = useAdmin();
-  const { reportadas, publicacionesPorAprobar } = useMuro();
-  const { esperadas } = useConserjeria();
-  const contadores = {
-    porteria: esperadas.length,
-    morosidad: morosos.length,
-    exenciones: resumen.exencionesPendientes,
-    aprobaciones: resumen.porAprobar + publicacionesPorAprobar.length,
-    solicitudes: solicitudesPendientes.length,
-    reportes: reportadas.length,
-  };
+  // Contadores del menú (`pendiente`): cada módulo agrega el suyo al conectarse con la API
+  const contadores = {};
 
   // Si la ruta actual no corresponde al cargo o a los módulos activos, volver al inicio.
   const rutaActual = TODAS_LAS_RUTAS.find((i) => i.ruta === location.pathname);
@@ -44,7 +30,7 @@ export default function DashboardLayout() {
   const handleLogout = () => setSaliendo(true);
   const salir = () => {
     cerrarSesion();
-    navigate('/login');
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -61,6 +47,11 @@ export default function DashboardLayout() {
           <Typography variant="body2" sx={{ fontWeight: 700, display: { xs: 'none', md: 'block' } }}>
             {nombreCorto(usuario)}
           </Typography>
+          <Tooltip title="Mi cuenta">
+            <IconButton aria-label="Mi cuenta" onClick={() => navigate('/panel/mi-cuenta')} sx={{ color: 'text.secondary' }}>
+              <CuentaIcon />
+            </IconButton>
+          </Tooltip>
           <BotonTutorial cargo={cargo} />
           <SelectorTema />
           <Tooltip title="Cerrar sesión">

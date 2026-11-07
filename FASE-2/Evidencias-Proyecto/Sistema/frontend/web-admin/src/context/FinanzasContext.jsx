@@ -322,6 +322,8 @@ export function FinanzasProvider({ children }) {
         dispatch({ tipo: 'anotar', id_red, log: registrar(accion, detalle) });
         if (mensaje) setAviso(mensaje);
       },
+      // Solo el mensaje, sin bitácora (lo que la API rechaza con un error)
+      avisar: (mensaje) => setAviso(mensaje),
     };
 
     return {
