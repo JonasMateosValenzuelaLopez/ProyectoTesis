@@ -10,6 +10,9 @@ export const TEXTO_ACCION: Record<string, string> = {
   crear_unidades: 'Creó unidades',
   editar_unidad: 'Corrigió el número de una unidad',
   guardar_guia_comunidad: 'Actualizó la guía de bienvenida',
+  actualizar_datos_comunidad: 'Actualizó los datos de la comunidad',
+  cambiar_umbral_visado:
+    'Cambió el monto desde el que los egresos requieren visado',
   crear_contacto: 'Agregó un contacto',
   actualizar_contacto: 'Editó un contacto',
   eliminar_contacto: 'Quitó un contacto',

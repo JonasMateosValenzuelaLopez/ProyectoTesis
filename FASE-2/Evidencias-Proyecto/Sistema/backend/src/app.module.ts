@@ -17,7 +17,6 @@ import { MailModule } from './mail/mail.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { MuroModule } from './muro/muro.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
-import { RedesVecinalesModule } from './redes-vecinales/redes-vecinales.module';
 import { ReservasModule } from './reservas/reservas.module';
 import { ResidentesModule } from './residentes/residentes.module';
 import { RolesModule } from './roles/roles.module';
@@ -51,7 +50,6 @@ import { VotacionesModule } from './votaciones/votaciones.module';
     MarketplaceModule,
     MuroModule,
     PlataformaModule,
-    RedesVecinalesModule,
     ReservasModule,
     ResidentesModule,
     RolesModule,
