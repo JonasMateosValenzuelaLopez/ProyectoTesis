@@ -8,7 +8,7 @@ import Texto from '@/components/ec/Texto';
 import Tarjeta from '@/components/ec/Tarjeta';
 import Boton from '@/components/ec/Boton';
 import Chip from '@/components/ec/Chip';
-import { espaciosActivos, hora } from '@/data/demo';
+import { HORAS_PARA_CANCELAR, espaciosActivos, hora, motivoCancelacion, puedeCancelarResidente } from '@/data/demo';
 import Fila from '@/components/ec/Fila';
 
 // Espacios comunes de la comunidad y las reservas de la vivienda.
@@ -28,7 +28,11 @@ export default function Reservas() {
             <View key={r.id_reserva} style={{ gap: 8, paddingTop: 8, borderTopWidth: 1, borderColor: t.line }}>
               <Texto v="fuerte">{espacioDe(r.id_espacio)}, {cuando(r.fecha_reserva)}</Texto>
               <Texto v="suave">De {hora(r.hora_inicio)} a {hora(r.hora_fin)}{r.cantidad_invitados ? ` · ${r.cantidad_invitados} invitados` : ''}{tiene('conserjeria') ? ' · se retira en conserjería' : ''}</Texto>
-              <Boton tipo="peligro" texto="Cancelar reserva" onPress={() => acciones.cancelarReserva(r.id_reserva)} style={{ alignSelf: 'flex-start', minHeight: 40 }} />
+              {puedeCancelarResidente(r) ? (
+                <Boton tipo="peligro" texto="Cancelar reserva" onPress={() => acciones.cancelarReserva(r.id_reserva)} style={{ alignSelf: 'flex-start', minHeight: 40 }} />
+              ) : (
+                <Texto v="chico" color={t.ink2}>Ya no se puede cancelar desde la app: faltan menos de {HORAS_PARA_CANCELAR} horas. Si necesitas cambiarla, habla con la administración.</Texto>
+              )}
             </View>
           ))}
         </Tarjeta>
@@ -53,7 +57,8 @@ export default function Reservas() {
         <Tarjeta style={{ gap: 0 }}>
           <Texto v="subtitulo" style={{ marginBottom: 6 }}>Anteriores</Texto>
           {anteriores.map((r, n) => (
-            <Fila key={r.id_reserva} borde={n > 0} titulo={`${espacioDe(r.id_espacio)} · ${fecha(r.fecha_reserva)}`} detalle={`${hora(r.hora_inicio)} a ${hora(r.hora_fin)}`} derecha={<Chip texto={r.estado_reserva === 'Cancelada' || r.estado_reserva === 'Rechazada' ? r.estado_reserva : 'Usada'} tono={r.estado_reserva === 'Cancelada' || r.estado_reserva === 'Rechazada' ? 'bad' : 'neutro'} />} />
+            <Fila key={r.id_reserva} borde={n > 0} titulo={`${espacioDe(r.id_espacio)} · ${fecha(r.fecha_reserva)}`}
+              detalle={`${hora(r.hora_inicio)} a ${hora(r.hora_fin)}${motivoCancelacion(r) ? ` · ${motivoCancelacion(r)}` : ''}`} derecha={<Chip texto={r.estado_reserva === 'Cancelada' || r.estado_reserva === 'Rechazada' ? r.estado_reserva : 'Usada'} tono={r.estado_reserva === 'Cancelada' || r.estado_reserva === 'Rechazada' ? 'bad' : 'neutro'} />} />
           ))}
         </Tarjeta>
       )}

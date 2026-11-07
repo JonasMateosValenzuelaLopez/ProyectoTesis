@@ -1,9 +1,9 @@
 import { createContext, useContext, useMemo, useReducer, useState } from 'react';
 import { useSesion } from './SesionContext';
 import { useFinanzas } from './FinanzasContext';
+import { useAdmin } from './AdminContext';
 import { directivaInicial, directivaVacia } from '../data/directivaMock';
 import { guiaVacia, guiasIniciales } from '../data/guiaMock';
-import { resultado } from '../utils/votaciones';
 import { nombreCorto } from '../utils/formato';
 
 // Secretaría de cada comunidad con las filas de la base: `votaciones`, `votacion_opciones`, `votos`,
@@ -66,6 +66,7 @@ function reducer(state, { tipo, id_red, ...p }) {
 export function DirectivaProvider({ children }) {
   const { usuario, comunidad, redes, cuentas } = useSesion();
   const { acciones: finanzas, correosEnviados } = useFinanzas();
+  const { titularDe } = useAdmin();
   const [state, dispatch] = useReducer(reducer, null, () => {
     const inicial = directivaInicial();
     redes.forEach((r) => { inicial[r.id_red] ??= directivaVacia(); });
@@ -80,6 +81,9 @@ export function DirectivaProvider({ children }) {
 
   const valor = useMemo(() => {
     const totalUnidades = comunidad.unidades.length;
+    // Los avisos de votaciones les llegan solo a los titulares (uno por vivienda), como en la API
+    const conTitular = comunidad.unidades.filter((u) => titularDe[u.id_unidad]).map((u) => u.id_unidad);
+    const viviendasConTitular = conTitular.length;
     const nombreDe = (id) => {
       const c = cuentas.find((x) => x.id_usuario === id);
       return c ? nombreCorto(c) : 'Secretaría';
@@ -91,6 +95,8 @@ export function DirectivaProvider({ children }) {
       opciones: d.votacion_opciones.filter((o) => o.id_votacion === v.id_votacion)
         .map((o) => ({ ...o, votos: d.votos.filter((x) => x.id_opcion === o.id_opcion).length })),
       recordatorios: correosEnviados.filter((c) => c.tipo === 'Recordatorio de votación' && c.id_votacion === v.id_votacion).length,
+      // Viviendas que faltan por votar y tienen titular: a ellas llega el recordatorio
+      porRecordar: conTitular.filter((id) => !d.votos.some((x) => x.id_votacion === v.id_votacion && x.id_unidad === id)).length,
     }));
     const actas = [...d.actas].sort((a, b) => b.numero - a.numero).map((a) => ({
       ...a,
@@ -112,14 +118,21 @@ export function DirectivaProvider({ children }) {
         finanzas.anotar('Eliminó un borrador de acta', `Acta N° ${acta.numero}`, 'Borrador eliminado.');
       },
       crearVotacion: (votacion, opciones) => {
+        // La API no deja abrir una votación si ninguna vivienda tiene titular
+        if (viviendasConTitular === 0) return;
         dispatch({ tipo: 'crearVotacion', id_red, votacion, opciones, id_usuario });
-        finanzas.anotar(`Abrió una ${votacion.tipo === 'Votación' ? 'votación' : 'encuesta'}`, votacion.titulo, `${votacion.tipo} abierta. Se avisó a las ${totalUnidades} unidades.`);
+        finanzas.anotar(`Abrió una ${votacion.tipo === 'Votación' ? 'votación' : 'encuesta'}`, votacion.titulo,
+          `${votacion.tipo} abierta. Se avisó a los titulares de ${viviendasConTitular} ${viviendasConTitular === 1 ? 'vivienda' : 'viviendas'}.`);
       },
       cerrarVotacion: (v) => {
         dispatch({ tipo: 'cerrarVotacion', id_red, id_votacion: v.id_votacion });
         finanzas.anotar('Cerró una votación antes de plazo', v.titulo, 'Votación cerrada. El resultado ya es visible para los residentes.');
       },
-      recordarVotacion: (v) => finanzas.recordarVotacion(v, resultado(v, totalUnidades).faltan),
+      // Solo a las viviendas que faltan y tienen titular; sin ninguna, la API responde con error
+      recordarVotacion: (v) => {
+        const destinatarios = votaciones.find((x) => x.id_votacion === v.id_votacion)?.porRecordar ?? 0;
+        if (destinatarios > 0) finanzas.recordarVotacion(v, destinatarios);
+      },
       guardarContacto: (contacto) => {
         dispatch({ tipo: 'guardarContacto', id_red, contacto });
         finanzas.anotar('Actualizó el directorio oficial', contacto.nombre, 'Directorio actualizado.');
@@ -136,12 +149,12 @@ export function DirectivaProvider({ children }) {
     };
     return {
       ...d, votaciones, actas, guia,
-      totalUnidades,
+      totalUnidades, viviendasConTitular,
       votacionesAbiertas: votaciones.filter((v) => v.estado === 'Abierta'),
       actasBorrador: actas.filter((a) => a.estado === 'Borrador'),
       acciones,
     };
-  }, [d, guia, id_red, id_usuario, comunidad, cuentas, finanzas, correosEnviados]);
+  }, [d, guia, id_red, id_usuario, comunidad, cuentas, finanzas, correosEnviados, titularDe]);
 
   return <DirectivaContext.Provider value={valor}>{children}</DirectivaContext.Provider>;
 }

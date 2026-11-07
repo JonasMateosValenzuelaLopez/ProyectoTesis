@@ -7,7 +7,7 @@ import { useConserjeria } from '../../context/ConserjeriaContext';
 import { residentes } from '../../data/finanzasMock';
 import { fechaCompleta, nombreUnidad } from '../../utils/formato';
 import Encabezado from '../../components/ui/Encabezado';
-import { espaciosActivos, hora } from '../../utils/espacios';
+import { MAX_MOTIVO, espaciosActivos, hora, origenCancelacion, puedeCancelarAdministracion } from '../../utils/espacios';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
 
 // Valores de `reservas.estado_reserva`
@@ -23,6 +23,7 @@ const diaSemana = new Intl.DateTimeFormat('es-CL', { weekday: 'long' });
 
 // Reservas de espacios comunes: los residentes reservan desde la app; Administración
 // las revisa y puede cancelar una con motivo (el residente recibe el aviso).
+// Como en la API, solo se cancela una reserva confirmada que no se entregó y que todavía no empieza.
 export default function Reservas() {
   const { comunidad } = useSesion();
   const { reservas, hoy, unidadPorId, espacioDe, acciones } = useConserjeria();
@@ -36,6 +37,8 @@ export default function Reservas() {
   const dias = [...new Set(proximas.map((r) => r.fecha_reserva))];
 
   const confirmar = () => {
+    // Entre abrir el diálogo y confirmar la reserva pudo empezar o entregarse
+    if (!puedeCancelarAdministracion(cancelar)) { setCancelar(null); return; }
     acciones.cancelarReserva(cancelar, motivo.trim());
     setCancelar(null);
     setMotivo('');
@@ -76,12 +79,18 @@ export default function Reservas() {
                       <Typography sx={{ fontWeight: 700 }}>{residentes[r.id_unidad] ?? nombreUnidad(u)}</Typography>
                       <Typography variant="body2" color="text.secondary">
                         <Box component="span" sx={{ display: { sm: 'none' } }}>{espacioDe(r)} · {hora(r.hora_inicio)} a {hora(r.hora_fin)} · </Box>
-                        {r.cantidad_invitados ? `${r.cantidad_invitados} invitados` : 'Sin invitados'}{r.observacion ? ` · ${r.observacion}` : ''}
+                        {r.cantidad_invitados ? `${r.cantidad_invitados} invitados` : 'Sin invitados'}
+                        {r.estado_reserva === 'Devuelto' && r.observaciones_recepcion ? ` · ${r.observaciones_recepcion}` : ''}
                       </Typography>
+                      {r.estado_reserva === 'Cancelada' && (
+                        <Typography variant="body2" color="text.secondary">
+                          Cancelada por {origenCancelacion(r)}{r.motivo_cancelacion ? `: ${r.motivo_cancelacion}` : ''}
+                        </Typography>
+                      )}
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'flex-end', gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
                       <Chip size="small" variant="outlined" color={ESTADO[r.estado_reserva].color} label={ESTADO[r.estado_reserva].texto} />
-                      {r.estado_reserva === 'Aprobada' && <Button size="small" color="error" onClick={() => setCancelar(r)}>Cancelar</Button>}
+                      {puedeCancelarAdministracion(r) && <Button size="small" color="error" onClick={() => setCancelar(r)}>Cancelar</Button>}
                     </Box>
                   </Box>
                 );
@@ -95,7 +104,11 @@ export default function Reservas() {
         <DialogTitle>Cancelar reserva</DialogTitle>
         <DialogContent sx={{ display: 'grid', gap: 2 }}>
           <Typography color="text.secondary">{cancelar && `${espacioDe(cancelar)} · ${fechaCompleta(cancelar.fecha_reserva)} · ${hora(cancelar.hora_inicio)} a ${hora(cancelar.hora_fin)}`}</Typography>
-          <TextField autoFocus required label="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} multiline minRows={2} helperText="El residente lo recibe en la app y por correo." />
+          <TextField
+            autoFocus required label="Motivo" value={motivo} onChange={(e) => setMotivo(e.target.value.slice(0, MAX_MOTIVO))} multiline minRows={2}
+            helperText={`El residente lo recibe en la app y por correo. ${motivo.length}/${MAX_MOTIVO}`}
+            slotProps={{ htmlInput: { maxLength: MAX_MOTIVO } }}
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setCancelar(null)}>Volver</Button>

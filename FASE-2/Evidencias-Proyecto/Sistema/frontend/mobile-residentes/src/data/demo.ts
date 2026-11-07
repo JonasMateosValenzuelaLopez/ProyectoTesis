@@ -29,6 +29,8 @@ export type Residencia = {
   id_residencia: number; id_usuario: number; id_unidad: number; relacion: 'Propietario' | 'Arrendatario';
   estado: 'Pendiente' | 'Activa' | 'Rechazada' | 'Inactiva';
   fecha_guia_vista: string | null; // P9: null = aún no ve la guía de bienvenida de esta unidad
+  // Titular de la vivienda: vota por ella y recibe los avisos de votaciones (uno por vivienda)
+  titular: 1 | null;
 };
 // Tabla `roles`: 1 Administración, 2 Tesorero, 3 Secretario, 4 Presidente, 5 Conserje, 6 Residente, 7 Visitante, 8 Plataforma
 export type Cargo = 'administrador' | 'tesorero' | 'secretario' | 'presidente' | 'conserje';
@@ -109,7 +111,20 @@ const SIN_GUIA = new Set(['112-2027', '109-3502']);
 const residencia = (id_usuario: number, id_unidad: number, relacion: Residencia['relacion']): Residencia => ({
   id_residencia: siguiente++, id_usuario, id_unidad, relacion, estado: 'Activa',
   fecha_guia_vista: SIN_GUIA.has(`${id_usuario}-${id_unidad}`) ? null : '2026-03-01T10:00:00',
+  titular: null,
 });
+
+// Como la API: en cada vivienda es titular la residencia vigente más antigua de una cuenta con acceso
+const conTitulares = (cuentas: Cuenta[]): Cuenta[] => {
+  const primera = new Map<number, number>(); // id_unidad → id_residencia titular
+  cuentas.filter((c) => c.estado !== 'Desactivado')
+    .flatMap((c) => c.residencias.filter((r) => r.estado === 'Activa'))
+    .sort((a, b) => a.id_residencia - b.id_residencia)
+    .forEach((r) => { if (!primera.has(r.id_unidad)) primera.set(r.id_unidad, r.id_residencia); });
+  return cuentas.map((c) => ({
+    ...c, residencias: c.residencias.map((r) => ({ ...r, titular: primera.get(r.id_unidad) === r.id_residencia ? 1 : null })),
+  }));
+};
 const cuenta = (
   id_usuario: number, nombre: string, apellido_paterno: string, apellido_materno: string | null, rut: string, correo: string, telefono: string,
   viviendas: [number, Residencia['relacion']][], flujo: string, membresias: Membresia[] = [],
@@ -119,15 +134,21 @@ const cuenta = (
 });
 
 // Los ids de usuario calzan con las cuentas de prueba del panel web
-export const CUENTAS: Cuenta[] = [
-  cuenta(110, 'Rosa', 'Díaz', 'Aguilera', '19.876.543-0', 'rosa.diaz@correo.cl', '+56961234510', [[1001, 'Propietario']], 'Casa 1, Las Palmas · al día'),
+export const CUENTAS: Cuenta[] = conTitulares([
+  cuenta(110, 'Rosa', 'Díaz', 'Aguilera', '19.876.543-0', 'rosa.diaz@correo.cl', '+56961234510', [[1001, 'Propietario']], 'Casa 1, Las Palmas · al día · titular'),
+  // Vive con Rosa, que llegó antes y es la titular: ve las votaciones pero no puede votar
+  cuenta(113, 'Tomás', 'Díaz', 'Aguilera', '20.456.789-1', 'tomas.diaz@correo.cl', '+56961234513', [[1001, 'Propietario']], 'Casa 1, Las Palmas · no es titular: no vota'),
   cuenta(102, 'Luis', 'Muñoz', 'Saavedra', '15.678.234-3', 'luis.munoz@correo.cl', '+56961234502', [[1005, 'Propietario']], 'Casa 5, Las Palmas · pendiente · es Presidente',
     [{ id_membresia: 2, id_usuario: 102, id_red: 1, id_rol: 4, fecha_desde: '2026-03-01', fecha_hasta: '2028-02-28', estado: 'Vigente' }]),
   cuenta(111, 'Mónica', 'Sáez', null, '16.890.123-2', 'monica.saez@correo.cl', '+56961234603', [[3603, 'Arrendatario']], 'Depto 603, Torre Andes · con deuda'),
   cuenta(112, 'Andrés', 'Bravo', 'Leiva', '14.230.987-4', 'andres.bravo@correo.cl', '+56961234027', [[2027, 'Propietario']], 'Casa 27, Villa Los Copihues · sin QR'),
   cuenta(109, 'Usuario', 'Demo', null, '11.111.111-1', 'demo@entrecasas.cl', '+56961234509',
     [[1015, 'Propietario'], [3502, 'Arrendatario'], [2001, 'Propietario']], 'Una vivienda en cada comunidad, para cambiar entre ellas'),
-];
+]);
+
+// Cuenta titular de una vivienda (con la API viene en la respuesta de la votación)
+export const titularDe = (id_unidad: number) =>
+  CUENTAS.find((c) => c.residencias.some((r) => r.id_unidad === id_unidad && r.titular === 1)) ?? null;
 
 // Cuentas que solo usan el panel web (personal sin vivienda en la comunidad)
 export const SOLO_PANEL = ['12.345.678-5', '14.567.890-0', '18.234.765-5', '9.876.543-3', '16.234.567-2', '13.987.654-7', '10.456.789-4', '17.345.123-7'];
@@ -318,12 +339,37 @@ export function accesosIniciales(): RegistroAcceso[] {
 export type Reserva = {
   id_reserva: number; id_espacio: number; id_usuario: number; id_unidad: number; fecha_reserva: string; hora_inicio: string; hora_fin: string;
   cantidad_invitados: number; estado_reserva: 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Cancelada' | 'Entregado' | 'Devuelto';
-  observacion: string | null; fecha_solicitud: string;
+  // Lo deja la administración o un cambio en el espacio; el residente cancela sin motivo
+  motivo_cancelacion: string | null;
+  // Lo deja conserjería al recibir el espacio
+  observaciones_recepcion: string | null;
+  fecha_solicitud: string;
 };
 // Quien reserva es el residente de la unidad: ids de usuario iguales a Residentes y cargos del panel
-const reserva = (id_reserva: number, id_espacio: number, id_usuario: number, id_unidad: number, fecha_reserva: string, inicio: string, fin: string, cantidad_invitados: number, estado_reserva: Reserva['estado_reserva'] = 'Aprobada', observacion: string | null = null): Reserva => ({
-  id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, hora_inicio: `${inicio}:00`, hora_fin: `${fin}:00`, cantidad_invitados, estado_reserva, observacion, fecha_solicitud: `${dia(0)}T09:00:00`,
+const reserva = (id_reserva: number, id_espacio: number, id_usuario: number, id_unidad: number, fecha_reserva: string, inicio: string, fin: string, cantidad_invitados: number, estado_reserva: Reserva['estado_reserva'] = 'Aprobada', observaciones_recepcion: string | null = null): Reserva => ({
+  id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, hora_inicio: `${inicio}:00`, hora_fin: `${fin}:00`, cantidad_invitados, estado_reserva,
+  motivo_cancelacion: null, observaciones_recepcion, fecha_solicitud: `${dia(0)}T09:00:00`,
 });
+
+// Reglas de la API (reglas-reservas.ts). Fechas y horas se comparan como texto local 'AAAA-MM-DD HH:MM:SS'.
+export const DIAS_PARA_RESERVAR = 14;
+export const MAX_BLOQUES_POR_DIA = 2;
+export const HORAS_PARA_CANCELAR = 24;
+export const MAX_INVITADOS = 1000;
+export const MOTIVO_BAJA = 'El espacio dejó de estar disponible';
+export const MOTIVO_HORARIO = 'El horario reservado cambió o dejó de estar disponible';
+export const momentoLocal = (d = new Date()) => `${diaISO(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+export const yaPaso = (fecha: string, hora_inicio: string, ahora = new Date()) => `${fecha} ${hora_inicio}` <= momentoLocal(ahora);
+// El residente cancela una reserva confirmada, sin entregar, hasta 24 horas antes de que empiece
+export const puedeCancelarResidente = (r: Reserva, ahora = new Date()) =>
+  r.estado_reserva === 'Aprobada'
+  && `${r.fecha_reserva} ${r.hora_inicio}` >= momentoLocal(new Date(ahora.getTime() + HORAS_PARA_CANCELAR * 3600000));
+// Texto para el historial de una reserva cancelada que no canceló el residente
+export const motivoCancelacion = (r: Reserva) => {
+  if (r.estado_reserva !== 'Cancelada' || !r.motivo_cancelacion) return null;
+  const porEspacio = r.motivo_cancelacion === MOTIVO_BAJA || r.motivo_cancelacion === MOTIVO_HORARIO;
+  return porEspacio ? r.motivo_cancelacion : `La administración la canceló: ${r.motivo_cancelacion}`;
+};
 const pad = (n: number) => String(n).padStart(2, '0');
 export const diaISO = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const dia = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return diaISO(d); };
@@ -346,6 +392,8 @@ export function reservasIniciales(): Reserva[] {
     reserva(101, 11, 102, 1005, dia(2), '12:00', '17:00', 14),
     reserva(102, 11, 1013, 1012, dia(6), '18:00', '23:30', 8),
     reserva(103, 11, 110, 1001, dia(-9), '12:00', '17:00', 12, 'Devuelto', 'Sin novedades'),
+    // Rosa Díaz: la administración le canceló una reserva, para ver el motivo en el historial
+    { ...reserva(104, 11, 110, 1001, dia(-3), '18:00', '23:30', 6, 'Cancelada'), motivo_cancelacion: 'Fumigación programada del quincho' },
     reserva(201, 21, 2026, 2026, dia(3), '10:00', '14:00', 30),
     reserva(202, 22, 2077, 2077, dia(1), '18:00', '20:00', 10),
   ];
@@ -360,14 +408,23 @@ export type MuroPublicacion = {
   estado_aprobacion: 'Pendiente' | 'Aprobada' | 'Rechazada'; id_aprobador: number | null; fecha_aprobacion: string | null;
   estado: 0 | 1; id_moderador: number | null; fecha_moderacion: string | null;
 };
-export type CategoriaMarketplace = 'Vendo' | 'Servicio' | 'Busco';
-export const CATEGORIAS_MARKETPLACE: Record<number, CategoriaMarketplace> = { 1: 'Vendo', 2: 'Servicio', 3: 'Busco' };
-export const ID_CATEGORIA: Record<CategoriaMarketplace, number> = { Vendo: 1, Servicio: 2, Busco: 3 };
+// Tipo del aviso (columna `tipo`). Se elige al publicar y no se cambia al editar.
+export type TipoAviso = 'Vendo' | 'Servicio' | 'Busco';
+// Reglas del mercado, las mismas de la API (reglas-marketplace.ts y los DTO)
+export const PRECIO_MAXIMO = 99_999_999;
+export const MAX_AVISOS_DISPONIBLES = 20; // avisos publicados y sin cerrar por persona
+export const MIN_TITULO_AVISO = 3;
+export const MAX_TITULO_AVISO = 100;
+export const MAX_DESCRIPCION_AVISO = 500;
+// `estado` es `estado_moderacion`: 1 Publicada, 0 Oculta por la administración.
+// `cerrado_en`: quien publicó lo marcó como vendido o ya no disponible (se puede reabrir).
+// `fecha_eliminacion`: quien publicó lo eliminó (no se muestra en ninguna parte).
+// El teléfono no va en el aviso: es el de la cuenta de quien publicó (`usuarios.telefono`) y solo
+// lo ven los vecinos cuya solicitud de contacto aceptó.
 export type ProductoMarketplace = {
-  id_producto: number; id_red: number; id_usuario: number; id_unidad: number | null; id_categoria: number; titulo: string;
-  descripcion: string | null; precio: number | null; foto_url: string | null;
-  telefono_contacto: string | null; // Solo se muestra a los vecinos cuya solicitud de contacto acepta quien publicó
-  fecha_publicacion: string; estado: 0 | 1; id_moderador: number | null; fecha_moderacion: string | null;
+  id_producto: number; id_red: number; id_usuario: number; id_unidad: number | null; tipo: TipoAviso; titulo: string;
+  descripcion: string | null; precio: number | null; fecha_publicacion: string; cerrado_en: string | null;
+  estado: 0 | 1; id_moderador: number | null; fecha_moderacion: string | null; fecha_eliminacion: string | null;
 };
 export type ReportePublicacion = {
   id_reporte: number; tipo_publicacion: 'muro' | 'marketplace'; id_publicacion: number; id_usuario: number;
@@ -400,10 +457,16 @@ const oficial = (id_publicacion: number, id_red: number, id_usuario: number, tip
   ...vecino(id_publicacion, id_red, id_usuario, 0, contenido, fecha_creacion),
   id_unidad: null, tipo, titulo, estado_aprobacion: id_aprobador ? 'Aprobada' : 'Pendiente', id_aprobador, fecha_aprobacion,
 });
-const producto = (id_producto: number, id_red: number, id_usuario: number, id_unidad: number, id_categoria: number, titulo: string, descripcion: string, precio: number | null, telefono_contacto: string, fecha_publicacion: string): ProductoMarketplace => ({
-  id_producto, id_red, id_usuario, id_unidad, id_categoria, titulo, descripcion, precio, foto_url: null, telefono_contacto, fecha_publicacion,
-  estado: 1, id_moderador: null, fecha_moderacion: null,
+const producto = (id_producto: number, id_red: number, id_usuario: number, id_unidad: number, tipo: TipoAviso, titulo: string, descripcion: string, precio: number | null, fecha_publicacion: string, extra: Partial<ProductoMarketplace> = {}): ProductoMarketplace => ({
+  id_producto, id_red, id_usuario, id_unidad, tipo, titulo, descripcion, precio, fecha_publicacion, cerrado_en: null,
+  estado: 1, id_moderador: null, fecha_moderacion: null, fecha_eliminacion: null, ...extra,
 });
+
+// Teléfono de los vecinos que no tienen cuenta de prueba en la app (con la API, `usuarios.telefono`).
+// El de las cuentas de prueba sale de CUENTAS.
+export const TELEFONOS: Record<number, string> = {
+  1005: '+56957429965', 1008: '+56957452144', 1010: '+56957466930', 1014: '+56957496502', 2077: '+56965355261', 3016: '+56972297288',
+};
 
 export function muroInicial(): MuroPublicacion[] {
   return [
@@ -425,14 +488,19 @@ export function muroInicial(): MuroPublicacion[] {
 
 export function marketplaceInicial(): ProductoMarketplace[] {
   return [
-    producto(101, 1, 1014, 1013, 1, 'Bicicleta aro 26', 'En buen estado. Se puede probar en el pasaje.', 45000, '+56957496502', '2026-10-23T17:30:00'),
-    producto(102, 1, 1010, 1009, 2, 'Clases de matemáticas', 'Para básica y media. Primera clase sin costo.', null, '+56957466930', '2026-10-21T12:00:00'),
-    producto(103, 1, 1005, 1004, 3, 'Escalera de 3 metros', 'Busco quien me la preste el fin de semana.', null, '+56957429965', '2026-10-24T09:15:00'),
-    producto(104, 1, 102, 1005, 1, 'Coche de bebé plegable', 'Poco uso. Incluye cubre lluvia.', 60000, '+56961234502', '2026-10-25T11:00:00'),
-    producto(105, 1, 1008, 1007, 1, 'Mesa de ping-pong plegable', 'Con paletas y pelotas.', 80000, '+56957452144', '2026-10-19T16:00:00'),
-    producto(106, 1, 1010, 1009, 2, 'Préstamos rápidos', 'Préstamos rápidos sin papeleo, escríbeme al interno.', null, '+56957466930', '2026-10-22T12:00:00'),
-    producto(201, 2, 2077, 2077, 1, 'Empanadas de pino', 'Los domingos. Pedidos hasta el sábado.', 3500, '+56965355261', '2026-10-22T18:00:00'),
-    producto(301, 3, 3016, 3302, 1, 'Escritorio blanco de 120 cm', 'Con cajonera. Retiro en el depto.', 120000, '+56972297288', '2026-10-20T20:00:00'),
+    producto(101, 1, 1014, 1013, 'Vendo', 'Bicicleta aro 26', 'En buen estado. Se puede probar en el pasaje.', 45000, '2026-10-23T17:30:00'),
+    producto(102, 1, 1010, 1009, 'Servicio', 'Clases de matemáticas', 'Para básica y media. Primera clase sin costo.', null, '2026-10-21T12:00:00'),
+    producto(103, 1, 1005, 1004, 'Busco', 'Escalera de 3 metros', 'Busco quien me la preste el fin de semana.', null, '2026-10-24T09:15:00'),
+    producto(104, 1, 102, 1005, 'Vendo', 'Coche de bebé plegable', 'Poco uso. Incluye cubre lluvia.', 60000, '2026-10-25T11:00:00'),
+    // Vendida: Luis pidió contacto y Valentina lo rechazó antes de cerrarla
+    producto(105, 1, 1008, 1007, 'Vendo', 'Mesa de ping-pong plegable', 'Con paletas y pelotas.', 80000, '2026-10-19T16:00:00', { cerrado_en: '2026-10-26T10:00:00' }),
+    producto(106, 1, 1010, 1009, 'Servicio', 'Préstamos rápidos', 'Préstamos rápidos sin papeleo, escríbeme al interno.', null, '2026-10-22T12:00:00'),
+    // De Luis (Presidente): ya la vendió, aparece en «Mis avisos» para reabrirla
+    producto(107, 1, 102, 1005, 'Vendo', 'Silla de auto para niños', 'Hasta 18 kg. Con su manual.', 35000, '2026-10-15T10:00:00', { cerrado_en: '2026-10-24T20:00:00' }),
+    // De Rosa: la administración la ocultó por un reporte (Rosa la ve en «Mis avisos», nadie más)
+    producto(108, 1, 110, 1001, 'Vendo', 'Rifa a beneficio', 'Números a $1.000, premio sorpresa.', 1000, '2026-10-18T19:00:00', { estado: 0, id_moderador: 101, fecha_moderacion: '2026-10-20T19:10:00' }),
+    producto(201, 2, 2077, 2077, 'Vendo', 'Empanadas de pino', 'Los domingos. Pedidos hasta el sábado.', 3500, '2026-10-22T18:00:00'),
+    producto(301, 3, 3016, 3302, 'Vendo', 'Escritorio blanco de 120 cm', 'Con cajonera. Retiro en el depto.', 120000, '2026-10-20T20:00:00'),
   ];
 }
 
@@ -442,6 +510,7 @@ export function reportesIniciales(): ReportePublicacion[] {
     { id_reporte: 2, tipo_publicacion: 'muro', id_publicacion: 105, id_usuario: 1004, motivo: 'Acusación personal', fecha: '2026-10-24T09:30:00', estado: 'Pendiente' },
     { id_reporte: 3, tipo_publicacion: 'muro', id_publicacion: 105, id_usuario: 1011, motivo: 'Lenguaje ofensivo', fecha: '2026-10-24T11:02:00', estado: 'Pendiente' },
     { id_reporte: 4, tipo_publicacion: 'marketplace', id_publicacion: 106, id_usuario: 110, motivo: 'Posible estafa', fecha: '2026-10-22T15:20:00', estado: 'Pendiente' },
+    { id_reporte: 5, tipo_publicacion: 'marketplace', id_publicacion: 108, id_usuario: 1005, motivo: 'Comercio fuera del mercado', fecha: '2026-10-20T08:40:00', estado: 'Atendido' },
   ];
 }
 

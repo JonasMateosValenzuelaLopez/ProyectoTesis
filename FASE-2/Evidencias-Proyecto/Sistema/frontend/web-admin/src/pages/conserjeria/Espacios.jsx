@@ -5,7 +5,7 @@ import { useConserjeria } from '../../context/ConserjeriaContext';
 import { residentes } from '../../data/finanzasMock';
 import { hoyTexto, nombreUnidad } from '../../utils/formato';
 import Encabezado from '../../components/ui/Encabezado';
-import { espaciosActivos, hora } from '../../utils/espacios';
+import { MAX_MOTIVO, espaciosActivos, hora } from '../../utils/espacios';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
 
 const DESDE = 7;
@@ -50,7 +50,11 @@ function DialogoRecibir({ reserva, nombre, onClose, onRecibir }) {
           <ToggleButton value="problema">Con observaciones</ToggleButton>
         </ToggleButtonGroup>
         {estado === 'problema' && (
-          <TextField autoFocus label="Qué encontraste" value={detalle} onChange={(e) => setDetalle(e.target.value)} multiline minRows={2} helperText="Queda registrado y le llega a Administración." />
+          <TextField
+            autoFocus label="Qué encontraste" value={detalle} onChange={(e) => setDetalle(e.target.value.slice(0, MAX_MOTIVO))} multiline minRows={2}
+            helperText={`Queda registrado y le llega a Administración. ${detalle.length}/${MAX_MOTIVO}`}
+            slotProps={{ htmlInput: { maxLength: MAX_MOTIVO } }}
+          />
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -100,7 +104,7 @@ export default function Espacios() {
                       <Typography sx={{ fontWeight: 700 }}>{residentes[r.id_unidad] ?? nombreUnidad(u)}</Typography>
                       <Typography variant="body2" color="text.secondary">
                         <Box component="span" sx={{ display: { sm: 'none' } }}>{hora(r.hora_inicio)} a {hora(r.hora_fin)} · </Box>
-                        {r.cantidad_invitados ? `${r.cantidad_invitados} invitados` : 'Sin invitados'}{r.observacion ? ` · ${r.observacion}` : ''}
+                        {r.cantidad_invitados ? `${r.cantidad_invitados} invitados` : 'Sin invitados'}{r.observaciones_recepcion ? ` · ${r.observaciones_recepcion}` : ''}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'flex-end', gridColumn: { xs: '1 / -1', sm: 'auto' } }}>

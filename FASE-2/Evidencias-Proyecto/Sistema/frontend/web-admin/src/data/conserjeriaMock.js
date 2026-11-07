@@ -32,9 +32,11 @@ const vehiculo = (id_vehiculo, id_unidad, patente, modelo, estacionamiento = nul
 
 // Fila de `reservas`. Quien reserva es el residente de la unidad (`id_usuario`, el mismo de
 // Residentes y cargos); las horas son columnas TIME. La app las crea Aprobada: no hay paso de aprobación.
-const reserva = (id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, inicio, fin, cantidad_invitados, estado_reserva = 'Aprobada', observacion = null) => ({
+// `motivo_cancelacion` lo deja Administración o un cambio en el espacio (el residente cancela sin motivo);
+// `observaciones_recepcion` la deja Conserjería al recibir el espacio.
+const reserva = (id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, inicio, fin, cantidad_invitados, estado_reserva = 'Aprobada', observaciones_recepcion = null) => ({
   id_reserva, id_espacio, id_usuario, id_unidad, fecha_reserva, hora_inicio: `${inicio}:00`, hora_fin: `${fin}:00`,
-  cantidad_invitados, estado_reserva, observacion, fecha_solicitud: `${diaISO()}T09:00:00`,
+  cantidad_invitados, estado_reserva, motivo_cancelacion: null, observaciones_recepcion, fecha_solicitud: `${diaISO()}T09:00:00`,
 });
 
 // 108 Héctor Lillo (conserje) registra los ingresos en la garita
@@ -119,6 +121,8 @@ function lasPalmas() {
       reserva(101, 11, 102, 1005, enDias(2), '12:00', '17:00', 14),
       reserva(102, 11, 1013, 1012, enDias(6), '18:00', '23:30', 8),
       reserva(103, 11, 110, 1001, enDias(-9), '12:00', '17:00', 12, 'Devuelto', 'Sin novedades'),
+      // La misma que ve Rosa Díaz en la app: la administración la canceló
+      { ...reserva(104, 11, 110, 1001, enDias(-3), '18:00', '23:30', 6, 'Cancelada'), motivo_cancelacion: 'Fumigación programada del quincho' },
     ],
   };
 }

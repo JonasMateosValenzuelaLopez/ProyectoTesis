@@ -22,12 +22,12 @@ const MOTIVOS = ['Lenguaje ofensivo', 'Acusación o datos de otro vecino', 'Posi
 type Motivo = (typeof MOTIVOS)[number];
 export default function TarjetaPublicacion({ p, alTocar }: { p: Publicacion; alTocar?: () => void }) {
   const t = useTema();
-  const { unidad, acciones, solicitudDe, solicitudesRecibidas } = useApp();
+  const { acciones, solicitudDe, solicitudesRecibidas } = useApp();
   const [confirmar, setConfirmar] = useState<'reportar' | 'eliminar' | null>(null);
   const [motivo, setMotivo] = useState<Motivo | null>(null);
   const cerrar = () => { setConfirmar(null); setMotivo(null); };
   const u = p.id_unidad ? UNIDADES[p.id_unidad] : undefined;
-  const mia = !!unidad && p.id_unidad === unidad.id_unidad;
+  const mia = p.mia;
   const s = alTocar && !mia ? solicitudDe(p.id) : null;
   const interesados = mia ? solicitudesRecibidas.filter((x) => x.id_producto === p.id && x.estado === 'Pendiente').length : 0;
   type Icono = keyof typeof Ionicons.glyphMap;
@@ -44,7 +44,9 @@ export default function TarjetaPublicacion({ p, alTocar }: { p: Publicacion; alT
           <Texto v="fuerte">{p.oficial ? `${p.oficial.tipo} oficial` : mia ? 'Tú' : p.autor}</Texto>
           <Texto v="chico">{p.oficial ? `Aprobado por ${p.oficial.aprobadoPor}` : `${nombreUnidad(u)} · ${hace(p.fecha)}`}</Texto>
         </View>
-        {p.categoria && <Chip texto={p.categoria} tono={p.categoria === 'Vendo' ? 'accion' : p.categoria === 'Busco' ? 'senal' : 'neutro'} />}
+        {p.oculto ? <Chip texto="Oculto" tono="bad" />
+          : p.cerrado ? <Chip texto={p.tipo === 'Vendo' ? 'Vendido' : 'Cerrado'} />
+            : p.tipo && <Chip texto={p.tipo} tono={p.tipo === 'Vendo' ? 'accion' : p.tipo === 'Busco' ? 'senal' : 'neutro'} />}
       </View>
       {!!p.titulo && <Texto v="subtitulo">{p.titulo}</Texto>}
       {!!p.texto && <Texto>{p.texto}</Texto>}
@@ -61,8 +63,11 @@ export default function TarjetaPublicacion({ p, alTocar }: { p: Publicacion; alT
           )}
           {alTocar && mia && (
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Texto v="fuerte" color={interesados ? t.accion : t.ink2}>{interesados ? `${interesados} ${interesados === 1 ? 'vecino interesado' : 'vecinos interesados'}` : 'Sin solicitudes nuevas'}</Texto>
-              {!!interesados && <Ionicons name="chevron-forward" size={16} color={t.accion} />}
+              <Texto v="fuerte" color={interesados ? t.accion : t.ink2}>
+                {p.oculto ? 'Oculto por la administración' : p.cerrado ? 'Reabrir o revisar'
+                  : interesados ? `${interesados} ${interesados === 1 ? 'vecino interesado' : 'vecinos interesados'}` : p.tipo === 'Vendo' ? 'Editar o marcar como vendido' : 'Editar o cerrar'}
+              </Texto>
+              <Ionicons name="chevron-forward" size={16} color={interesados ? t.accion : t.ink2} />
             </View>
           )}
           {mia

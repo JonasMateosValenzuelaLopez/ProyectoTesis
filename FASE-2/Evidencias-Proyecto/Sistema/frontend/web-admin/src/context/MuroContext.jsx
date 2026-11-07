@@ -2,7 +2,7 @@ import { createContext, useContext, useMemo, useReducer } from 'react';
 import { useSesion } from './SesionContext';
 import { useFinanzas } from './FinanzasContext';
 import { useAdmin } from './AdminContext';
-import { CATEGORIAS_MARKETPLACE, muroInicial, muroVacio } from '../data/muroMock';
+import { muroInicial, muroVacio } from '../data/muroMock';
 import { cargosDe, residenciasActivas } from '../config/roles';
 import { roles } from '../tokens';
 import { nombreCorto, nombreUnidad } from '../utils/formato';
@@ -83,19 +83,19 @@ export function MuroProvider({ children }) {
     };
     // Quien reporta se muestra con su vivienda
     const viviendaDe = (id) => nombreUnidad(unidadPorId[residenciasActivas(persona(id))[0]?.id_unidad]);
-    const categoriaPorId = Object.fromEntries(CATEGORIAS_MARKETPLACE.map((c) => [c.id_categoria, c.nombre_categoria]));
     const reportesDe = (lugar, id) => d.reportes_publicacion.filter((r) => r.tipo_publicacion === lugar && r.id_publicacion === id);
 
     // Lo que publicaron los vecinos en el muro y el marketplace, en una sola lista para moderar.
-    // Lo que eliminó su autor (estado 0 sin moderador) ya no aparece.
+    // Lo que eliminó su autor ya no aparece: en el muro queda con estado 0 sin moderador; en el
+    // marketplace, con `fecha_eliminacion`. Los avisos cerrados (vendidos) siguen apareciendo, como en la API.
     const visibleParaModerar = (x) => x.estado === 1 || x.id_moderador;
     const vecinos = [
       ...d.muro_publicaciones.filter((x) => x.tipo === 'Vecino' && visibleParaModerar(x)).map((x) => ({
         lugar: 'muro', id: x.id_publicacion, fila: x, fecha: x.fecha_creacion, titulo: null, contenido: x.contenido,
       })),
-      ...d.marketplace_publicaciones.filter(visibleParaModerar).map((x) => ({
+      ...d.marketplace_publicaciones.filter((x) => !x.fecha_eliminacion).map((x) => ({
         lugar: 'marketplace', id: x.id_producto, fila: x, fecha: x.fecha_publicacion, titulo: x.titulo, contenido: x.descripcion,
-        categoria: categoriaPorId[x.id_categoria], precio: x.precio,
+        tipo: x.tipo, precio: x.precio, cerrado: !!x.cerrado_en,
       })),
     ].map((x) => ({ ...x, reportes: reportesDe(x.lugar, x.id).filter((r) => r.estado === 'Pendiente') }))
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -136,7 +136,7 @@ export function MuroProvider({ children }) {
     };
 
     return {
-      ...d, categorias_marketplace: CATEGORIAS_MARKETPLACE,
+      ...d,
       vecinos, reportadas, oficiales, publicacionesPorAprobar,
       nombreUsuario, conCargo, viviendaDe, acciones, puedeEliminarOficial,
     };

@@ -80,12 +80,18 @@ export default function TarjetaVotacion({ votacion, totalUnidades, onRecordar, o
 
       {abierta && (onRecordar || onCerrar) && (
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {/* El recordatorio llega solo a los titulares de las viviendas que faltan (`porRecordar`) */}
           {onRecordar && (
-            <Button variant="outlined" disabled={r.faltan === 0} onClick={() => onRecordar(votacion)}>
-              Recordar a {r.faltan} {r.faltan === 1 ? 'unidad' : 'unidades'}
+            <Button variant="outlined" disabled={!votacion.porRecordar} onClick={() => onRecordar(votacion)}>
+              Recordar a {votacion.porRecordar ?? 0} {votacion.porRecordar === 1 ? 'vivienda' : 'viviendas'}
             </Button>
           )}
           {onCerrar && <Button color="inherit" onClick={() => onCerrar(votacion)}>Cerrar ahora</Button>}
+          {onRecordar && r.faltan > 0 && !votacion.porRecordar && (
+            <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+              Las viviendas que faltan no tienen titular. Administración lo asigna en Unidades.
+            </Typography>
+          )}
           {votacion.recordatorios > 0 && (
             <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
               {votacion.recordatorios === 1 ? '1 recordatorio enviado' : `${votacion.recordatorios} recordatorios enviados`}

@@ -1,9 +1,13 @@
 import { useState } from 'react';
-import { Box, Button, Paper, TextField, Typography } from '@mui/material';
+import {
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper, TextField, Typography,
+} from '@mui/material';
 import { useSesion } from '../../context/SesionContext';
 import { useAdmin } from '../../context/AdminContext';
+import { useConserjeria } from '../../context/ConserjeriaContext';
 import Encabezado from '../../components/ui/Encabezado';
-import { conEspacios, espaciosActivos, espaciosValidos } from '../../utils/espacios';
+import { conEspacios, espaciosActivos, espaciosValidos, hora, reservasAfectadas } from '../../utils/espacios';
+import { fechaCompleta, nombreUnidad } from '../../utils/formato';
 import EditorEspacios from '../../components/admin/EditorEspacios';
 import Tarjeta from '../../components/ui/Tarjeta';
 
@@ -24,20 +28,31 @@ const desde = (c) => ({
 export default function RedVecinal() {
   const { comunidad } = useSesion();
   const { acciones } = useAdmin();
+  const { reservas, unidadPorId, espacioDe, acciones: conserjeria } = useConserjeria();
   const [form, setForm] = useState(() => desde(comunidad));
+  // Reservas que se cancelarán si se confirma el guardado (null = sin confirmación pendiente)
+  const [porCancelar, setPorCancelar] = useState(null);
   const original = desde(comunidad);
   const cambios = JSON.stringify(form) !== JSON.stringify(original);
   const valido = form.nombre.trim() && form.direccion.trim() && espaciosValidos(form.espacios);
 
   const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const espaciosForm = () => form.espacios.map((x) => ({ ...x, nombre: x.nombre.trim() }));
+  const aplicar = (afectadas) => {
+    acciones.guardarComunidad({
+      nombre: form.nombre.trim(), direccion: form.direccion.trim(), espacios_comunes: conEspacios(comunidad, espaciosForm()),
+      ...Object.fromEntries(BANCARIOS.map(([k]) => [k, form[k].trim() || null])),
+    });
+    // Como la API: quitar un espacio o cambiar un horario cancela sus reservas y avisa a los residentes
+    conserjeria.cancelarPorEspacios(afectadas);
+    setPorCancelar(null);
+  };
   const guardar = (e) => {
     e.preventDefault();
     if (!valido) return;
-    const datos = {
-      nombre: form.nombre.trim(), direccion: form.direccion.trim(), espacios_comunes: conEspacios(comunidad, form.espacios.map((x) => ({ ...x, nombre: x.nombre.trim() }))),
-      ...Object.fromEntries(BANCARIOS.map(([k]) => [k, form[k].trim() || null])),
-    };
-    acciones.guardarComunidad(datos);
+    const afectadas = reservasAfectadas(espaciosActivos(comunidad), espaciosForm(), reservas);
+    if (afectadas.length) setPorCancelar(afectadas);
+    else aplicar([]);
   };
 
   return (
@@ -79,6 +94,34 @@ export default function RedVecinal() {
           <Button type="submit" variant="contained" disabled={!cambios || !valido}>Guardar cambios</Button>
         </Box>
       </Box>
+
+      {porCancelar && (
+        <Dialog open onClose={() => setPorCancelar(null)} fullWidth maxWidth="sm">
+          <DialogTitle>
+            Se {porCancelar.length === 1 ? 'cancelará 1 reserva' : `cancelarán ${porCancelar.length} reservas`}
+          </DialogTitle>
+          <DialogContent sx={{ display: 'grid', gap: 2 }}>
+            <Typography color="text.secondary">
+              Quitaste un espacio o cambiaste horarios que ya tienen reservas. Si guardas, estas reservas se cancelan y sus residentes reciben un correo con el motivo.
+            </Typography>
+            <Paper variant="outlined" sx={{ borderRadius: 1.5, maxHeight: 280, overflowY: 'auto' }}>
+              {porCancelar.map(({ reserva: r, motivo }, i) => (
+                <Box key={r.id_reserva} sx={{ px: 2, py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
+                  <Typography sx={{ fontWeight: 700 }}>
+                    {espacioDe(r)} · {fechaCompleta(r.fecha_reserva)} · {hora(r.hora_inicio)} a {hora(r.hora_fin)}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">{nombreUnidad(unidadPorId[r.id_unidad])} · {motivo}</Typography>
+                </Box>
+              ))}
+            </Paper>
+            <Alert severity="warning" variant="outlined">No se puede deshacer: aunque vuelvas a agregar el horario, las reservas quedan canceladas.</Alert>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setPorCancelar(null)} autoFocus>Volver a editar</Button>
+            <Button variant="contained" color="error" onClick={() => aplicar(porCancelar)}>Guardar y cancelar reservas</Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 }
