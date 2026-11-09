@@ -13,14 +13,16 @@ import PlacaUnidad from '@/components/ec/PlacaUnidad';
 
 // Inicio. Lo que junta (cobros, visitas, reservas, votaciones, el muro) se arma a medida que cada
 // módulo se conecta con la API; la versión con datos de prueba está en el commit d22b2ee.
-// La primera vez que la persona entra, se abre el tutorial de la app.
+// La primera vez que la persona entra, se abre el tutorial de la app y luego la guía de bienvenida.
 export default function Inicio() {
   const t = useTema();
-  const { perfil, comunidad, unidad, tutorialPendiente } = useSesion();
+  const { perfil, comunidad, unidad, tutorialPendiente, guiaPendiente } = useSesion();
 
+  // Primero el tutorial de la app (una vez por persona); después, la guía de bienvenida (una vez por vivienda)
   useEffect(() => {
     if (tutorialPendiente) router.push('/tutorial');
-  }, [tutorialPendiente]);
+    else if (guiaPendiente) router.push('/bienvenida');
+  }, [tutorialPendiente, guiaPendiente, unidad?.idUnidad]);
 
   if (!perfil || !comunidad || !unidad) return null;
   return (

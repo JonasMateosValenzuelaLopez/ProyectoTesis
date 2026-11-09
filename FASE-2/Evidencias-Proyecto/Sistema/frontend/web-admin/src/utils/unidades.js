@@ -83,3 +83,62 @@ export function generarUnidades(tipo, f) {
   }
   return unidades.map((u, i) => ({ ...u, idUnidad: -(i + 1), orden: i + 1 }));
 }
+
+// ---------- Creación en lote (POST unidades/lote), como lote-unidades.ts ----------
+export const MAX_UNIDADES_POR_LOTE = 500;
+
+// Lo que se envía según el tipo: edificio { torre, pisoDesde, pisoHasta, porPiso }; casas { grupo, desde, hasta }
+export function lotePara(tipo, f) {
+  if (tipo === 'Edificio') {
+    return { torre: String(f.torre ?? '').trim().toUpperCase(), pisoDesde: Number(f.pisoDesde), pisoHasta: Number(f.pisoHasta), porPiso: Number(f.porPiso) };
+  }
+  const grupo = String(f.grupo ?? '').trim();
+  return { grupo: tipo === 'Villa' ? grupo.toUpperCase() : grupo, desde: Number(f.desde), hasta: Number(f.hasta) };
+}
+
+const entre = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
+
+// Primer error del lote (como lo valida la API), o null
+export function errorLote(tipo, f) {
+  const l = lotePara(tipo, f);
+  if (tipo === 'Edificio') {
+    if (!/^[A-Z0-9]{1,3}$/.test(l.torre)) return 'La torre debe tener de 1 a 3 letras o números';
+    if (!entre(l.pisoDesde, 1, 99)) return 'El piso inicial debe ser un número entre 1 y 99';
+    if (!entre(l.pisoHasta, 1, 99)) return 'El piso final debe ser un número entre 1 y 99';
+    if (!entre(l.porPiso, 1, 30)) return 'Los departamentos por piso deben ser entre 1 y 30';
+    if (l.pisoHasta < l.pisoDesde) return 'El piso final no puede ser menor que el inicial';
+    if ((l.pisoHasta - l.pisoDesde + 1) * l.porPiso > MAX_UNIDADES_POR_LOTE) return `Un lote puede crear hasta ${MAX_UNIDADES_POR_LOTE} unidades`;
+    return null;
+  }
+  if (!l.grupo) return tipo === 'Villa' ? 'Indica la letra de la manzana' : 'Indica la hilera o pasaje';
+  if (tipo === 'Villa' && !/^[A-Z]{1,3}$/.test(l.grupo)) return 'La manzana debe ser de 1 a 3 letras';
+  if (l.grupo.length > 100) return 'El grupo no puede superar 100 caracteres';
+  if (!entre(l.desde, 1, 99999)) return 'El número inicial debe ser un entero entre 1 y 99999';
+  if (!entre(l.hasta, 1, 99999)) return 'El número final debe ser un entero entre 1 y 99999';
+  if (l.hasta < l.desde) return 'El número final no puede ser menor que el inicial';
+  if (l.hasta - l.desde + 1 > MAX_UNIDADES_POR_LOTE) return `Un lote puede crear hasta ${MAX_UNIDADES_POR_LOTE} unidades`;
+  return null;
+}
+
+// Las unidades que creará el lote (para mostrarlas antes de crearlas). Ids provisorios negativos.
+export function generarLote(tipo, f) {
+  if (errorLote(tipo, f)) return [];
+  const l = lotePara(tipo, f);
+  const unidades = [];
+  if (tipo === 'Edificio') {
+    for (let piso = l.pisoDesde; piso <= l.pisoHasta; piso++) {
+      for (let depto = 1; depto <= l.porPiso; depto++) {
+        unidades.push({ numeroIdentificador: `${piso}${String(depto).padStart(2, '0')}`, tipo: 'Departamento', callePasaje: `Torre ${l.torre}`, torre: l.torre, piso, manzana: null });
+      }
+    }
+  } else {
+    const villa = tipo === 'Villa';
+    for (let numero = l.desde; numero <= l.hasta; numero++) {
+      unidades.push({ numeroIdentificador: String(numero), tipo: 'Casa', callePasaje: villa ? `Manzana ${l.grupo}` : l.grupo, torre: null, piso: null, manzana: villa ? l.grupo : null });
+    }
+  }
+  return unidades.map((u, i) => ({ ...u, idUnidad: -(i + 1) }));
+}
+
+// Como la API: una unidad se repite si ya existe el mismo número en la misma torre (sin torre en casas)
+export const claveUnidad = (u) => `${u.torre ?? ''}|${u.numeroIdentificador}`;

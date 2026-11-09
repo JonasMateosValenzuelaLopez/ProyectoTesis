@@ -1,27 +1,107 @@
+import { useState } from 'react';
 import {
-  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
-  FormControlLabel, Switch, Typography, Chip,
+  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Divider,
+  FormControlLabel, Switch, TextField, Typography,
 } from '@mui/material';
-import { useFinanzas } from '../../context/FinanzasContext';
-import { residentes } from '../../data/finanzasMock';
-import { clp, fechaHora, nombreUnidad } from '../../utils/formato';
+import { useAviso } from '../../context/AvisoContext';
+import * as finanzas from '../../api/finanzas';
+import { useConsulta } from '../../api/useConsulta';
+import { clp, fecha, fechaHora, nombreUnidad } from '../../utils/formato';
+import { MAX_MOTIVO, nombrePeriodo, residentesDe } from '../../utils/finanzas';
+import EstadoCarga from '../ui/EstadoCarga';
 import PlacaUnidad from '../marca/PlacaUnidad';
 import EstadoPago from '../marca/EstadoPago';
 
-// Detalle de pagos de una unidad. El pago ocurre fuera de la plataforma
-// (transferencia); aquí el Tesorero o el Administrador solo lo registran.
-export default function DialogoUnidad({ unidad, onClose, soloLectura = false }) {
-  const { datos, periodo, gastosPorUnidad, cobroPorId, estadoUnidad, morosos, nombreUsuario, acciones } = useFinanzas();
-  if (!unidad) return null;
-  const gastos = gastosPorUnidad[unidad.id_unidad] ?? [];
-  const delMes = gastos.filter((g) => g.mes === periodo.mes && g.anio === periodo.anio);
-  const atrasados = morosos.find((m) => m.unidad.id_unidad === unidad.id_unidad)?.atrasados ?? [];
-  const deuda = atrasados.reduce((s, g) => s + g.monto_total, 0);
-  const idsGastos = new Set(gastos.map((g) => g.id_gasto));
-  const pagosDe = (id_gasto) => datos.pagos.filter((pg) => pg.id_gasto === id_gasto);
-  const avisos = datos.pagos.filter((pg) => pg.estado_validacion === 'Pendiente' && idsGastos.has(pg.id_gasto));
-  const exencion = datos.exenciones.find((e) => e.estado === 'Pendiente' && idsGastos.has(e.id_gasto));
-  const concepto = (g) => cobroPorId[g.id_cobro]?.concepto ?? g.descripcion;
+const EN_CURSO = ['Pendiente', 'Por aprobar'];
+const PAGADOS_VISIBLES = 6;
+
+// Cuenta de una unidad (GET finanzas/unidades/:id). El pago ocurre fuera de la plataforma (transferencia o
+// efectivo); aquí Tesorería o Administración lo marcan, validan o rechazan los avisos que llegan desde la app,
+// y Tesorería puede pedir una exención que decide la Presidencia.
+// `unidad` viene de GET unidades (con `ocupantes`); `onCambio` avisa al padre para que actualice el plano.
+export default function DialogoUnidad({ unidad, estado, gestiona, pideExencion, onExencion, onClose, onCambio }) {
+  const { avisar } = useAviso();
+  const { datos: cuenta, cargando, error: errorCarga, recargar } = useConsulta(() => finanzas.detalleUnidad(unidad.idUnidad), [unidad.idUnidad]);
+  const [enviando, setEnviando] = useState(null);
+  const [error, setError] = useState(null);
+  const [rechazo, setRechazo] = useState(null);
+  const [verTodos, setVerTodos] = useState(false);
+
+  const accion = async (clave, hacer, mensaje) => {
+    setEnviando(clave);
+    setError(null);
+    try {
+      await hacer();
+      avisar(mensaje);
+      recargar();
+      onCambio();
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    } finally {
+      setEnviando(null);
+    }
+  };
+
+  const cobros = cuenta?.cobros ?? [];
+  const avisos = cobros.flatMap((c) => c.avisos.filter((a) => a.estado === 'Pendiente').map((a) => ({ ...a, concepto: c.concepto })));
+  const porPagar = cobros.filter((c) => c.estado === 'Pendiente');
+  const atrasados = porPagar.filter((c) => c.atrasado);
+  const cerrados = cobros.filter((c) => c.estado !== 'Pendiente');
+  const cerradosVisibles = verTodos ? cerrados : cerrados.slice(0, PAGADOS_VISIBLES);
+  const totalAvisado = avisos.reduce((s, a) => s + a.monto, 0);
+
+  const validarAvisos = () => accion(
+    'validar',
+    () => finanzas.marcarPagos([...new Set(avisos.map((a) => a.idCobroUnidad))], 'Transferencia'),
+    `Transferencia de ${nombreUnidad(unidad)} validada.`,
+  );
+  const rechazarAvisos = async () => {
+    const ok = await accion(
+      'rechazar',
+      () => finanzas.rechazarAvisos(avisos.map((a) => a.idAviso), rechazo.trim()),
+      `Aviso de ${nombreUnidad(unidad)} rechazado. Los cobros siguen pendientes.`,
+    );
+    if (ok) setRechazo(null);
+  };
+  const cambiarPago = (c, pagado) => accion(
+    c.idCobroUnidad,
+    () => (pagado ? finanzas.marcarPagos([c.idCobroUnidad]) : finanzas.anularPago(c.idCobroUnidad)),
+    pagado ? `«${c.concepto}» marcado como pagado.` : `«${c.concepto}» vuelve a estar pendiente.`,
+  );
+
+  const filaCobro = (c) => {
+    const exencion = c.exencion && EN_CURSO.includes(c.exencion.estado) ? c.exencion : null;
+    return (
+      <Box key={c.idCobroUnidad} sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Typography sx={{ fontWeight: 700 }}>{c.concepto}</Typography>
+            {c.atrasado && <Chip size="small" label="Vencido" sx={{ bgcolor: 'error.light', color: 'error.main' }} />}
+            {exencion && <Chip size="small" label="Exención en revisión" sx={{ bgcolor: 'info.light', color: 'info.main' }} />}
+          </Box>
+          <Typography variant="body2" color="text.secondary">
+            {clp(c.monto)} · {nombrePeriodo(c.periodo)} · vence {fecha(c.fechaVencimiento)}
+            {c.estado === 'Pagado' && c.pagadoMarcadoEn && ` · marcado el ${fechaHora(c.pagadoMarcadoEn)}`}
+          </Typography>
+          {pideExencion && c.estado === 'Pendiente' && !exencion && (
+            <Button size="small" sx={{ px: 0, minWidth: 0 }} onClick={() => onExencion(c)}>Pedir exención</Button>
+          )}
+        </Box>
+        {c.estado === 'Exento' ? (
+          <Chip size="small" label="Exento" color="info" variant="outlined" />
+        ) : (
+          <FormControlLabel
+            labelPlacement="start"
+            label={c.estado === 'Pagado' ? 'Pagado' : 'Pendiente'}
+            disabled={!gestiona || enviando !== null}
+            control={<Switch color="success" checked={c.estado === 'Pagado'} onChange={(e) => cambiarPago(c, e.target.checked)} />}
+          />
+        )}
+      </Box>
+    );
+  };
 
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
@@ -29,84 +109,88 @@ export default function DialogoUnidad({ unidad, onClose, soloLectura = false }) 
         <PlacaUnidad unidad={unidad} size="sm" />
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Typography variant="h6" component="span" sx={{ display: 'block' }}>{nombreUnidad(unidad)}</Typography>
-          <Typography variant="body2" color="text.secondary">{residentes[unidad.id_unidad] ?? 'Sin residente registrado'}</Typography>
+          <Typography variant="body2" color="text.secondary">{residentesDe(unidad) || 'Sin residentes registrados'}</Typography>
         </Box>
-        <EstadoPago estado={estadoUnidad(unidad.id_unidad)} />
+        <EstadoPago estado={estado} />
       </DialogTitle>
       <DialogContent dividers sx={{ display: 'grid', gap: 2 }}>
-        {avisos.length > 0 && (
-          <Alert
-            severity="warning" variant="outlined"
-            action={!soloLectura && (
-              <Box sx={{ display: 'flex', gap: 1, alignSelf: 'center' }}>
-                <Button size="small" color="error" onClick={() => acciones.rechazarAviso(avisos.map((pg) => pg.id_gasto))}>Rechazar</Button>
-                <Button size="small" variant="contained" color="success"
-                  onClick={() => acciones.registrarPagos(avisos.map((pg) => pg.id_gasto), `Transferencia de ${nombreUnidad(unidad)} validada.`)}>
-                  Validar
-                </Button>
+        {!cuenta ? <EstadoCarga cargando={cargando} error={errorCarga} onReintentar={recargar} /> : (
+          <>
+            {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+
+            {avisos.length > 0 && (
+              <Alert
+                severity="warning" variant="outlined"
+                action={gestiona && rechazo === null && (
+                  <Box sx={{ display: 'flex', gap: 1, alignSelf: 'center' }}>
+                    <Button size="small" color="error" onClick={() => setRechazo('')} disabled={enviando !== null}>Rechazar</Button>
+                    <Button size="small" variant="contained" color="success" loading={enviando === 'validar'} disabled={enviando !== null} onClick={validarAvisos}>Validar</Button>
+                  </Box>
+                )}
+              >
+                {avisos[0].avisadoPor?.nombre ?? 'Un residente'} avisó una transferencia por <b>{clp(totalAvisado)}</b> pagada el {fecha(avisos[0].fechaPago)}
+                {' '}({avisos.map((a) => a.concepto).join(', ')}).
+                {avisos[0].observacion ? ` «${avisos[0].observacion}».` : ''} Revisa que llegó a la cuenta antes de validarla.
+              </Alert>
+            )}
+            {rechazo !== null && (
+              <Box sx={{ display: 'grid', gap: 1 }}>
+                <TextField
+                  autoFocus size="small" label="Motivo del rechazo (opcional)" value={rechazo} onChange={(e) => setRechazo(e.target.value)}
+                  slotProps={{ htmlInput: { maxLength: MAX_MOTIVO } }} helperText="El residente lo verá en la app."
+                />
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                  <Button onClick={() => setRechazo(null)}>Cancelar</Button>
+                  <Button color="error" variant="contained" loading={enviando === 'rechazar'} onClick={rechazarAvisos}>Rechazar aviso</Button>
+                </Box>
               </Box>
             )}
-          >
-            {nombreUsuario(avisos[0].id_usuario)} avisó una transferencia por <b>{clp(avisos.reduce((s, pg) => s + pg.monto_pagado, 0))}</b> el {fechaHora(avisos[0].fecha_pago)}.
-            {avisos[0].observacion ? ` «${avisos[0].observacion}».` : ''} Revisa que llegó a la cuenta antes de validarla.
-          </Alert>
-        )}
-        <Typography variant="overline" color="text.secondary">Cobros de {periodo.nombre}</Typography>
-        <Box sx={{ display: 'grid', gap: 1.5 }}>
-          {delMes.length === 0 && <Typography color="text.secondary">Esta unidad no tiene cobros este mes.</Typography>}
-          {delMes.map((g) => {
-            const validado = pagosDe(g.id_gasto).find((pg) => pg.estado_validacion === 'Validado');
-            return (
-              <Box key={g.id_gasto} sx={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 700 }}>{concepto(g)}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {clp(g.monto_total)}
-                    {g.estado_pago === 'Pagado' && validado && ` · validado por ${nombreUsuario(validado.id_validador)}, ${fechaHora(validado.fecha_validacion)}`}
-                  </Typography>
-                </Box>
-                {g.estado_pago === 'Exento' ? (
-                  <Chip size="small" label="Exento" color="info" variant="outlined" />
-                ) : (
-                  <FormControlLabel
-                    labelPlacement="start"
-                    label={g.estado_pago === 'Pagado' ? 'Pagado' : 'Pendiente'}
-                    disabled={soloLectura}
-                    control={<Switch color="success" checked={g.estado_pago === 'Pagado'}
-                      onChange={(e) => (e.target.checked ? acciones.registrarPagos([g.id_gasto]) : acciones.anularPago(g.id_gasto))} />}
-                  />
-                )}
-              </Box>
-            );
-          })}
-        </Box>
-        {exencion && (
-          <Alert severity="info" variant="outlined">
-            Exención en revisión por Presidencia: «{exencion.motivo}». Mientras no se apruebe, el cobro sigue vigente.
-          </Alert>
-        )}
-        {deuda > 0 && (
-          <>
-            <Divider />
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography sx={{ fontWeight: 700 }}>Deuda de meses anteriores</Typography>
-                <Typography color="error.main" sx={{ fontWeight: 800, fontSize: '1.25rem' }}>{clp(deuda)}</Typography>
-                <Typography variant="body2" color="text.secondary">{atrasados.map(concepto).join(' · ')}</Typography>
-              </Box>
-              {!soloLectura && (
-                <Button variant="outlined" color="success"
-                  onClick={() => acciones.registrarPagos(atrasados.map((g) => g.id_gasto), `Deuda de ${nombreUnidad(unidad)} registrada como pagada.`)}>
-                  Registrar pago de la deuda
-                </Button>
-              )}
+
+            <Typography variant="overline" color="text.secondary">Por pagar</Typography>
+            <Box sx={{ display: 'grid', gap: 1.5 }}>
+              {porPagar.length === 0 && <Typography color="text.secondary">Esta unidad no tiene cobros pendientes.</Typography>}
+              {porPagar.map(filaCobro)}
             </Box>
+
+            {atrasados.length > 0 && (
+              <>
+                <Divider />
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+                  <Box>
+                    <Typography sx={{ fontWeight: 700 }}>Deuda vencida</Typography>
+                    <Typography color="error.main" sx={{ fontWeight: 800, fontSize: '1.25rem' }}>{clp(cuenta.deudaAtrasada)}</Typography>
+                    <Typography variant="body2" color="text.secondary">{atrasados.length === 1 ? '1 cobro vencido' : `${atrasados.length} cobros vencidos`}</Typography>
+                  </Box>
+                  {gestiona && atrasados.length > 1 && (
+                    <Button
+                      variant="outlined" color="success" loading={enviando === 'deuda'} disabled={enviando !== null}
+                      onClick={() => accion('deuda', () => finanzas.marcarPagos(atrasados.map((c) => c.idCobroUnidad)), `Deuda de ${nombreUnidad(unidad)} marcada como pagada.`)}
+                    >
+                      Marcar pagada toda la deuda
+                    </Button>
+                  )}
+                </Box>
+              </>
+            )}
+
+            {cerrados.length > 0 && (
+              <>
+                <Divider />
+                <Typography variant="overline" color="text.secondary">Pagados y exentos</Typography>
+                <Box sx={{ display: 'grid', gap: 1.5 }}>{cerradosVisibles.map(filaCobro)}</Box>
+                {cerrados.length > PAGADOS_VISIBLES && (
+                  <Button size="small" sx={{ justifySelf: 'start' }} onClick={() => setVerTodos(!verTodos)}>
+                    {verTodos ? 'Ver menos' : `Ver los ${cerrados.length}`}
+                  </Button>
+                )}
+              </>
+            )}
           </>
         )}
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
         <Typography variant="caption" color="text.secondary">
-          {soloLectura ? 'Solo Tesorería y Administración pueden marcar pagos.' : 'Los pagos se hacen por transferencia; aquí solo se registran.'}
+          {gestiona ? 'Los pagos se hacen por transferencia o en efectivo; aquí solo se registran.' : 'Solo Tesorería y Administración pueden marcar pagos.'}
         </Typography>
         <Button onClick={onClose}>Cerrar</Button>
       </DialogActions>

@@ -1,8 +1,14 @@
-import { cargosEfectivos } from '../config/navegacion';
+import { RolUsuario, rolesEfectivos } from '../config/roles';
 
-// Quién puede registrar pagos y crear cobros: Tesorería y Administración
-// (y el Presidente cuando la comunidad no tiene administrador).
-export const puedeGestionarFinanzas = (cargo, comunidad) =>
-  cargosEfectivos(cargo, comunidad).some((c) => c === 'tesorero' || c === 'administrador');
+// Como `reglas-finanzas.ts` del backend:
+// - GESTION_COBROS (crear cobros, marcar pagos, registrar egresos): Tesorería y Administración
+//   (y la Presidencia cuando la comunidad no tiene administrador externo);
+// - LECTURA_FINANZAS: además, la Presidencia.
+export const gestionaFinanzas = (cargo, comunidad) =>
+  rolesEfectivos(cargo, comunidad).some((r) => r === RolUsuario.TESORERO || r === RolUsuario.ADMINISTRADOR);
 
-export const esPresidente = (cargo) => cargo === 'presidente';
+export const leeFinanzas = (cargo, comunidad) =>
+  gestionaFinanzas(cargo, comunidad) || cargo === RolUsuario.PRESIDENTE;
+
+export const esTesorero = (cargo) => cargo === RolUsuario.TESORERO;
+export const esPresidente = (cargo) => cargo === RolUsuario.PRESIDENTE;

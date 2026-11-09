@@ -4,6 +4,7 @@ import {
   EventAvailableOutlined as EspaciosIcon,
   ReceiptLongOutlined as CobrosIcon,
   WarningAmberOutlined as MorosidadIcon,
+  PaymentsOutlined as EgresosIcon,
   HandshakeOutlined as ExencionIcon,
   CategoryOutlined as CategoriaIcon,
   AssessmentOutlined as ReportesIcon,
@@ -32,7 +33,7 @@ export const SECCIONES = [
   {
     titulo: 'Hoy',
     items: [
-      { texto: 'Inicio', ruta: '/panel', icono: <InicioIcon />, fase: 3, cargos: [R.ADMINISTRADOR, R.PRESIDENTE, R.TESORERO, R.SECRETARIO, R.CONSERJE] },
+      { texto: 'Inicio', ruta: '/panel', icono: <InicioIcon />, fase: 9, cargos: [R.ADMINISTRADOR, R.PRESIDENTE, R.TESORERO, R.SECRETARIO, R.CONSERJE] },
       // Para Conserjería la garita es su Inicio
       { texto: 'Portería y visitas', ruta: '/panel/porteria', icono: <PorteriaIcon />, fase: 8, cargos: [R.ADMINISTRADOR], modulo: 'invitaciones_qr', pendiente: 'porteria' },
       { texto: 'Espacios del día', ruta: '/panel/espacios', icono: <EspaciosIcon />, fase: 5, cargos: [R.CONSERJE], modulo: 'reservas' },
@@ -44,6 +45,7 @@ export const SECCIONES = [
     items: [
       { texto: 'Cobros', ruta: '/panel/finanzas', icono: <CobrosIcon />, fase: 4, cargos: [R.TESORERO, R.ADMINISTRADOR], modulo: 'cobros' },
       { texto: 'Morosidad', ruta: '/panel/morosidad', icono: <MorosidadIcon />, fase: 4, cargos: [R.TESORERO, R.ADMINISTRADOR, R.PRESIDENTE], modulo: 'cobros', pendiente: 'morosidad' },
+      { texto: 'Egresos', ruta: '/panel/egresos', icono: <EgresosIcon />, fase: 4, cargos: [R.TESORERO, R.ADMINISTRADOR, R.PRESIDENTE], modulo: 'cobros' },
       { texto: 'Exenciones', ruta: '/panel/exenciones', icono: <ExencionIcon />, fase: 4, cargos: [R.TESORERO, R.PRESIDENTE], modulo: 'cobros', pendiente: 'exenciones' },
       { texto: 'Categorías de cobro', ruta: '/panel/categorias', icono: <CategoriaIcon />, fase: 4, cargos: [R.TESORERO], modulo: 'cobros' },
       { texto: 'Reportes', ruta: '/panel/reportes', icono: <ReportesIcon />, fase: 4, cargos: [R.TESORERO, R.PRESIDENTE], modulo: 'cobros' },

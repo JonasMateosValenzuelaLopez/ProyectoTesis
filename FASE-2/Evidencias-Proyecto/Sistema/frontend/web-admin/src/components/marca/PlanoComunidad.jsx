@@ -1,6 +1,5 @@
 import { Box, ButtonBase, Tooltip, Typography } from '@mui/material';
 import { ESTADOS_OCUPACION, ESTADOS_PAGO } from '../../config/estadosPago';
-import { espaciosActivos } from '../../utils/espacios';
 import { grupoDe, pisoDe } from '../../utils/unidades';
 
 const textoEstado = (e) => (ESTADOS_PAGO[e] ?? ESTADOS_OCUPACION[e])?.texto;
@@ -101,12 +100,13 @@ function PlanoCondominio({ comunidad, estados, onSelect }) {
   // Una hilera por cada `callePasaje`; el pasaje va entre la primera y la segunda
   const sectores = [...new Set(comunidad.unidades.map(grupoDe))];
   const hileras = sectores.map((s) => comunidad.unidades.filter((u) => grupoDe(u) === s));
-  const espacios = espaciosActivos(comunidad);
+  // Espacios comunes (GET reservas/espacios), si la vista los cargó: se dibujan junto al pasaje
+  const espacios = comunidad.espacios ?? [];
   const columnas = Math.max(...hileras.map((h) => h.length)) + (espacios.length ? 1 : 0);
   const fila = (unidades, conEspacios) => (
     <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))`, gap: { xs: 0.5, sm: 0.75 } }}>
       {unidades.map((u) => <Unidad key={u.idUnidad} unidad={u} tipo={comunidad.tipo} estado={estados[u.idUnidad]} onSelect={onSelect} />)}
-      {conEspacios && espacios.map((e) => <Espacio key={e.id_espacio} nombre={e.nombre} />)}
+      {conEspacios && espacios.map((e) => <Espacio key={e.idEspacio} nombre={e.nombre} />)}
     </Box>
   );
   return (

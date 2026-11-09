@@ -1,23 +1,24 @@
 // Reglas de los datos de la comunidad, las mismas de la API (datos-comunidad.dto.ts y su servicio)
 import { rutValido } from './rut';
+import { RolUsuario } from '../config/roles';
 
 export const TIPOS_CUENTA = ['Cuenta corriente', 'Cuenta vista', 'Cuenta RUT', 'Cuenta de ahorro'];
 // La ven la administración y la directiva; solo la administración la edita
-export const LECTORES_DATOS_COMUNIDAD = ['administrador', 'presidente', 'tesorero', 'secretario'];
+export const LECTORES_DATOS_COMUNIDAD = [RolUsuario.ADMINISTRADOR, RolUsuario.PRESIDENTE, RolUsuario.TESORERO, RolUsuario.SECRETARIO];
 // A quienes avisa la API por correo cuando cambia la cuenta para transferencias
-export const AVISADOS_CAMBIO_CUENTA = ['administrador', 'presidente', 'tesorero'];
+export const AVISADOS_CAMBIO_CUENTA = [RolUsuario.ADMINISTRADOR, RolUsuario.PRESIDENTE, RolUsuario.TESORERO];
 export const MAX_UMBRAL_VISADO = 9_999_999_999;
 
 // Los cinco datos que necesita un residente para transferir: van todos o ninguno
-const CAMPOS_CUENTA = ['banco', 'tipo_cuenta', 'numero_cuenta', 'titular_cuenta', 'rut_titular'];
+const CAMPOS_CUENTA = ['banco', 'tipoCuenta', 'numeroCuenta', 'titularCuenta', 'identificadorTitular'];
 const FALTA = {
-  banco: 'Indica el banco', tipo_cuenta: 'Indica el tipo de cuenta', numero_cuenta: 'Indica el número de cuenta',
-  titular_cuenta: 'Indica el titular de la cuenta', rut_titular: 'Indica el RUT del titular',
+  banco: 'Indica el banco', tipoCuenta: 'Indica el tipo de cuenta', numeroCuenta: 'Indica el número de cuenta',
+  titularCuenta: 'Indica el titular de la cuenta', identificadorTitular: 'Indica el RUT del titular',
 };
-const LARGO = { nombre: 100, direccion: 150, banco: 60, numero_cuenta: 30, titular_cuenta: 100, correo_pagos: 100 };
+const LARGO = { nombre: 100, direccion: 150, banco: 60, numeroCuenta: 30, titularCuenta: 100, correoTransferencias: 100 };
 const ETIQUETA = {
-  nombre: 'El nombre', direccion: 'La dirección', banco: 'El banco', numero_cuenta: 'El número de cuenta',
-  titular_cuenta: 'El titular', correo_pagos: 'El correo para comprobantes',
+  nombre: 'El nombre', direccion: 'La dirección', banco: 'El banco', numeroCuenta: 'El número de cuenta',
+  titularCuenta: 'El titular', correoTransferencias: 'El correo para comprobantes',
 };
 export const MENSAJE_CUENTA_INCOMPLETA = 'Para que los residentes puedan transferir, completa el banco, el tipo de cuenta, el número, el titular y su RUT. Si no quieres mostrar una cuenta, deja todos los datos vacíos.';
 
@@ -35,11 +36,11 @@ export function erroresDatosComunidad(f) {
   Object.entries(LARGO).forEach(([campo, max]) => {
     if (!e[campo] && (f[campo] ?? '').trim().length > max) e[campo] = `${ETIQUETA[campo]} no puede superar ${max} caracteres`;
   });
-  const numero = limpiarNumeroCuenta(f.numero_cuenta ?? '');
-  if (numero && !/^(?=(?:-*\d){4})\d(?:-?\d)*$/.test(numero)) e.numero_cuenta = 'El número de cuenta debe tener al menos 4 dígitos y solo puede llevar dígitos y guiones';
-  if (f.tipo_cuenta && !TIPOS_CUENTA.includes(f.tipo_cuenta)) e.tipo_cuenta = `El tipo de cuenta debe ser ${TIPOS_CUENTA.slice(0, -1).join(', ')} o ${TIPOS_CUENTA.at(-1)}`;
-  if (f.rut_titular?.trim() && !rutValido(f.rut_titular)) e.rut_titular = 'El RUT del titular no es válido';
-  if (f.correo_pagos?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.correo_pagos.trim())) e.correo_pagos = 'El correo para comprobantes no es válido';
+  const numero = limpiarNumeroCuenta(f.numeroCuenta ?? '');
+  if (numero && !/^(?=(?:-*\d){4})\d(?:-?\d)*$/.test(numero)) e.numeroCuenta = 'El número de cuenta debe tener al menos 4 dígitos y solo puede llevar dígitos y guiones';
+  if (f.tipoCuenta && !TIPOS_CUENTA.includes(f.tipoCuenta)) e.tipoCuenta = `El tipo de cuenta debe ser ${TIPOS_CUENTA.slice(0, -1).join(', ')} o ${TIPOS_CUENTA.at(-1)}`;
+  if (f.identificadorTitular?.trim() && !rutValido(f.identificadorTitular)) e.identificadorTitular = 'El RUT del titular no es válido';
+  if (f.correoTransferencias?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(f.correoTransferencias.trim())) e.correoTransferencias = 'El correo para comprobantes no es válido';
   const llenos = CAMPOS_CUENTA.filter((c) => (f[c] ?? '').trim());
   if (llenos.length && llenos.length < CAMPOS_CUENTA.length) {
     CAMPOS_CUENTA.filter((c) => !(f[c] ?? '').trim()).forEach((c) => { e[c] ??= FALTA[c]; });

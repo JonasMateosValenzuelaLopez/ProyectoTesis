@@ -15,6 +15,22 @@ import VistaPendiente from './pages/VistaPendiente';
 import { TODAS_LAS_RUTAS } from './config/navegacion';
 import { SECCIONES_PLATAFORMA } from './config/plataforma';
 
+// Administración (fase 3)
+import RedVecinal from './pages/admin/RedVecinal';
+import Unidades from './pages/admin/Unidades';
+import Residentes from './pages/admin/Residentes';
+import GuiaBienvenida from './pages/comunidad/GuiaBienvenida';
+import Directorio from './pages/secretario/Directorio';
+
+// Finanzas (fase 4)
+import Cobros from './pages/tesorero/Cobros';
+import Morosidad from './pages/tesorero/Morosidad';
+import Egresos from './pages/tesorero/Egresos';
+import Exenciones from './pages/tesorero/Exenciones';
+import Categorias from './pages/tesorero/Categorias';
+import Reportes from './pages/tesorero/Reportes';
+import PorAprobar from './pages/presidente/PorAprobar';
+
 // Plataforma (fase 2)
 import Comunidades from './pages/plataforma/Comunidades';
 import NuevaComunidad from './pages/plataforma/NuevaComunidad';
@@ -23,7 +39,20 @@ import BitacoraPlataforma from './pages/plataforma/BitacoraPlataforma';
 
 // Vistas conectadas con la API. Las demás rutas del menú muestran VistaPendiente:
 // «En conexión» hasta su fase, o «Próximamente» si la API aún no tiene esa función.
-const VISTAS = {};
+const VISTAS = {
+  '/panel/condominio': <RedVecinal />,
+  '/panel/unidades': <Unidades />,
+  '/panel/residentes': <Residentes />,
+  '/panel/guia': <GuiaBienvenida />,
+  '/panel/directorio': <Directorio />,
+  '/panel/finanzas': <Cobros />,
+  '/panel/morosidad': <Morosidad />,
+  '/panel/egresos': <Egresos />,
+  '/panel/exenciones': <Exenciones />,
+  '/panel/categorias': <Categorias />,
+  '/panel/reportes': <Reportes />,
+  '/panel/aprobaciones': <PorAprobar />,
+};
 const VISTAS_PLATAFORMA = {
   '/plataforma': <Comunidades />,
   '/plataforma/nueva': <NuevaComunidad />,

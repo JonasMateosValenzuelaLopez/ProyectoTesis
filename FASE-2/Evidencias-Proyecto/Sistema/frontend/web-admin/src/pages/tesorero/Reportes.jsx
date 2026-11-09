@@ -1,96 +1,153 @@
-import { Box, Button, Typography } from '@mui/material';
+import { useState } from 'react';
+import {
+  Box, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+} from '@mui/material';
 import { FileDownloadOutlined as DescargarIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
-import { useFinanzas } from '../../context/FinanzasContext';
-import { residentes } from '../../data/finanzasMock';
-import { clp, descargarCSV, fecha, fechaHora, nombreUnidad } from '../../utils/formato';
+import * as finanzas from '../../api/finanzas';
+import * as admin from '../../api/admin';
+import { useConsulta } from '../../api/useConsulta';
+import { clp, descargarCSV, fecha, nombreUnidad } from '../../utils/formato';
+import { hoyISO, nombrePeriodo, residentesDe } from '../../utils/finanzas';
 import Encabezado from '../../components/ui/Encabezado';
+import FranjaKpi from '../../components/ui/FranjaKpi';
 import Tarjeta from '../../components/ui/Tarjeta';
+import EstadoCarga from '../../components/ui/EstadoCarga';
 
+const Descargar = ({ onClick, disabled }) => (
+  <Button size="small" variant="outlined" startIcon={<DescargarIcon />} onClick={onClick} disabled={disabled}>Descargar CSV</Button>
+);
+
+// Reportes de un mes (GET finanzas/reportes?periodo=AAAA-MM): flujo de caja y balance por categoría.
+// Solo cuentan los egresos que no requieren visado o que la Presidencia visó. La morosidad sale del estado actual.
 export default function Reportes() {
   const { comunidad } = useSesion();
-  const { datos, periodo, cobrosDelPeriodo, gastosPorCobro, categoriaPorId, morosos, unidadPorId, nombreUsuario } = useFinanzas();
-  const slug = comunidad.nombre.toLowerCase().replace(/\s+/g, '-');
-  const categoria = (id) => categoriaPorId[id]?.nombre ?? '';
-  const egresosValidos = datos.egresos.filter((e) => !e.requiere_visado || e.estado_visado === 'Aprobado');
-  const suma = (gastos) => gastos.reduce((s, g) => s + g.monto_total, 0);
-  const pagadoDe = (c) => suma((gastosPorCobro[c.id_cobro] ?? []).filter((g) => g.estado_pago === 'Pagado'));
-  // Pago validado de cada gasto, para saber quién lo registró
-  const validadoDe = (id_gasto) => datos.pagos.find((pg) => pg.id_gasto === id_gasto && pg.estado_validacion === 'Validado');
+  const mesActual = hoyISO().slice(0, 7);
+  const [mes, setMes] = useState(mesActual);
+  const reporte = useConsulta(() => finanzas.reporte(mes), [comunidad.idRed, mes]);
+  const estado = useConsulta(finanzas.estado, [comunidad.idRed]);
+  const unidades = useConsulta(admin.listarUnidades, [comunidad.idRed]);
+  const slug = comunidad.nombre.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-');
+  const r = reporte.datos;
+  const periodo = nombrePeriodo(`${mes}-01`);
 
-  const reportes = [
-    {
-      titulo: 'Estado de morosidad',
-      descripcion: `Unidades con deuda de meses anteriores y lo que deben de ${periodo.nombre}.`,
-      resumen: `${morosos.length} unidades · ${clp(morosos.reduce((s, m) => s + m.total, 0))}`,
-      generar: () => descargarCSV(`morosidad-${slug}.csv`, [
-        ['Unidad', 'Residente', 'Deuda anterior', 'Pendiente del mes', 'Total'],
-        ...morosos.map((m) => [nombreUnidad(m.unidad), residentes[m.unidad.id_unidad], m.deudaAnterior, m.pendienteMes, m.total]),
-      ]),
-    },
-    {
-      titulo: 'Flujo de caja',
-      descripcion: 'Ingresos registrados por cobro y egresos visados o que no requieren visado, con el saldo del periodo.',
-      resumen: `${cobrosDelPeriodo.length} ingresos · ${egresosValidos.length} egresos`,
-      generar: () => {
-        const ingresos = cobrosDelPeriodo.map((c) => [fecha(c.fecha_emision), 'Ingreso', c.concepto, pagadoDe(c)]);
-        const egresos = egresosValidos.map((e) => [fecha(e.fecha), 'Egreso', e.proveedor ? `${e.descripcion} (${e.proveedor})` : e.descripcion, -e.monto]);
-        const saldo = [...ingresos, ...egresos].reduce((s, f) => s + f[3], 0);
-        descargarCSV(`flujo-de-caja-${slug}.csv`, [['Fecha', 'Tipo', 'Detalle', 'Monto'], ...ingresos, ...egresos, ['', '', 'Saldo del periodo', saldo]]);
-      },
-    },
-    {
-      titulo: 'Balance mensual',
-      descripcion: 'Por categoría: lo cobrado, lo recaudado y lo gastado en el mes.',
-      resumen: `${datos.categorias_cobro.filter((c) => c.activa).length} categorías activas`,
-      generar: () => descargarCSV(`balance-${slug}.csv`, [
-        ['Categoría', 'Cobrado', 'Recaudado', 'Egresos', 'Diferencia'],
-        ...datos.categorias_cobro.map((cat) => {
-          const cobros = cobrosDelPeriodo.filter((c) => c.id_categoria === cat.id_categoria);
-          const cobrado = cobros.reduce((s, c) => s + suma((gastosPorCobro[c.id_cobro] ?? []).filter((g) => g.estado_pago !== 'Exento')), 0);
-          const recaudado = cobros.reduce((s, c) => s + pagadoDe(c), 0);
-          const gastado = egresosValidos
-            .filter((e) => e.id_categoria === cat.id_categoria && e.fecha.startsWith(`${periodo.anio}-${String(periodo.mes).padStart(2, '0')}`))
-            .reduce((s, e) => s + e.monto, 0);
-          return [cat.nombre, cobrado, recaudado, gastado, recaudado - gastado];
-        }),
-      ]),
-    },
-    {
-      titulo: 'Historial por unidad',
-      descripcion: 'Cada cobro de cada unidad, con su estado y quién marcó el pago.',
-      resumen: `${comunidad.unidades.length} unidades · ${datos.cobros.length} cobros`,
-      generar: () => descargarCSV(`historial-por-unidad-${slug}.csv`, [
-        ['Unidad', 'Residente', 'Cobro', 'Categoría', 'Monto', 'Estado', 'Validado por', 'Fecha de validación'],
-        ...datos.cobros.flatMap((c) => (gastosPorCobro[c.id_cobro] ?? []).map((g) => {
-          const pago = validadoDe(g.id_gasto);
-          return [
-            nombreUnidad(unidadPorId[g.id_unidad]), residentes[g.id_unidad], c.concepto, categoria(c.id_categoria), g.monto_total,
-            g.estado_pago, pago ? nombreUsuario(pago.id_validador) : '', pago ? fechaHora(pago.fecha_validacion) : '',
-          ];
-        })),
-      ]),
-    },
-  ];
+  const descargarMorosidad = () => {
+    const porId = Object.fromEntries((unidades.datos ?? []).map((u) => [u.idUnidad, u]));
+    descargarCSV(`morosidad-${slug}-${hoyISO()}.csv`, [
+      ['Unidad', 'Residentes', 'Cobros vencidos', 'Deuda vencida', 'Por vencer', 'Total'],
+      ...estado.datos.morosos.map((m) => {
+        const u = porId[m.idUnidad] ?? { ...m, tipo: comunidad.tipo === 'Edificio' ? 'Departamento' : 'Casa' };
+        return [nombreUnidad(u), residentesDe(u), m.cobrosAtrasados, m.deudaAtrasada, m.pendienteNoVencido, m.total];
+      }),
+    ]);
+  };
+  const descargarFlujo = () => {
+    const ingresos = r.flujoDeCaja.ingresos.map((i) => [i.fechaEmision, 'Ingreso', i.concepto, i.recaudado]);
+    const egresos = r.flujoDeCaja.egresos.map((e) => [e.fechaEgreso, 'Egreso', e.proveedor ? `${e.descripcion} (${e.proveedor})` : e.descripcion, -e.monto]);
+    descargarCSV(`flujo-de-caja-${slug}-${mes}.csv`, [['Fecha', 'Tipo', 'Detalle', 'Monto'], ...ingresos, ...egresos, ['', '', 'Saldo del periodo', r.flujoDeCaja.saldo]]);
+  };
+  const descargarBalance = () => descargarCSV(`balance-${slug}-${mes}.csv`, [
+    ['Categoría', 'Cobrado', 'Recaudado', 'Egresos', 'Diferencia del mes', 'Saldo histórico'],
+    ...r.porCategoria.map((c) => [c.nombre, c.cobrado, c.recaudado, c.egresos, c.diferencia, c.saldoHistorico]),
+  ]);
 
   return (
     <Box sx={{ maxWidth: 1100 }}>
       <Encabezado
-        contexto={`${comunidad.nombre} · ${periodo.nombre}`}
+        contexto={comunidad.nombre}
         titulo="Reportes"
         descripcion="Se descargan como CSV y se abren en Excel o Google Sheets."
+        acciones={(
+          <TextField
+            size="small" type="month" label="Mes" value={mes} onChange={(e) => e.target.value && setMes(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: mesActual } }} sx={{ minWidth: 180 }}
+          />
+        )}
       />
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-        {reportes.map((r) => (
-          <Tarjeta key={r.titulo} titulo={r.titulo}>
-            <Typography color="text.secondary">{r.descripcion}</Typography>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>{r.resumen}</Typography>
-              <Button variant="outlined" startIcon={<DescargarIcon />} onClick={r.generar}>Descargar CSV</Button>
-            </Box>
+
+      {!r ? <EstadoCarga cargando={reporte.cargando} error={reporte.error} onReintentar={reporte.recargar} /> : (
+        <Box sx={{ display: 'grid', gap: 2.5 }}>
+          <FranjaKpi items={[
+            { etiqueta: `Recaudado en ${periodo}`, valor: clp(r.flujoDeCaja.totalIngresos) },
+            { etiqueta: 'Egresos', valor: clp(r.flujoDeCaja.totalEgresos) },
+            { etiqueta: 'Saldo del mes', valor: clp(r.flujoDeCaja.saldo), color: r.flujoDeCaja.saldo < 0 ? 'error.main' : undefined },
+          ]} />
+
+          <Tarjeta titulo="Flujo de caja" extra={<Descargar onClick={descargarFlujo} />}>
+            {r.flujoDeCaja.ingresos.length + r.flujoDeCaja.egresos.length === 0 ? (
+              <Typography color="text.secondary">Sin ingresos ni egresos en {periodo}.</Typography>
+            ) : (
+              <TableContainer>
+                <Table size="small" sx={{ minWidth: 520 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Fecha</TableCell>
+                      <TableCell>Detalle</TableCell>
+                      <TableCell align="right">Monto</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {r.flujoDeCaja.ingresos.map((i) => (
+                      <TableRow key={`i${i.idCobro}`}>
+                        <TableCell>{fecha(i.fechaEmision)}</TableCell>
+                        <TableCell>{i.concepto}<Typography variant="body2" color="text.secondary">Recaudado de {clp(i.esperado)} esperado</Typography></TableCell>
+                        <TableCell align="right" sx={{ color: 'success.main', fontWeight: 700 }}>{clp(i.recaudado)}</TableCell>
+                      </TableRow>
+                    ))}
+                    {r.flujoDeCaja.egresos.map((e) => (
+                      <TableRow key={`e${e.idEgreso}`}>
+                        <TableCell>{fecha(e.fechaEgreso)}</TableCell>
+                        <TableCell>{e.descripcion}{e.proveedor && <Typography variant="body2" color="text.secondary">{e.proveedor}</Typography>}</TableCell>
+                        <TableCell align="right" sx={{ color: 'error.main', fontWeight: 700 }}>−{clp(e.monto)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Tarjeta>
-        ))}
-      </Box>
+
+          <Tarjeta titulo="Balance por categoría" extra={<Descargar onClick={descargarBalance} disabled={r.porCategoria.length === 0} />}>
+            {r.porCategoria.length === 0 ? <Typography color="text.secondary">Todavía no hay movimientos por categoría.</Typography> : (
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
+                <Table size="small" sx={{ minWidth: 640 }}>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Categoría</TableCell>
+                      <TableCell align="right">Cobrado</TableCell>
+                      <TableCell align="right">Recaudado</TableCell>
+                      <TableCell align="right">Egresos</TableCell>
+                      <TableCell align="right">Diferencia</TableCell>
+                      <TableCell align="right">Saldo histórico</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {r.porCategoria.map((c) => (
+                      <TableRow key={c.idCategoria}>
+                        <TableCell sx={{ fontWeight: 700 }}>{c.nombre}</TableCell>
+                        <TableCell align="right">{clp(c.cobrado)}</TableCell>
+                        <TableCell align="right">{clp(c.recaudado)}</TableCell>
+                        <TableCell align="right">{clp(c.egresos)}</TableCell>
+                        <TableCell align="right" sx={{ color: c.diferencia < 0 ? 'error.main' : undefined }}>{clp(c.diferencia)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: c.saldoHistorico < 0 ? 'error.main' : undefined }}>{clp(c.saldoHistorico)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+            <Typography variant="body2" color="text.secondary">El saldo histórico es todo lo recaudado en la categoría menos todos sus egresos válidos (por ejemplo, el fondo de reserva disponible).</Typography>
+          </Tarjeta>
+
+          <Tarjeta titulo="Estado de morosidad" extra={<Descargar onClick={descargarMorosidad} disabled={!estado.datos || !unidades.datos} />}>
+            <Typography color="text.secondary">
+              {estado.datos
+                ? `Hoy: ${estado.datos.morosos.length} ${estado.datos.morosos.length === 1 ? 'unidad' : 'unidades'} con cobros vencidos, por ${clp(estado.datos.resumen.deudaMorosa)}. No depende del mes elegido.`
+                : estado.error?.message ?? 'Cargando…'}
+            </Typography>
+          </Tarjeta>
+        </Box>
+      )}
     </Box>
   );
 }

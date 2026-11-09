@@ -5,21 +5,23 @@ import {
 import { useTheme } from '@mui/material/styles';
 import { Link as RouterLink } from 'react-router-dom';
 import { useSesion } from '../../context/SesionContext';
-import { useDirectiva } from '../../context/DirectivaContext';
-import { DIAS } from '../../data/guiaMock';
-import { EMERGENCIAS } from '../../data/directivaMock';
+import { useAviso } from '../../context/AvisoContext';
+import * as admin from '../../api/admin';
+import { useConsulta } from '../../api/useConsulta';
+import { DIAS, EMERGENCIAS } from '../../config/comunidad';
+import { ID_ROL_POR_NOMBRE } from '../../config/roles';
 import { tieneModulo } from '../../config/modulos';
 import { TODAS_LAS_RUTAS, puedeVer } from '../../config/navegacion';
-import { cargosDe } from '../../config/roles';
 import { roles } from '../../tokens';
-import { fecha, nombreCorto } from '../../utils/formato';
+import { fecha } from '../../utils/formato';
+import { hora } from '../../utils/espacios';
 import Encabezado from '../../components/ui/Encabezado';
 import Tarjeta from '../../components/ui/Tarjeta';
+import EstadoCarga from '../../components/ui/EstadoCarga';
 
 const lista = (x) => (x.length < 2 ? x.join('') : `${x.slice(0, -1).join(', ')} y ${x[x.length - 1]}`);
 const texto = (v) => v ?? '';
 const nulo = (v) => v.trim() || null;
-const hora = (t) => t.slice(0, 5);
 
 // Lo que el residente ve en el teléfono, paso por paso (misma lógica que la pantalla de la app)
 function VistaPrevia({ paso, form, dias, comunidad, espacios, contactos, firma }) {
@@ -54,18 +56,18 @@ function VistaPrevia({ paso, form, dias, comunidad, espacios, contactos, firma }
                   <Box key={d} sx={{ height: 30, borderRadius: 1, display: 'grid', placeItems: 'center', fontSize: '0.75rem', fontWeight: dias.includes(d) ? 700 : 400, bgcolor: dias.includes(d) ? t.bronze : t.inkSoft, color: dias.includes(d) ? t.surface : t.ink2 }}>{d[0]}</Box>
                 ))}
               </Box>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{dias.length === 7 ? 'Todos los días' : lista(dias)}{form.basura_horario.trim() ? ` · ${form.basura_horario.trim().toLowerCase()}` : ''}</Typography>
-              {form.basura_lugar.trim() && <Typography sx={{ fontSize: '0.8rem', color: t.ink2 }}>{form.basura_lugar.trim()}</Typography>}
+              <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{dias.length === 7 ? 'Todos los días' : lista(dias)}{form.basuraHorario.trim() ? ` · ${form.basuraHorario.trim().toLowerCase()}` : ''}</Typography>
+              {form.basuraLugar.trim() && <Typography sx={{ fontSize: '0.8rem', color: t.ink2 }}>{form.basuraLugar.trim()}</Typography>}
             </Box>
           )}
-          {form.reciclaje_lugar.trim() && (
+          {form.reciclajeLugar.trim() && (
             <Box sx={{ ...caja, bgcolor: t.patinaSoft }}>
               <Typography sx={{ ...etiqueta, color: t.patina }}>Reciclaje</Typography>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{form.reciclaje_lugar.trim()}</Typography>
-              {form.reciclaje_detalle.trim() && <Typography sx={{ fontSize: '0.8rem' }}>{form.reciclaje_detalle.trim()}</Typography>}
+              <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{form.reciclajeLugar.trim()}</Typography>
+              {form.reciclajeDetalle.trim() && <Typography sx={{ fontSize: '0.8rem' }}>{form.reciclajeDetalle.trim()}</Typography>}
             </Box>
           )}
-          {!dias.length && !form.reciclaje_lugar.trim() && !form.basura_lugar.trim() && <Typography sx={{ fontSize: '0.85rem', color: t.ink2 }}>Sin datos: este paso no aparece en la app.</Typography>}
+          {!dias.length && !form.reciclajeLugar.trim() && !form.basuraLugar.trim() && <Typography sx={{ fontSize: '0.85rem', color: t.ink2 }}>Sin datos: este paso no aparece en la app.</Typography>}
         </>
       )}
       {paso === 'espacios' && (
@@ -73,9 +75,9 @@ function VistaPrevia({ paso, form, dias, comunidad, espacios, contactos, firma }
           <Typography sx={{ fontFamily: 'Archivo, sans-serif', fontStretch: '112%', fontWeight: 800, fontSize: '1.35rem' }}>Espacios comunes</Typography>
           {espacios.length === 0 && <Typography sx={{ fontSize: '0.85rem', color: t.ink2 }}>Sin espacios o sin módulo de reservas: este paso no aparece en la app.</Typography>}
           {espacios.map((e) => (
-            <Box key={e.id_espacio} sx={caja}>
+            <Box key={e.idEspacio} sx={caja}>
               <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{e.nombre}{e.capacidad ? ` · hasta ${e.capacidad}` : ''}</Typography>
-              <Typography sx={{ fontSize: '0.75rem', color: t.ink2 }}>{(e.espacios_bloques ?? []).map((b) => `${hora(b.hora_inicio)}–${hora(b.hora_fin)}`).join(' · ')}</Typography>
+              <Typography sx={{ fontSize: '0.75rem', color: t.ink2 }}>{e.bloques.map((b) => `${hora(b.horaInicio)}–${hora(b.horaFin)}`).join(' · ')}</Typography>
             </Box>
           ))}
         </>
@@ -84,7 +86,7 @@ function VistaPrevia({ paso, form, dias, comunidad, espacios, contactos, firma }
         <>
           <Typography sx={{ fontFamily: 'Archivo, sans-serif', fontStretch: '112%', fontWeight: 800, fontSize: '1.35rem' }}>Contactos útiles</Typography>
           {contactos.map((k) => (
-            <Box key={k.id_contacto} sx={caja}>
+            <Box key={k.idContacto} sx={caja}>
               <Typography sx={{ fontWeight: 700, fontSize: '0.85rem' }}>{k.nombre}</Typography>
               <Typography sx={{ fontSize: '0.75rem', color: t.ink2 }}>{k.telefono}</Typography>
             </Box>
@@ -96,31 +98,50 @@ function VistaPrevia({ paso, form, dias, comunidad, espacios, contactos, firma }
   );
 }
 
-// Guía de bienvenida (P8): lo que ven los residentes nuevos la primera vez que entran a la app.
-// Aquí se editan basura, reciclaje y el mensaje; espacios y contactos salen de sus propias páginas.
+// Guía de bienvenida (P8): lo que ven los residentes nuevos la primera vez que entran a la app
+// (GET/PUT comunidad/guia). Aquí se editan basura, reciclaje y el mensaje; los espacios y los contactos
+// salen de sus propias páginas. La firma es de quien guardó la última vez.
 export default function GuiaBienvenida() {
   const { comunidad } = useSesion();
-  // Al cambiar de comunidad el formulario parte de nuevo con su guía
-  return <Editor key={comunidad.id_red} />;
+  const guia = useConsulta(admin.guia, [comunidad.idRed]);
+  const contactos = useConsulta(admin.listarContactos, [comunidad.idRed]);
+  const conReservas = tieneModulo(comunidad, 'reservas');
+  const espacios = useConsulta(() => (conReservas ? admin.listarEspacios() : Promise.resolve([])), [comunidad.idRed, conReservas]);
+  if (!guia.datos) {
+    return (
+      <Box sx={{ maxWidth: 1180 }}>
+        <Encabezado contexto={comunidad.nombre} titulo="Guía de bienvenida" />
+        <EstadoCarga cargando={guia.cargando} error={guia.error} onReintentar={guia.recargar} />
+      </Box>
+    );
+  }
+  // Al guardar, el formulario parte de nuevo con lo que devolvió la API
+  return (
+    <Editor
+      key={guia.datos.fechaActualizacion ?? 'nueva'} guia={guia.datos} onGuardada={guia.setDatos}
+      contactos={(contactos.datos ?? []).filter((k) => k.visible)} espacios={espacios.datos ?? []} conReservas={conReservas}
+    />
+  );
 }
 
-function Editor() {
-  const { comunidad, cuentas, cargo } = useSesion();
-  const { guia, contactos, acciones } = useDirectiva();
-  const inicial = {
-    mensaje: texto(guia.mensaje), basura_horario: texto(guia.basura_horario), basura_lugar: texto(guia.basura_lugar),
-    reciclaje_lugar: texto(guia.reciclaje_lugar), reciclaje_detalle: texto(guia.reciclaje_detalle),
-  };
-  const diasIniciales = guia.basura_dias ? guia.basura_dias.split(',') : [];
+const desdeGuia = (g) => ({
+  mensaje: texto(g.mensaje), basuraHorario: texto(g.basuraHorario), basuraLugar: texto(g.basuraLugar),
+  reciclajeLugar: texto(g.reciclajeLugar), reciclajeDetalle: texto(g.reciclajeDetalle),
+});
+
+function Editor({ guia, onGuardada, contactos, espacios, conReservas }) {
+  const { comunidad, cargo } = useSesion();
+  const { avisar, avisarError } = useAviso();
+  const inicial = desdeGuia(guia);
+  const diasIniciales = guia.basuraDias ?? [];
   const [form, setForm] = useState(inicial);
   const [dias, setDias] = useState(diasIniciales);
   const [paso, setPaso] = useState('bienvenida');
+  const [enviando, setEnviando] = useState(false);
 
-  const espacios = tieneModulo(comunidad, 'reservas') ? (comunidad.espacios_comunes ?? []).filter((e) => e.estado) : [];
-  const visibles = contactos.filter((k) => k.visible === 1);
-  const autor = cuentas.find((c) => c.id_usuario === guia.id_usuario_actualiza);
-  const cargoAutor = autor ? cargosDe(autor, comunidad.id_red)[0] : null;
-  const firma = autor ? `${nombreCorto(autor)}${cargoAutor ? ` · ${roles[cargoAutor]?.label ?? ''}` : ''}` : 'La administración';
+  const firma = guia.firma
+    ? `${guia.firma.nombre}${guia.firma.cargo ? ` · ${roles[ID_ROL_POR_NOMBRE[guia.firma.cargo]]?.label ?? guia.firma.cargo}` : ''}`
+    : 'La administración';
   const ordenados = DIAS.filter((d) => dias.includes(d));
   const cambio = JSON.stringify([form, ordenados]) !== JSON.stringify([inicial, DIAS.filter((d) => diasIniciales.includes(d))]);
 
@@ -131,12 +152,21 @@ function Editor() {
   };
   const cambiar = (e) => setForm({ ...form, [e.target.name]: e.target.value });
   const alternar = (d) => setDias((x) => (x.includes(d) ? x.filter((y) => y !== d) : [...x, d]));
-  const guardar = (e) => {
+  const guardar = async (e) => {
     e.preventDefault();
-    acciones.guardarGuia({
-      mensaje: nulo(form.mensaje), basura_dias: ordenados.length ? ordenados.join(',') : null, basura_horario: nulo(form.basura_horario),
-      basura_lugar: nulo(form.basura_lugar), reciclaje_lugar: nulo(form.reciclaje_lugar), reciclaje_detalle: nulo(form.reciclaje_detalle),
-    });
+    setEnviando(true);
+    try {
+      // Los campos vacíos no se envían: la API los guarda como vacíos
+      const cuerpo = Object.fromEntries(Object.entries({
+        mensaje: nulo(form.mensaje), basuraHorario: nulo(form.basuraHorario), basuraLugar: nulo(form.basuraLugar),
+        reciclajeLugar: nulo(form.reciclajeLugar), reciclajeDetalle: nulo(form.reciclajeDetalle),
+      }).filter(([, v]) => v !== null));
+      onGuardada(await admin.guardarGuia({ ...cuerpo, basuraDias: ordenados }));
+      avisar('Guía guardada. Los residentes nuevos la verán al entrar a la app.');
+    } catch (err) {
+      avisarError(err.message);
+      setEnviando(false);
+    }
   };
 
   return (
@@ -145,12 +175,12 @@ function Editor() {
         contexto={comunidad.nombre}
         titulo="Guía de bienvenida"
         descripcion="Los residentes la ven al entrar por primera vez a la app con su vivienda, y después la encuentran en Perfil."
-        acciones={<Button type="submit" variant="contained" disabled={!cambio}>Guardar cambios</Button>}
+        acciones={<Button type="submit" variant="contained" loading={enviando} disabled={!cambio}>Guardar cambios</Button>}
       />
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'flex-start' }}>
         <Box sx={{ flex: '1 1 460px', minWidth: 0, display: 'grid', gap: 2.5 }}>
-          <Tarjeta titulo="1. Mensaje de bienvenida" extra={guia.fecha_actualizacion ? `Lo firma quien guarda · última vez ${fecha(guia.fecha_actualizacion)}` : 'Lo firma quien guarda'}>
+          <Tarjeta titulo="1. Mensaje de bienvenida" extra={guia.fechaActualizacion ? `Lo firma quien guarda · última vez ${fecha(guia.fechaActualizacion)}` : 'Lo firma quien guarda'}>
             <TextField
               name="mensaje" label="Mensaje (opcional)" value={form.mensaje} onChange={cambiar} onFocus={() => setPaso('bienvenida')} multiline minRows={3}
               placeholder="Ej: Somos 15 casas y nos gusta conocernos…" slotProps={{ htmlInput: { maxLength: 500 } }} helperText={`${form.mensaje.length} de 500`}
@@ -170,22 +200,22 @@ function Editor() {
               </Typography>
             </Box>
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
-              <TextField name="basura_horario" label="Horario" value={form.basura_horario} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder="Ej: Desde las 21:00" slotProps={{ htmlInput: { maxLength: 60 } }} />
-              <TextField name="basura_lugar" label="Dónde se deja" value={form.basura_lugar} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder={comunidad.tipo === 'Edificio' ? 'Ej: Shaft de tu piso' : 'Ej: Contenedor de la entrada'} slotProps={{ htmlInput: { maxLength: 150 } }} />
-              <TextField name="reciclaje_lugar" label="Dónde se recicla" value={form.reciclaje_lugar} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder="Ej: Punto limpio junto al quincho" slotProps={{ htmlInput: { maxLength: 150 } }} />
-              <TextField name="reciclaje_detalle" label="Qué recibe" value={form.reciclaje_detalle} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder="Ej: Vidrio, latas y cartón" slotProps={{ htmlInput: { maxLength: 255 } }} />
+              <TextField name="basuraHorario" label="Horario" value={form.basuraHorario} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder="Ej: Desde las 21:00" slotProps={{ htmlInput: { maxLength: 60 } }} />
+              <TextField name="basuraLugar" label="Dónde se deja" value={form.basuraLugar} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder={comunidad.tipo === 'Edificio' ? 'Ej: Shaft de tu piso' : 'Ej: Contenedor de la entrada'} slotProps={{ htmlInput: { maxLength: 150 } }} />
+              <TextField name="reciclajeLugar" label="Dónde se recicla" value={form.reciclajeLugar} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder="Ej: Punto limpio junto al quincho" slotProps={{ htmlInput: { maxLength: 150 } }} />
+              <TextField name="reciclajeDetalle" label="Qué recibe" value={form.reciclajeDetalle} onChange={cambiar} onFocus={() => setPaso('basura')} placeholder="Ej: Vidrio, latas y cartón" slotProps={{ htmlInput: { maxLength: 255 } }} />
             </Box>
           </Tarjeta>
 
           <Tarjeta titulo="3 y 4. Se toman de otras páginas">
             <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
               <Typography>
-                Espacios comunes: {espacios.length ? <b>{lista(espacios.map((e) => e.nombre))}</b> : tieneModulo(comunidad, 'reservas') ? 'ninguno cargado' : 'el módulo de reservas está apagado'}
+                Espacios comunes: {espacios.length ? <b>{lista(espacios.map((e) => e.nombre))}</b> : conReservas ? 'ninguno cargado' : 'el módulo de reservas está apagado'}
               </Typography>
-              {enlace('/panel/reservas', 'Ver en Reservas')}
+              {enlace('/panel/condominio', 'Editar en Datos de la comunidad')}
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', borderTop: 1, borderColor: 'divider', pt: 2 }}>
-              <Typography>Contactos visibles: <b>{visibles.length}</b> más los números de emergencia</Typography>
+              <Typography>Contactos visibles: <b>{contactos.length}</b> más los números de emergencia</Typography>
               {enlace('/panel/directorio', 'Editar en Directorio')}
             </Box>
           </Tarjeta>
@@ -199,7 +229,7 @@ function Editor() {
             <ToggleButton value="espacios">Espacios</ToggleButton>
             <ToggleButton value="contactos">Contactos</ToggleButton>
           </ToggleButtonGroup>
-          <VistaPrevia paso={paso} form={form} dias={ordenados} comunidad={comunidad} espacios={espacios} contactos={visibles} firma={firma} />
+          <VistaPrevia paso={paso} form={form} dias={ordenados} comunidad={comunidad} espacios={conReservas ? espacios : []} contactos={contactos} firma={firma} />
         </Box>
       </Box>
     </Box>

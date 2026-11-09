@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as auth from '@/api/auth';
+import * as comunidadApi from '@/api/comunidad';
 import { sesionApi } from '@/api/cliente';
 import { RolUsuario, type CodigoModulo, type ComunidadPerfil, type Perfil, type Sesion, type UnidadPerfil } from '@/api/tipos';
 
@@ -82,6 +83,8 @@ function useValor() {
       tiene: (m: CodigoModulo) => !!comunidad?.modulos.includes(m),
       // El tutorial de la app se muestra una vez por persona (`usuarios.tutorial_app_visto`)
       tutorialPendiente: !!perfil && !perfil.tutorialAppVisto,
+      // La guía de bienvenida, una vez por vivienda (`residencias.fecha_guia_vista`)
+      guiaPendiente: !!actual && !actual.unidad.fechaGuiaVista,
       acciones: {
         // Respuesta de login o verificación de código
         iniciarSesion: async (s: Sesion) => {
@@ -108,6 +111,18 @@ function useValor() {
           if (!perfil || perfil.tutorialAppVisto) return;
           setPerfil({ ...perfil, tutorialAppVisto: true });
           auth.marcarTutorialVisto().catch(() => { /* se volverá a mostrar la próxima vez */ });
+        },
+        // POST residencias/:id/guia-vista (también al saltarla). Se marca al tiro en el perfil para no volver a abrirla.
+        marcarGuiaVista: () => {
+          if (!perfil || !actual || actual.unidad.fechaGuiaVista) return;
+          const { idResidencia } = actual.unidad;
+          setPerfil({
+            ...perfil,
+            comunidades: perfil.comunidades.map((c) => ({
+              ...c, unidades: c.unidades.map((u) => (u.idResidencia === idResidencia ? { ...u, fechaGuiaVista: new Date().toISOString() } : u)),
+            })),
+          });
+          comunidadApi.marcarGuiaVista(idResidencia).catch(() => { /* se volverá a mostrar la próxima vez */ });
         },
         avisar,
       },

@@ -53,7 +53,7 @@ function Raiz() {
               {/* El tutorial y la guía de bienvenida ocupan toda la pantalla y no se cierran deslizando: se terminan o se saltan */}
               <Stack.Screen name="bienvenida" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
               <Stack.Screen name="tutorial" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
-              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos', 'actas', 'acta/[id]', 'mis-datos', 'cambiar-clave', 'mi-hogar', 'hogar/[id]', 'hogar-ficha'].map((n) => (
+              {['invitar', 'invitacion/[id]', 'transferencia', 'exencion', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos', 'actas', 'acta/[id]', 'mis-datos', 'cambiar-clave', 'mi-hogar', 'hogar/[id]', 'hogar-ficha'].map((n) => (
                 <Stack.Screen key={n} name={n} options={{ presentation: 'modal' }} />
               ))}
             </Stack>

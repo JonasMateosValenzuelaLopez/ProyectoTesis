@@ -59,3 +59,60 @@ export type Perfil = {
 export type Sesion = { accessToken: string; tokenType: 'Bearer'; usuario: Perfil };
 
 export type Mensaje = { mensaje: string };
+
+// ---------- Comunidad (fase 3) ----------
+export type DiaSemana = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo';
+
+// GET comunidad/guia
+export type Guia = {
+  mensaje: string | null;
+  basuraDias: DiaSemana[];
+  basuraHorario: string | null;
+  basuraLugar: string | null;
+  reciclajeLugar: string | null;
+  reciclajeDetalle: string | null;
+  firma: { nombre: string; cargo: string | null } | null;
+  fechaActualizacion: string | null;
+};
+
+// GET comunidad/contactos (el residente ve solo los visibles)
+export type Contacto = { idContacto: number; nombre: string; detalle: string | null; telefono: string; horario: string | null; visible: boolean };
+
+// GET reservas/espacios
+export type Bloque = { idBloque: number; horaInicio: string; horaFin: string };
+export type Espacio = { idEspacio: number; nombre: string; descripcion: string | null; capacidad: number | null; bloques: Bloque[] };
+
+// GET solicitudes-acceso/comunidades (público)
+export type ComunidadSolicitud = { idRed: number; nombre: string; tipo: TipoRedVecinal };
+
+// ---------- Finanzas (GET finanzas/mi-cuenta) ----------
+export type EstadoCobroUnidad = 'Pendiente' | 'Pagado' | 'Exento';
+export type EstadoAviso = 'Pendiente' | 'Validado' | 'Rechazado';
+export type EstadoExencion = 'Pendiente' | 'Por aprobar' | 'Aprobada' | 'Rechazada';
+
+export type AvisoPago = {
+  idAviso: number; idCobroUnidad: number; monto: number; fechaPago: string; observacion: string | null;
+  estado: EstadoAviso; motivoRechazo: string | null; avisadoPor: { idUsuario: number; nombre: string } | null;
+};
+
+export type CobroCuenta = {
+  idCobroUnidad: number; idCobro: number; concepto: string; periodo: string; fechaVencimiento: string; extraordinario: boolean;
+  monto: number; estado: EstadoCobroUnidad; atrasado: boolean; pagadoMarcadoEn: string | null;
+  exencion: { idExencion: number; estado: EstadoExencion } | null;
+  avisos: AvisoPago[];
+};
+
+// Cuenta de una unidad: `deudaAtrasada` son los cobros pendientes ya vencidos
+export type CuentaUnidad = {
+  idUnidad: number; numeroIdentificador: string; callePasaje: string | null;
+  deudaAtrasada: number; pendienteNoVencido: number; total: number;
+  cobros: CobroCuenta[];
+};
+
+// Columnas bancarias de la comunidad: pueden venir vacías en una comunidad recién creada
+export type DatosTransferencia = {
+  banco: string | null; tipoCuenta: string | null; numeroCuenta: string | null;
+  titularCuenta: string | null; identificadorTitular: string | null; correoTransferencias: string | null;
+};
+
+export type MiCuenta = { datosTransferencia: DatosTransferencia; unidades: CuentaUnidad[] };
