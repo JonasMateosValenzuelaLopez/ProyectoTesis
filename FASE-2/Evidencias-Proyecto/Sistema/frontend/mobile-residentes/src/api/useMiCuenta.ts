@@ -6,8 +6,10 @@ import { useConsulta } from './useConsulta';
 // GET finanzas/mi-cuenta para la vivienda elegida. Se vuelve a pedir al volver a la pantalla
 // (por ejemplo, después de avisar una transferencia).
 export function useMiCuenta() {
-  const { comunidad, unidad } = useSesion();
-  const consulta = useConsulta(finanzas.miCuenta, [comunidad?.idRed]);
+  const { comunidad, unidad, tiene } = useSesion();
+  const conCobros = tiene('cobros');
+  // Sin el módulo de cobros no se consulta (el backend respondería 403)
+  const consulta = useConsulta(conCobros ? finanzas.miCuenta : () => Promise.resolve(null), [comunidad?.idRed, conCobros]);
   useAlEnfocar(consulta.recargar);
 
   const cuenta = consulta.datos?.unidades.find((u) => u.idUnidad === unidad?.idUnidad) ?? null;

@@ -26,7 +26,7 @@ export default function Tutorial() {
   if (!perfil || !unidad || !comunidad) return null;
 
   const casa = unidad.tipoUnidad === 'Departamento' ? 'tu departamento' : 'tu casa';
-  // Los espacios y sus horarios llegan al conectar Reservas (fase 5); la escena usa un ejemplo genérico
+  // La escena del tutorial usa un ejemplo genérico de espacios y horarios
   const conReservas = tiene('reservas');
   const opciones = {
     cobros: tiene('cobros'), votaciones: tiene('votaciones'), muro: tiene('muro'), conserjeria: tiene('conserjeria'),

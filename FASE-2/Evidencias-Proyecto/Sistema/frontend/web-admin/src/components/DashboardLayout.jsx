@@ -14,6 +14,7 @@ import { RolUsuario, rolesEfectivos } from '../config/roles';
 import { listarSolicitudes } from '../api/admin';
 import { estado as estadoFinanzas, listarExenciones } from '../api/finanzas';
 import { listarOficiales, moderacionMarketplace, moderacionMuro } from '../api/muro';
+import { resumen as resumenPorteria } from '../api/porteria';
 import { tieneModulo } from '../config/modulos';
 import { leeFinanzas } from '../utils/permisos';
 import { useConsulta } from '../api/useConsulta';
@@ -56,6 +57,12 @@ export default function DashboardLayout() {
     ]),
     [comunidad?.idRed, administra, presidente, conMuro, conMarket, location.pathname],
   );
+  // Garita: llegadas sin invitación que esperan al residente (Administración ve el contador en «Portería y visitas»)
+  const conGarita = administra && tieneModulo(comunidad, 'conserjeria');
+  const { datos: garita } = useConsulta(
+    () => (conGarita ? resumenPorteria() : Promise.resolve(null)),
+    [comunidad?.idRed, conGarita, location.pathname],
+  );
   const reportadas = (lista) => lista.filter((p) => p.estadoModeracion === 'Publicada' && p.reportes?.length).length;
   const comunicadosPorAprobar = com ? com[2].filter((x) => x.estadoAprobacion === 'Pendiente').length : 0;
   const contadores = {
@@ -65,6 +72,7 @@ export default function DashboardLayout() {
     aprobaciones: presidente ? (fin ? fin[0].resumen.egresosPorVisar + exencionesMias : 0) + comunicadosPorAprobar : 0,
     reportes: com ? reportadas(com[0]) : 0,
     reportesMarket: com ? reportadas(com[1]) : 0,
+    porteria: garita?.porAutorizar.length ?? 0,
   };
 
   // Si la ruta actual no corresponde al cargo o a los módulos activos, volver al inicio.

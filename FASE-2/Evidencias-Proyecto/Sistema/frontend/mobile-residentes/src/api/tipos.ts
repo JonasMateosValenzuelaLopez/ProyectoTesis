@@ -66,7 +66,7 @@ export type Sesion = { accessToken: string; tokenType: 'Bearer'; usuario: Perfil
 
 export type Mensaje = { mensaje: string };
 
-// ---------- Comunidad (fase 3) ----------
+// ---------- Comunidad ----------
 export type DiaSemana = 'Lunes' | 'Martes' | 'Miércoles' | 'Jueves' | 'Viernes' | 'Sábado' | 'Domingo';
 
 // GET comunidad/guia
@@ -191,6 +191,33 @@ export type Acta = {
   fecha: string; lugar: string; unidadesPresentes: number | null; asistentes: string | null; temas: string;
   estado: 'Borrador' | 'Publicada'; publicadaEn: string | null; redactor: Persona | null;
   acuerdos: { idAcuerdo: number; texto: string; responsable: string | null; plazo: string | null }[];
+};
+
+// ---------- Invitaciones y portería ----------
+export type CategoriaAcceso = 'Visita' | 'Proveedor' | 'Servicio' | 'Delivery';
+export type EstadoInvitacion = 'Esperada' | 'Adentro' | 'Salió' | 'Cancelada' | 'Vencida';
+// El código solo llega a quien creó la invitación; el RUT no llega al resto de la vivienda
+export type Invitacion = {
+  idInvitacion: number; codigo?: string; nombreVisita: string; rut: string | null; categoria: CategoriaAcceso; patente: string | null;
+  validaDesde: string; validaHasta: string; canceladaEn: string | null; estado: EstadoInvitacion;
+  idAcceso: number | null; ingresoEn: string | null; salidaEn: string | null;
+  unidad: { idUnidad: number; numeroIdentificador: string; torre: string | null } | null;
+  invitadaPor: Persona | null;
+};
+// Una llegada a la garita (sin invitación) que espera la autorización de la vivienda
+export type Acceso = {
+  idAcceso: number; visitante: string | null; categoria: CategoriaAcceso; patente: string | null;
+  unidad: { idUnidad: number; numeroIdentificador: string; torre: string | null } | null; idInvitacion: number | null;
+  estadoAutorizacion: 'Aprobado' | 'Rechazado' | 'Pendiente de Confirmación'; autorizadoVia: 'Invitación' | 'App' | 'Teléfono' | null;
+  llegada: string; ingresoEn: string | null; salidaEn: string | null;
+};
+
+// ---------- Mi hogar (fichas privadas de la vivienda) ----------
+export type TipoFicha = 'Pintura' | 'Garantía' | 'Mantención' | 'Medida' | 'Técnico' | 'Otro';
+export type FichaHogar = {
+  idFicha: number; idUnidad: number; tipo: TipoFicha; titulo: string; detalle: string | null;
+  contactoNombre: string | null; contactoTelefono: string | null; fecha: string | null; fechaVence: string | null;
+  creadoPor: Persona | null; fechaCreacion: string; fechaActualizacion: string;
 };
 
 export type Disponibilidad = {

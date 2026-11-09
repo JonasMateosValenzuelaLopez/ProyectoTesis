@@ -43,6 +43,20 @@ import Marketplace from './pages/comunidad/Marketplace';
 import Votaciones from './pages/secretario/Votaciones';
 import Actas from './pages/secretario/Actas';
 
+// Portería y conservación de datos (fase 8)
+import Porteria from './pages/conserjeria/Porteria';
+import Conservacion from './pages/admin/Conservacion';
+import { useSesion } from './context/SesionContext';
+import { RolUsuario } from './config/roles';
+import { tieneModulo } from './config/modulos';
+
+// Inicio y bitácora (fase 9)
+import InicioAdministracion from './pages/admin/Inicio';
+import InicioPresidente from './pages/presidente/InicioPresidente';
+import InicioTesorero from './pages/tesorero/InicioTesorero';
+import InicioSecretario from './pages/secretario/InicioSecretario';
+import Bitacora from './pages/presidente/Bitacora';
+
 // Plataforma (fase 2)
 import Comunidades from './pages/plataforma/Comunidades';
 import NuevaComunidad from './pages/plataforma/NuevaComunidad';
@@ -70,6 +84,9 @@ const VISTAS = {
   '/panel/marketplace': <Marketplace />,
   '/panel/votaciones': <Votaciones />,
   '/panel/actas': <Actas />,
+  '/panel/porteria': <Porteria />,
+  '/panel/conservacion': <Conservacion />,
+  '/panel/bitacora': <Bitacora />,
 };
 const VISTAS_PLATAFORMA = {
   '/plataforma': <Comunidades />,
@@ -77,6 +94,23 @@ const VISTAS_PLATAFORMA = {
   '/plataforma/bitacora': <BitacoraPlataforma />,
 };
 const RUTAS_PLATAFORMA = SECCIONES_PLATAFORMA.flatMap((s) => s.items);
+
+// Inicio del panel según el cargo. Para Conserjería es la garita (o los espacios del día si la comunidad
+// no tiene conserjería); la Presidencia que también administra ve el Inicio de la Presidencia.
+function InicioPanel() {
+  const { cargo, comunidad } = useSesion();
+  switch (cargo) {
+    case RolUsuario.ADMINISTRADOR: return <InicioAdministracion />;
+    case RolUsuario.PRESIDENTE: return <InicioPresidente />;
+    case RolUsuario.TESORERO: return <InicioTesorero />;
+    case RolUsuario.SECRETARIO: return <InicioSecretario />;
+    case RolUsuario.CONSERJE:
+      if (tieneModulo(comunidad, 'conserjeria')) return <Porteria />;
+      if (tieneModulo(comunidad, 'reservas')) return <Espacios />;
+      return <VistaPendiente />;
+    default: return <VistaPendiente />;
+  }
+}
 
 function App() {
   return (
@@ -93,7 +127,7 @@ function App() {
 
         {/* Panel de una comunidad. El menú y el acceso a cada ruta dependen del cargo y los módulos. */}
         <Route path="/panel" element={<PanelProtegido />}>
-          <Route index element={VISTAS['/panel'] ?? <VistaPendiente />} />
+          <Route index element={<InicioPanel />} />
           <Route path="mi-cuenta" element={<MiCuenta />} />
           {TODAS_LAS_RUTAS.filter((i) => i.ruta !== '/panel').map((i) => (
             <Route key={i.ruta} path={i.ruta.replace('/panel/', '')} element={VISTAS[i.ruta] ?? <VistaPendiente />} />

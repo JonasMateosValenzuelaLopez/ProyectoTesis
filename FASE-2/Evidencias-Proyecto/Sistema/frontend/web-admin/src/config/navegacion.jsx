@@ -34,8 +34,8 @@ export const SECCIONES = [
     titulo: 'Hoy',
     items: [
       { texto: 'Inicio', ruta: '/panel', icono: <InicioIcon />, fase: 9, cargos: [R.ADMINISTRADOR, R.PRESIDENTE, R.TESORERO, R.SECRETARIO, R.CONSERJE] },
-      // Para Conserjería la garita es su Inicio
-      { texto: 'Portería y visitas', ruta: '/panel/porteria', icono: <PorteriaIcon />, fase: 8, cargos: [R.ADMINISTRADOR], modulo: 'invitaciones_qr', pendiente: 'porteria' },
+      // Para Conserjería la garita es su Inicio. La API la exige con el módulo de conserjería (porteria.controller.ts)
+      { texto: 'Portería y visitas', ruta: '/panel/porteria', icono: <PorteriaIcon />, fase: 8, cargos: [R.ADMINISTRADOR], modulo: 'conserjeria', pendiente: 'porteria' },
       { texto: 'Espacios del día', ruta: '/panel/espacios', icono: <EspaciosIcon />, fase: 5, cargos: [R.CONSERJE], modulo: 'reservas' },
       { texto: 'Por aprobar', ruta: '/panel/aprobaciones', icono: <AprobarIcon />, fase: 4, cargos: [R.PRESIDENTE], pendiente: 'aprobaciones' },
     ],
