@@ -39,6 +39,10 @@ import Espacios from './pages/conserjeria/Espacios';
 import Muro from './pages/comunidad/Muro';
 import Marketplace from './pages/comunidad/Marketplace';
 
+// Votaciones y Actas (fase 7)
+import Votaciones from './pages/secretario/Votaciones';
+import Actas from './pages/secretario/Actas';
+
 // Plataforma (fase 2)
 import Comunidades from './pages/plataforma/Comunidades';
 import NuevaComunidad from './pages/plataforma/NuevaComunidad';
@@ -64,6 +68,8 @@ const VISTAS = {
   '/panel/espacios': <Espacios />,
   '/panel/muro': <Muro />,
   '/panel/marketplace': <Marketplace />,
+  '/panel/votaciones': <Votaciones />,
+  '/panel/actas': <Actas />,
 };
 const VISTAS_PLATAFORMA = {
   '/plataforma': <Comunidades />,

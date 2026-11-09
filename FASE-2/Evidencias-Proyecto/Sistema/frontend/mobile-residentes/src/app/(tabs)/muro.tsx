@@ -6,7 +6,10 @@ import { useTema } from '@/constants/tema';
 import * as muroApi from '@/api/muro';
 import { usePaginado } from '@/api/usePaginado';
 import { useAlEnfocar } from '@/api/useAlEnfocar';
-import type { PublicacionMuro } from '@/api/tipos';
+import * as votacionesApi from '@/api/votaciones';
+import { useConsulta } from '@/api/useConsulta';
+import type { PublicacionMuro, Votacion } from '@/api/tipos';
+import TarjetaVotacion, { estadoVivienda } from '@/components/ec/TarjetaVotacion';
 import Pantalla from '@/components/ec/Pantalla';
 import Texto from '@/components/ec/Texto';
 import Boton from '@/components/ec/Boton';
@@ -17,22 +20,31 @@ import TarjetaPublicacion from '@/components/ec/TarjetaPublicacion';
 type Filtro = 'todo' | 'oficial' | 'vecinos' | 'votaciones';
 const idPublicacion = (p: PublicacionMuro) => p.idPublicacion;
 const sinMuro = () => Promise.resolve({ publicaciones: [] as PublicacionMuro[], siguiente: null });
+const sinVotaciones = () => Promise.resolve([] as Votacion[]);
 
 // Muro de la comunidad (GET muro): comunicados y normas oficiales, mensajes de vecinos y, con su módulo, votaciones.
 export default function Muro() {
   const t = useTema();
-  const { comunidad, tiene } = useSesion();
+  const { comunidad, unidad, tiene } = useSesion();
   const conMuro = tiene('muro');
   const muro = usePaginado(conMuro ? muroApi.listarMuro : sinMuro, [comunidad?.idRed, conMuro], 'publicaciones', idPublicacion);
   useAlEnfocar(muro.recargar);
+  const conVotaciones = tiene('votaciones');
+  const votaciones = useConsulta(conVotaciones ? votacionesApi.listarVotaciones : sinVotaciones, [comunidad?.idRed, conVotaciones]);
+  useAlEnfocar(votaciones.recargar);
   const [filtro, setFiltro] = useState<Filtro>(conMuro ? 'todo' : 'votaciones');
   if (!comunidad) return null;
+
+  // Primero las abiertas (la que cierra antes arriba), después las cerradas (la más reciente arriba)
+  const ordenadas = [...(votaciones.datos ?? [])].sort((a, b) => (a.estado !== b.estado ? (a.estado === 'Abierta' ? -1 : 1)
+    : a.estado === 'Abierta' ? a.fechaCierre.localeCompare(b.fechaCierre) : b.fechaCierre.localeCompare(a.fechaCierre)));
+  const porVotar = ordenadas.filter((v) => estadoVivienda(v, unidad?.idUnidad).puedeVotar).length;
 
   const todas = muro.items ?? [];
   const lista = filtro === 'oficial' ? todas.filter((p) => p.tipo !== 'Vecino') : filtro === 'vecinos' ? todas.filter((p) => p.tipo === 'Vecino') : todas;
   const opciones = [
     ...(conMuro ? [{ valor: 'todo' as const, texto: 'Todo' }, { valor: 'oficial' as const, texto: 'Oficial' }, { valor: 'vecinos' as const, texto: 'Vecinos' }] : []),
-    ...(tiene('votaciones') ? [{ valor: 'votaciones' as const, texto: 'Votaciones' }] : []),
+    ...(conVotaciones ? [{ valor: 'votaciones' as const, texto: porVotar ? `Votar (${porVotar})` : 'Votaciones' }] : []),
   ];
 
   return (
@@ -42,10 +54,14 @@ export default function Muro() {
     >
       {opciones.length > 1 && <Segmentos opciones={opciones} valor={filtro} onCambio={setFiltro} />}
       {filtro === 'votaciones' ? (
-        <Tarjeta>
-          <Texto v="fuerte">Votaciones y encuestas</Texto>
-          <Texto v="suave">Las votaciones de tu comunidad aparecerán aquí cuando esta sección se conecte con la API.</Texto>
-        </Tarjeta>
+        votaciones.error ? (
+          <Tarjeta>
+            <Texto color={t.bad}>{votaciones.error.message}</Texto>
+            <Boton tipo="texto" texto="Reintentar" onPress={votaciones.recargar} />
+          </Tarjeta>
+        ) : !votaciones.datos ? <ActivityIndicator color={t.accion} accessibilityLabel="Cargando votaciones" />
+          : ordenadas.length ? ordenadas.map((v) => <TarjetaVotacion key={v.idVotacion} v={v} />)
+            : <Texto v="suave">No hay votaciones todavía.</Texto>
       ) : muro.error ? (
         <Tarjeta>
           <Texto color={t.bad}>{muro.error.message}</Texto>

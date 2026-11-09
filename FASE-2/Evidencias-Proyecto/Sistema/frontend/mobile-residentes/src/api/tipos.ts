@@ -175,6 +175,24 @@ export type SolicitudEnviada = {
 };
 export type Solicitudes = { recibidas: SolicitudRecibida[]; enviadas: SolicitudEnviada[] };
 
+// ---------- Votaciones y actas ----------
+// Los votos por opción y el resultado llegan solo si la vivienda ya votó o la votación cerró
+export type Votacion = {
+  idVotacion: number; tipo: 'Votación' | 'Encuesta'; titulo: string; descripcion: string | null; quorum: number | null;
+  inicio: string; fechaCierre: string; estado: 'Abierta' | 'Cerrada'; totalUnidades: number;
+  opciones: { idOpcion: number; texto: string; votos: number | null }[];
+  resultado: { votos: number; participacion: number; faltan: number; alcanzaQuorum: boolean; idOpcionGanadora: number | null } | null;
+  misVotos: { idUnidad: number; idOpcion: number }[];
+  // Viviendas de la persona donde es titular y aún no votan
+  puedeVotarPor: number[];
+};
+export type Acta = {
+  idActa: number; numero: number; titulo: string; tipo: 'Reunión de directiva' | 'Asamblea ordinaria' | 'Asamblea extraordinaria';
+  fecha: string; lugar: string; unidadesPresentes: number | null; asistentes: string | null; temas: string;
+  estado: 'Borrador' | 'Publicada'; publicadaEn: string | null; redactor: Persona | null;
+  acuerdos: { idAcuerdo: number; texto: string; responsable: string | null; plazo: string | null }[];
+};
+
 export type Disponibilidad = {
   idEspacio: number; fecha: string;
   bloques: { idBloque: number; horaInicio: string; horaFin: string; estado: 'Libre' | 'Reservado' | 'Pasado' }[];

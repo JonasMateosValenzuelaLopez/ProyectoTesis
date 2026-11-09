@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import {
-  Box, Button, ButtonBase, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Paper, TextField, Typography,
+  Alert, Box, Button, ButtonBase, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Paper, TextField, Typography,
 } from '@mui/material';
 import { Add as AddIcon, FileDownloadOutlined as DescargarIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
-import { useDirectiva } from '../../context/DirectivaContext';
+import { useAviso } from '../../context/AvisoContext';
+import * as votacionesApi from '../../api/votaciones';
+import * as admin from '../../api/admin';
+import { useConsulta } from '../../api/useConsulta';
 import { fecha, fechaCompleta, lineas } from '../../utils/formato';
 import Encabezado from '../../components/ui/Encabezado';
+import EstadoCarga from '../../components/ui/EstadoCarga';
 import DialogoActa from '../../components/directiva/DialogoActa';
 
 const ESTADO = {
@@ -15,7 +19,7 @@ const ESTADO = {
 };
 
 // Texto plano del acta para descargar o imprimir.
-function actaComoTexto(acta, comunidad) {
+function actaComoTexto(acta, comunidad, totalUnidades) {
   const l = [
     `${comunidad.nombre.toUpperCase()}`,
     `ACTA N° ${acta.numero} · ${acta.tipo.toUpperCase()}`,
@@ -23,16 +27,16 @@ function actaComoTexto(acta, comunidad) {
     `Fecha: ${fechaCompleta(acta.fecha)}`,
     `Lugar: ${acta.lugar}`,
   ];
-  if (acta.unidades_presentes != null) l.push(`Unidades presentes: ${acta.unidades_presentes} de ${comunidad.unidades.length}`);
+  if (acta.unidadesPresentes != null) l.push(`Unidades presentes: ${acta.unidadesPresentes}${totalUnidades != null ? ` de ${totalUnidades}` : ''}`);
   l.push('', 'ASISTENTES', ...lineas(acta.asistentes).map((a) => `- ${a}`));
   l.push('', 'TEMAS TRATADOS', ...lineas(acta.temas).map((t, i) => `${i + 1}. ${t}`));
   l.push('', 'ACUERDOS', ...acta.acuerdos.map((a, i) => `${i + 1}. ${a.texto}${a.responsable ? ` Responsable: ${a.responsable}.` : ''}${a.plazo ? ` Plazo: ${fechaCompleta(a.plazo)}.` : ''}`));
-  l.push('', `Redactada por ${acta.redactor}${acta.fecha_publicacion ? ` · publicada el ${fechaCompleta(acta.fecha_publicacion.slice(0, 10))}` : ''}`);
+  l.push('', `Redactada por ${acta.redactor?.nombre ?? 'la directiva'}${acta.publicadaEn ? ` · publicada el ${fechaCompleta(acta.publicadaEn)}` : ''}`);
   return l.join('\n');
 }
 
-function descargar(acta, comunidad) {
-  const url = URL.createObjectURL(new Blob([actaComoTexto(acta, comunidad)], { type: 'text/plain;charset=utf-8' }));
+function descargar(acta, comunidad, totalUnidades) {
+  const url = URL.createObjectURL(new Blob([actaComoTexto(acta, comunidad, totalUnidades)], { type: 'text/plain;charset=utf-8' }));
   const a = document.createElement('a');
   a.href = url;
   a.download = `acta-${acta.numero}.txt`;
@@ -49,7 +53,7 @@ function Seccion({ titulo, children }) {
   );
 }
 
-function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
+function DetalleActa({ acta, totalUnidades, onEditar, onPublicar, onEliminar }) {
   const { comunidad } = useSesion();
   const borrador = acta.estado === 'Borrador';
   const asistentes = lineas(acta.asistentes);
@@ -63,17 +67,17 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
         <Typography variant="h5" component="h2">{acta.tipo}</Typography>
         <Typography color="text.secondary">
           {fechaCompleta(acta.fecha)} · {acta.lugar}
-          {acta.unidades_presentes != null && ` · ${acta.unidades_presentes} de ${comunidad.unidades.length} unidades presentes`}
+          {acta.unidadesPresentes != null && ` · ${acta.unidadesPresentes}${totalUnidades != null ? ` de ${totalUnidades}` : ''} unidades presentes`}
         </Typography>
       </Box>
 
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         <Seccion titulo="Asistentes">
-          {asistentes.length ? asistentes.map((a) => <Typography key={a}>{a}</Typography>) : <Typography color="text.secondary">Sin registrar</Typography>}
+          {asistentes.length ? asistentes.map((a, i) => <Typography key={i}>{a}</Typography>) : <Typography color="text.secondary">Sin registrar</Typography>}
         </Seccion>
         <Seccion titulo="Temas tratados">
           <Box component="ol" sx={{ m: 0, pl: 0, listStylePosition: 'inside', display: 'grid', gap: 0.75, '& li::marker': { color: 'text.secondary' } }}>
-            {lineas(acta.temas).map((t) => <Typography component="li" key={t}>{t}</Typography>)}
+            {lineas(acta.temas).map((t, i) => <Typography component="li" key={i}>{t}</Typography>)}
           </Box>
         </Seccion>
       </Box>
@@ -81,7 +85,7 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
       <Seccion titulo="Acuerdos">
         {acta.acuerdos.length === 0 && <Typography color="text.secondary">Sin acuerdos.</Typography>}
         {acta.acuerdos.map((a, i) => (
-          <Box key={i} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 1.5, py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
+          <Box key={a.idAcuerdo} sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 1.5, py: 1.25, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
             <Typography sx={{ fontFamily: 'Archivo, sans-serif', fontWeight: 800, color: 'bronce.main', minWidth: '1.5ch' }}>{i + 1}</Typography>
             <Box>
               <Typography>{a.texto}</Typography>
@@ -101,12 +105,13 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
             <Button variant="contained" onClick={() => onPublicar(acta)}>Publicar acta</Button>
             <Button variant="outlined" onClick={() => onEditar(acta)}>Editar</Button>
             <Button color="error" onClick={() => onEliminar(acta)}>Eliminar borrador</Button>
+            {acta.redactor && <Typography variant="body2" color="text.secondary">Redactada por {acta.redactor.nombre}</Typography>}
           </>
         ) : (
           <>
-            <Button variant="outlined" startIcon={<DescargarIcon />} onClick={() => descargar(acta, comunidad)}>Descargar</Button>
+            <Button variant="outlined" startIcon={<DescargarIcon />} onClick={() => descargar(acta, comunidad, totalUnidades)}>Descargar</Button>
             <Typography variant="body2" color="text.secondary" sx={{ flex: '1 1 260px' }}>
-              Publicada el {fecha(acta.fecha_publicacion)}. Ya no se puede editar: para corregirla, redacta un acta rectificatoria.
+              Publicada el {fecha(acta.publicadaEn)}. Ya no se puede editar: para corregirla, redacta un acta rectificatoria.
             </Typography>
           </>
         )}
@@ -115,43 +120,83 @@ function DetalleActa({ acta, onEditar, onPublicar, onEliminar }) {
   );
 }
 
+// Confirmar publicar (POST actas/:id/publicacion) o eliminar un borrador (DELETE actas/:id)
+function DialogoConfirmar({ confirmar, onClose, onHecho }) {
+  const { avisar } = useAviso();
+  const [error, setError] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const publicar = confirmar.tipo === 'publicar';
+  const ejecutar = async () => {
+    setEnviando(true);
+    setError(null);
+    try {
+      if (publicar) await votacionesApi.publicarActa(confirmar.acta.idActa);
+      else await votacionesApi.eliminarActa(confirmar.acta.idActa);
+      avisar(publicar ? `Acta N° ${confirmar.acta.numero} publicada. Los residentes ya la ven en la app.` : 'Borrador eliminado.');
+      onHecho(confirmar);
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviando(false);
+    }
+  };
+  return (
+    <Dialog open onClose={onClose}>
+      <DialogTitle>{publicar ? `¿Publicar el acta N° ${confirmar.acta.numero}?` : '¿Eliminar este borrador?'}</DialogTitle>
+      <DialogContent sx={{ display: 'grid', gap: 2 }}>
+        <DialogContentText>
+          {publicar ? 'Todos los residentes podrán leerla en la app. Después de publicarla no se puede editar.' : 'El borrador se borra por completo. Esta acción no se puede deshacer.'}
+        </DialogContentText>
+        {error && <Alert severity="error">{error}</Alert>}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" color={publicar ? 'primary' : 'error'} loading={enviando} onClick={ejecutar}>{publicar ? 'Publicar' : 'Eliminar'}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// Libro de actas (GET actas): la directiva ve también los borradores; los residentes, solo las publicadas.
 export default function Actas() {
   const { comunidad } = useSesion();
-  const { actas, acciones } = useDirectiva();
+  const actas = useConsulta(votacionesApi.listarActas, [comunidad.idRed]);
+  const unidades = useConsulta(admin.listarUnidades, [comunidad.idRed]);
   const [idSeleccionada, setIdSeleccionada] = useState(null);
   const [edicion, setEdicion] = useState(null); // { acta } o { acta: null } para una nueva
   const [confirmar, setConfirmar] = useState(null); // { tipo: 'publicar' | 'eliminar', acta }
   const [busqueda, setBusqueda] = useState('');
+  const totalUnidades = unidades.datos?.length ?? null;
 
+  const encabezado = (
+    <Encabezado
+      contexto={comunidad.nombre}
+      titulo="Libro de actas"
+      descripcion="Las actas publicadas las ven todos los residentes en la app y no se pueden modificar."
+      acciones={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setEdicion({ acta: null })}>Nueva acta</Button>}
+    />
+  );
+  if (!actas.datos) return <Box sx={{ maxWidth: 1300 }}>{encabezado}<EstadoCarga cargando={actas.cargando} error={actas.error} onReintentar={actas.recargar} /></Box>;
+
+  const todas = actas.datos;
   const texto = busqueda.trim().toLowerCase();
-  const lista = actas.filter((a) => !texto || [a.tipo, a.temas, ...a.acuerdos.map((x) => x.texto)].join(' ').toLowerCase().includes(texto));
-  const seleccionada = actas.find((a) => a.id_acta === idSeleccionada) ?? lista[0];
-
-  const ejecutar = () => {
-    if (confirmar.tipo === 'publicar') acciones.publicarActa(confirmar.acta);
-    else { acciones.eliminarActa(confirmar.acta); setIdSeleccionada(null); }
-    setConfirmar(null);
-  };
+  const lista = todas.filter((a) => !texto || [a.tipo, a.lugar, a.temas, ...a.acuerdos.map((x) => x.texto)].join(' ').toLowerCase().includes(texto));
+  const seleccionada = todas.find((a) => a.idActa === idSeleccionada) ?? lista[0];
 
   return (
     <Box sx={{ maxWidth: 1300 }}>
-      <Encabezado
-        contexto={comunidad.nombre}
-        titulo="Libro de actas"
-        descripcion="Las actas publicadas las ven todos los residentes en la app y no se pueden modificar."
-        acciones={<Button variant="contained" startIcon={<AddIcon />} onClick={() => setEdicion({ acta: null })}>Nueva acta</Button>}
-      />
-
+      {encabezado}
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', md: '320px 1fr' }, alignItems: 'start' }}>
         <Box sx={{ display: 'grid', gap: 1.5 }}>
           <TextField size="small" label="Buscar en temas y acuerdos" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
-            {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>{actas.length ? 'Ninguna acta coincide.' : 'Todavía no hay actas.'}</Typography>}
+            {lista.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>{todas.length ? 'Ninguna acta coincide.' : 'Todavía no hay actas.'}</Typography>}
             {lista.map((a, i) => {
-              const activa = seleccionada?.id_acta === a.id_acta;
+              const activa = seleccionada?.idActa === a.idActa;
               return (
                 <ButtonBase
-                  key={a.id_acta} onClick={() => setIdSeleccionada(a.id_acta)} aria-current={activa || undefined}
+                  key={a.idActa} onClick={() => setIdSeleccionada(a.idActa)} aria-current={activa || undefined}
                   sx={{
                     width: '100%', textAlign: 'left', justifyContent: 'stretch', display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center',
                     px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider',
@@ -174,7 +219,7 @@ export default function Actas() {
 
         {seleccionada && (
           <DetalleActa
-            acta={seleccionada}
+            acta={seleccionada} totalUnidades={totalUnidades}
             onEditar={(acta) => setEdicion({ acta })}
             onPublicar={(acta) => setConfirmar({ tipo: 'publicar', acta })}
             onEliminar={(acta) => setConfirmar({ tipo: 'eliminar', acta })}
@@ -182,24 +227,18 @@ export default function Actas() {
         )}
       </Box>
 
-      {edicion && <DialogoActa key={edicion.acta?.id_acta ?? 'nueva'} open acta={edicion.acta} onClose={() => setEdicion(null)} />}
-
-      <Dialog open={Boolean(confirmar)} onClose={() => setConfirmar(null)}>
-        <DialogTitle>{confirmar?.tipo === 'publicar' ? `¿Publicar el acta N° ${confirmar?.acta.numero}?` : '¿Eliminar este borrador?'}</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            {confirmar?.tipo === 'publicar'
-              ? 'Todos los residentes podrán leerla en la app. Después de publicarla no se puede editar.'
-              : 'El borrador se borra por completo. Esta acción no se puede deshacer.'}
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirmar(null)}>Cancelar</Button>
-          <Button variant="contained" color={confirmar?.tipo === 'eliminar' ? 'error' : 'primary'} onClick={ejecutar}>
-            {confirmar?.tipo === 'publicar' ? 'Publicar' : 'Eliminar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {edicion && (
+        <DialogoActa
+          key={edicion.acta?.idActa ?? 'nueva'} acta={edicion.acta} totalUnidades={totalUnidades}
+          onClose={() => setEdicion(null)} onGuardada={(acta) => { actas.recargar(); setIdSeleccionada(acta.idActa); }}
+        />
+      )}
+      {confirmar && (
+        <DialogoConfirmar
+          confirmar={confirmar} onClose={() => setConfirmar(null)}
+          onHecho={(c) => { actas.recargar(); if (c.tipo === 'eliminar') setIdSeleccionada(null); }}
+        />
+      )}
     </Box>
   );
 }
