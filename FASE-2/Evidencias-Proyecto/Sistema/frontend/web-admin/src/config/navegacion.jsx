@@ -65,7 +65,7 @@ export const SECCIONES = [
     titulo: 'Comunidad',
     items: [
       { texto: 'Muro y comunicados', ruta: '/panel/muro', icono: <MuroIcon />, fase: 6, cargos: [R.ADMINISTRADOR, R.PRESIDENTE, R.SECRETARIO], modulo: 'muro', pendiente: 'reportes' },
-      { texto: 'Marketplace', ruta: '/panel/marketplace', icono: <MarketIcon />, fase: 6, cargos: [R.ADMINISTRADOR], modulo: 'marketplace' },
+      { texto: 'Marketplace', ruta: '/panel/marketplace', icono: <MarketIcon />, fase: 6, cargos: [R.ADMINISTRADOR], modulo: 'marketplace', pendiente: 'reportesMarket' },
       { texto: 'Reservas', ruta: '/panel/reservas', icono: <ReservasIcon />, fase: 5, cargos: [R.ADMINISTRADOR], modulo: 'reservas' },
       { texto: 'Residentes y cargos', ruta: '/panel/residentes', icono: <ResidentesIcon />, fase: 3, cargos: [R.ADMINISTRADOR], pendiente: 'solicitudes' },
       { texto: 'Unidades', ruta: '/panel/unidades', icono: <UnidadesIcon />, fase: 3, cargos: [R.ADMINISTRADOR] },

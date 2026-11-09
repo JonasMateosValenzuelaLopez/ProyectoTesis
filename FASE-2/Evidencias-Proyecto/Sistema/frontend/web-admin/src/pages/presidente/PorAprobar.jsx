@@ -4,6 +4,7 @@ import { useSesion } from '../../context/SesionContext';
 import { useAviso } from '../../context/AvisoContext';
 import * as finanzas from '../../api/finanzas';
 import * as admin from '../../api/admin';
+import * as muroApi from '../../api/muro';
 import { useConsulta } from '../../api/useConsulta';
 import { tieneModulo } from '../../config/modulos';
 import { MAX_UMBRAL_VISADO } from '../../utils/comunidad';
@@ -85,8 +86,8 @@ function UmbralVisado({ umbral, onCambio }) {
   );
 }
 
-// Lo que necesita la firma de la Presidencia: egresos sobre el umbral y exenciones que Tesorería ya revisó.
-// Los comunicados oficiales se agregan cuando el muro se conecte con la API (fase 6).
+// Lo que necesita la firma de la Presidencia: egresos sobre el umbral, exenciones que Tesorería ya revisó
+// y comunicados o normas que redactó otro cargo de la directiva.
 export default function PorAprobar() {
   const { comunidad } = useSesion();
   const conCobros = tieneModulo(comunidad, 'cobros');
@@ -94,13 +95,26 @@ export default function PorAprobar() {
   const egresos = useConsulta(conCobros ? finanzas.listarEgresos : sinModulo, [comunidad.idRed, conCobros]);
   const exenciones = useConsulta(conCobros ? finanzas.listarExenciones : sinModulo, [comunidad.idRed, conCobros]);
   const datos = useConsulta(admin.datosComunidad, [comunidad.idRed]);
+  const conMuro = tieneModulo(comunidad, 'muro');
+  const oficiales = useConsulta(conMuro ? muroApi.listarOficiales : sinModulo, [comunidad.idRed, conMuro]);
   const [decision, setDecision] = useState(null);
 
   const porVisar = (egresos.datos ?? []).filter((e) => e.estadoVisado === 'Pendiente');
   const porAprobar = (exenciones.datos ?? []).filter((e) => e.estado === 'Por aprobar');
-  const total = porVisar.length + porAprobar.length;
+  const comunicados = (oficiales.datos ?? []).filter((x) => x.estadoAprobacion === 'Pendiente');
+  const total = porVisar.length + porAprobar.length + comunicados.length;
   const umbral = datos.datos?.umbralVisado;
-  const cargado = egresos.datos && exenciones.datos;
+  const cargado = egresos.datos && exenciones.datos && oficiales.datos;
+  const decidirOficial = (x, aprobado) => setDecision({
+    titulo: aprobado ? 'Aprobar y publicar' : 'Devolver',
+    detalle: aprobado
+      ? `«${x.titulo}» se publica en el muro y se avisa por correo a los residentes.`
+      : `«${x.titulo}» vuelve a quien lo redactó y no se publica.`,
+    aprobado, etiqueta: aprobado ? 'Aprobar y publicar' : 'Devolver',
+    mensaje: aprobado ? 'Publicado en el muro.' : 'Comunicado devuelto.',
+    hacer: (comentario) => muroApi.decidirOficial(x.idPublicacion, aprobado, comentario),
+    recargar: oficiales.recargar,
+  });
   const unidadDe = (e) => ({ tipo: comunidad.tipo === 'Edificio' ? 'Departamento' : 'Casa', numeroIdentificador: e.unidad?.numeroIdentificador ?? '?' });
 
   const visar = (e, aprobado) => setDecision({
@@ -179,9 +193,24 @@ export default function PorAprobar() {
           </Tarjeta>
         )}
 
-        <Tarjeta titulo="Comunicados oficiales y normas" extra={<Chip size="small" label="En conexión" />}>
-          <Typography color="text.secondary">Los comunicados que esperan tu aprobación aparecerán aquí cuando el muro se conecte con la API.</Typography>
-        </Tarjeta>
+        {conMuro && (
+          <Tarjeta titulo="Comunicados oficiales y normas" extra="Se publican y se avisan por correo al aprobarlos">
+            {!oficiales.datos ? <EstadoCarga cargando={oficiales.cargando} error={oficiales.error} onReintentar={oficiales.recargar} />
+              : comunicados.length === 0 ? <Typography color="text.secondary">Sin comunicados por aprobar.</Typography>
+                : comunicados.map((x, i) => (
+                  <Fila key={x.idPublicacion} primera={i === 0} acciones={<Decision aprobar="Aprobar y publicar" rechazar="Devolver" onAprobar={() => decidirOficial(x, true)} onRechazar={() => decidirOficial(x, false)} />}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Chip size="small" label={x.tipo} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
+                      <Typography sx={{ fontWeight: 700 }}>{x.titulo}</Typography>
+                    </Box>
+                    <Typography color="text.secondary" sx={{ maxWidth: '65ch', whiteSpace: 'pre-line' }}>{x.contenido}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Redactado por {[x.autor?.nombre ?? 'sin nombre', x.autor?.cargo].filter(Boolean).join(' · ')} · {fecha(x.fecha)}
+                    </Typography>
+                  </Fila>
+                ))}
+          </Tarjeta>
+        )}
       </Box>
 
       {decision && <DialogoDecision decision={decision} onClose={() => setDecision(null)} onHecho={decision.recargar} />}

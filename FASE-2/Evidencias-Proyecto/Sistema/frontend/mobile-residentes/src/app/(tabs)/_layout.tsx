@@ -20,7 +20,7 @@ export default function Pestanas() {
   if (cargando) return null;
   if (!perfil) return <Redirect href="/login" />;
 
-  // Los espacios reservables se conocen al conectar Reservas (fase 5); por ahora basta el módulo
+  // Con el módulo activo se muestra la pestaña; si la comunidad aún no tiene espacios, la pestaña lo explica
   const conReservas = tiene('reservas');
   return (
     <Tabs

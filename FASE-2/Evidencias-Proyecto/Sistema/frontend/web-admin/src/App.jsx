@@ -31,6 +31,14 @@ import Categorias from './pages/tesorero/Categorias';
 import Reportes from './pages/tesorero/Reportes';
 import PorAprobar from './pages/presidente/PorAprobar';
 
+// Reservas (fase 5)
+import Reservas from './pages/admin/Reservas';
+import Espacios from './pages/conserjeria/Espacios';
+
+// Muro y Marketplace (fase 6)
+import Muro from './pages/comunidad/Muro';
+import Marketplace from './pages/comunidad/Marketplace';
+
 // Plataforma (fase 2)
 import Comunidades from './pages/plataforma/Comunidades';
 import NuevaComunidad from './pages/plataforma/NuevaComunidad';
@@ -52,6 +60,10 @@ const VISTAS = {
   '/panel/categorias': <Categorias />,
   '/panel/reportes': <Reportes />,
   '/panel/aprobaciones': <PorAprobar />,
+  '/panel/reservas': <Reservas />,
+  '/panel/espacios': <Espacios />,
+  '/panel/muro': <Muro />,
+  '/panel/marketplace': <Marketplace />,
 };
 const VISTAS_PLATAFORMA = {
   '/plataforma': <Comunidades />,

@@ -3,26 +3,51 @@ import {
   Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, Paper, Tab, Tabs, TextField,
   ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
-import { DeleteOutlined as EliminarIcon, EditNoteOutlined as RedactarIcon, FlagOutlined as ReporteIcon } from '@mui/icons-material';
+import { DeleteOutlined as EliminarIcon, EditNoteOutlined as RedactarIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
-import { useAdmin } from '../../context/AdminContext';
-import { useMuro } from '../../context/MuroContext';
-import { cargosEfectivos } from '../../config/navegacion';
-import { clp, fecha, fechaHora } from '../../utils/formato';
+import { useAviso } from '../../context/AvisoContext';
+import * as muroApi from '../../api/muro';
+import { useConsulta } from '../../api/useConsulta';
+import { usePaginado } from '../../api/usePaginado';
+import { RolUsuario, rolesEfectivos } from '../../config/roles';
+import { fecha } from '../../utils/formato';
 import Encabezado from '../../components/ui/Encabezado';
-import PlacaUnidad from '../../components/marca/PlacaUnidad';
+import EstadoCarga from '../../components/ui/EstadoCarga';
+import PublicacionModerada from '../../components/comunidad/PublicacionModerada';
 
-function DialogoRedactar({ onClose }) {
-  const { cargo } = useSesion();
-  const { acciones } = useMuro();
+const MAX_TITULO = 150;
+const MIN_TEXTO = 20;
+const MAX_TEXTO = 5000;
+const idPublicacion = (p) => p.idPublicacion;
+const ESTADO_OFICIAL = { Pendiente: { texto: 'Esperando aprobación', color: 'warning' }, Rechazada: { texto: 'Devuelto', color: 'error' } };
+const autorConCargo = (a) => (a ? [a.nombre ?? 'Sin nombre', a.cargo].filter(Boolean).join(' · ') : 'Sin autor');
+
+// Redactar un comunicado o una norma (POST muro/oficiales). Desde la Presidencia se publica al tiro y se avisa
+// por correo; desde otro cargo queda esperando la aprobación de la Presidencia.
+function DialogoRedactar({ directo, onClose, onPublicada }) {
+  const { avisar } = useAviso();
   const [form, setForm] = useState({ tipo: 'Comunicado', titulo: '', contenido: '' });
-  const directo = cargo === 'presidente';
-  const valido = form.titulo.trim() && form.contenido.trim().length >= 20;
-  const enviar = (e) => {
+  const [error, setError] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const largo = form.contenido.trim().length;
+  const valido = form.titulo.trim() && largo >= MIN_TEXTO;
+  const enviar = async (e) => {
     e.preventDefault();
     if (!valido) return;
-    acciones.enviarPublicacion({ tipo: form.tipo, titulo: form.titulo.trim(), contenido: form.contenido.trim() });
-    onClose();
+    setEnviando(true);
+    setError(null);
+    try {
+      const r = await muroApi.publicarOficial({ tipo: form.tipo, titulo: form.titulo.trim(), contenido: form.contenido.trim() });
+      avisar(r.estadoAprobacion === 'Aprobada'
+        ? `Publicado. Se enviará un correo a ${r.correos} ${r.correos === 1 ? 'persona' : 'personas'}.`
+        : 'Enviado a la Presidencia. Se publica cuando lo apruebe.');
+      onPublicada();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviando(false);
+    }
   };
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm" component="form" onSubmit={enviar}>
@@ -32,178 +57,145 @@ function DialogoRedactar({ onClose }) {
           <ToggleButton value="Comunicado">Comunicado</ToggleButton>
           <ToggleButton value="Norma">Norma</ToggleButton>
         </ToggleButtonGroup>
-        <TextField required label="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} />
+        <TextField required label="Título" value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })} slotProps={{ htmlInput: { maxLength: MAX_TITULO } }} />
         <TextField
           required label="Texto" value={form.contenido} onChange={(e) => setForm({ ...form, contenido: e.target.value })} multiline minRows={5}
-          helperText={form.contenido.trim().length < 20 ? 'Escribe al menos 20 caracteres.' : `${form.contenido.trim().length} caracteres`}
+          slotProps={{ htmlInput: { maxLength: MAX_TEXTO } }}
+          helperText={largo < MIN_TEXTO ? `Escribe al menos ${MIN_TEXTO} caracteres.` : `${largo}/${MAX_TEXTO} caracteres`}
         />
         <Alert severity="info" variant="outlined">
           {directo
-            ? 'Desde la Presidencia se publica de inmediato y se avisa a todos los residentes.'
-            : 'Se envía a la Presidencia. Cuando se apruebe, se publica y se avisa a todos los residentes.'}
+            ? 'Desde la Presidencia se publica de inmediato y se avisa por correo a los residentes.'
+            : 'Se envía a la Presidencia. Cuando lo apruebe, se publica y se avisa por correo a los residentes.'}
         </Alert>
+        {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button type="submit" variant="contained" disabled={!valido}>{directo ? 'Publicar' : 'Enviar a aprobación'}</Button>
+        <Button type="submit" variant="contained" disabled={!valido} loading={enviando}>{directo ? 'Publicar' : 'Enviar a aprobación'}</Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-// Confirmación antes de borrar un comunicado o norma: desaparece del muro y de la app
-function DialogoEliminarOficial({ publicacion, onClose }) {
-  const { acciones } = useMuro();
-  const tipo = publicacion.tipo.toLowerCase();
-  const eliminar = () => {
-    acciones.eliminarOficial(publicacion.id_publicacion);
-    onClose();
+// Confirmación antes de borrar un comunicado o norma (DELETE muro/oficiales/:id): desaparece del muro y de la app
+function DialogoEliminarOficial({ publicacion, onClose, onEliminada }) {
+  const { avisar } = useAviso();
+  const [error, setError] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  const eliminar = async () => {
+    setEnviando(true);
+    setError(null);
+    try {
+      await muroApi.eliminarOficial(publicacion.idPublicacion);
+      avisar(`«${publicacion.titulo}» eliminado.`);
+      onEliminada();
+      onClose();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviando(false);
+    }
   };
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="xs">
       <DialogTitle>¿Eliminar {publicacion.tipo === 'Norma' ? 'esta norma' : 'este comunicado'}?</DialogTitle>
-      <DialogContent>
-        <Typography>
-          «{publicacion.titulo}» dejará de verse en el muro y en la app de los residentes. Queda registrado en la bitácora y no se puede deshacer.
-        </Typography>
+      <DialogContent sx={{ display: 'grid', gap: 2 }}>
+        <Typography>«{publicacion.titulo}» dejará de verse en el muro y en la app de los residentes. Queda registrado en la bitácora y no se puede deshacer.</Typography>
+        {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} autoFocus>Cancelar</Button>
-        <Button variant="contained" color="error" onClick={eliminar}>Eliminar {tipo}</Button>
+        <Button variant="contained" color="error" loading={enviando} onClick={eliminar}>Eliminar {publicacion.tipo.toLowerCase()}</Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-function Publicacion({ pub, unidad, moderar, onModerar }) {
-  const { nombreUsuario, viviendaDe } = useMuro();
-  const { fila, reportes } = pub;
-  const oculta = fila.estado === 0;
+function Oficiales({ oficiales, puedeEliminar, onEliminar }) {
+  if (oficiales.length === 0) return <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">Todavía no hay publicaciones oficiales.</Typography></Paper>;
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1.5, display: 'grid', gap: 1.5, opacity: oculta ? 0.75 : 1, borderColor: reportes.length && !oculta ? 'warning.main' : 'divider' }}>
-      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-        {unidad && <PlacaUnidad unidad={unidad} size="sm" />}
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontWeight: 700 }}>{nombreUsuario(fila.id_usuario)}</Typography>
-          <Typography variant="body2" color="text.secondary">{pub.lugar === 'marketplace' ? `Marketplace · ${pub.tipo}` : 'Muro'} · {fechaHora(pub.fecha)}</Typography>
-        </Box>
-        {pub.cerrado && <Chip size="small" variant="outlined" label={pub.tipo === 'Vendo' ? 'Vendido' : 'Cerrado'} />}
-        {oculta && <Chip size="small" variant="outlined" label="Oculta" />}
-      </Box>
-      <Box sx={{ textDecoration: oculta ? 'line-through' : 'none', textDecorationColor: 'currentColor' }}>
-        {pub.titulo && (
-          <Typography sx={{ fontWeight: 700 }}>
-            {pub.titulo}{pub.precio != null && <Box component="span" sx={{ fontWeight: 400, color: 'text.secondary' }}> · {clp(pub.precio)}</Box>}
-          </Typography>
-        )}
-        {pub.contenido && <Typography>{pub.contenido}</Typography>}
-      </Box>
-      {reportes.length > 0 && (
-        <Box sx={{ display: 'grid', gap: 0.5, p: 1.25, borderRadius: 1, bgcolor: 'warning.light' }}>
-          {reportes.map((r) => (
-            <Typography key={r.id_reporte} variant="body2" sx={{ display: 'flex', gap: 0.75, alignItems: 'center' }}>
-              <ReporteIcon sx={{ fontSize: 16 }} /> <b>{r.motivo}</b> · reportado por {nombreUsuario(r.id_usuario)}{viviendaDe(r.id_usuario) ? ` (${viviendaDe(r.id_usuario)})` : ''}
-            </Typography>
-          ))}
-        </Box>
-      )}
-      {oculta && fila.id_moderador && (
-        <Typography variant="body2" color="text.secondary">Oculta por {nombreUsuario(fila.id_moderador)} · {fechaHora(fila.fecha_moderacion)}.</Typography>
-      )}
-      {moderar && (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {oculta ? (
-            <Button variant="outlined" onClick={() => onModerar(pub, 'restaurar')}>Restaurar</Button>
-          ) : (
-            <>
-              <Button variant={reportes.length ? 'contained' : 'outlined'} color="error" onClick={() => onModerar(pub, 'ocultar')}>Ocultar</Button>
-              {reportes.length > 0 && <Button color="inherit" onClick={() => onModerar(pub, 'descartar')}>Descartar reportes</Button>}
-            </>
-          )}
-        </Box>
-      )}
-    </Paper>
+    <Box sx={{ display: 'grid', gap: 1.5 }}>
+      {oficiales.map((x) => {
+        const publicada = x.estadoAprobacion === 'Aprobada';
+        const estado = ESTADO_OFICIAL[x.estadoAprobacion];
+        return (
+          <Paper key={x.idPublicacion} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 1, borderWidth: publicada ? 1.5 : 1, borderColor: publicada ? 'info.main' : 'divider' }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Chip size="small" label={x.tipo} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
+              <Typography variant="body2" color="text.secondary">{autorConCargo(x.autor)} · {fecha(x.fecha)}</Typography>
+              {estado && <Chip size="small" variant="outlined" color={estado.color} label={estado.texto} />}
+            </Box>
+            <Typography variant="h6" component="h2">{x.titulo}</Typography>
+            <Typography color="text.secondary" sx={{ maxWidth: '68ch', whiteSpace: 'pre-line' }}>{x.contenido}</Typography>
+            {x.aprobadoPor && x.aprobadoPor.idUsuario !== x.autor?.idUsuario && (
+              <Typography variant="body2" color="text.secondary">{publicada ? 'Aprobado' : 'Devuelto'} por {autorConCargo(x.aprobadoPor)} · {fecha(x.aprobadoEn)}</Typography>
+            )}
+            {puedeEliminar(x) && (
+              <Box>
+                <Button size="small" color="error" startIcon={<EliminarIcon />} onClick={() => onEliminar(x)} aria-label={`Eliminar ${x.tipo.toLowerCase()} ${x.titulo}`}>Eliminar</Button>
+              </Box>
+            )}
+          </Paper>
+        );
+      })}
+    </Box>
   );
 }
 
-const ESTADO_OFICIAL = { Pendiente: 'Esperando aprobación', Rechazada: 'Devuelto' };
-
-// Muro de la comunidad. Administración modera; la directiva redacta comunicados y normas.
-// Con lugar="marketplace" muestra solo las publicaciones del marketplace.
-export default function Muro({ lugar }) {
-  const { comunidad, cargo } = useSesion();
-  const { unidadPorId } = useAdmin();
-  const { vecinos, reportadas: todas, oficiales, conCargo, acciones, puedeEliminarOficial } = useMuro();
-  const [eliminando, setEliminando] = useState(null);
-  const modera = cargosEfectivos(cargo, comunidad).includes('administrador');
-  const soloMarket = lugar === 'marketplace';
-  const propias = vecinos.filter((p) => !soloMarket || p.lugar === 'marketplace');
-  const reportadas = todas.filter((p) => !soloMarket || p.lugar === 'marketplace');
-  const [pestana, setPestana] = useState(() => (modera && reportadas.length ? 'reportadas' : soloMarket ? 'vecinos' : 'oficiales'));
+// Muro de la comunidad. La administración modera lo que publican los vecinos (GET muro/moderacion);
+// la directiva redacta comunicados y normas (GET/POST muro/oficiales). Las demás ven el muro como en la app.
+export default function Muro() {
+  const { usuario, comunidad, cargo } = useSesion();
+  const modera = rolesEfectivos(cargo, comunidad).includes(RolUsuario.ADMINISTRADOR);
+  const presidente = cargo === RolUsuario.PRESIDENTE;
+  const oficiales = useConsulta(muroApi.listarOficiales, [comunidad.idRed]);
+  const vecinos = usePaginado(modera ? muroApi.moderacionMuro : muroApi.listarMuro, [comunidad.idRed, modera], 'publicaciones', idPublicacion);
+  const [pestana, setPestana] = useState(modera ? 'reportadas' : 'oficiales');
   const [redactar, setRedactar] = useState(false);
+  const [eliminando, setEliminando] = useState(null);
 
-  const lista = pestana === 'reportadas' ? reportadas : propias;
+  const deVecinos = (vecinos.items ?? []).filter((p) => p.tipo === 'Vecino');
+  const reportadas = deVecinos.filter((p) => p.estadoModeracion === 'Publicada' && p.reportes?.length);
+  const lista = pestana === 'reportadas' ? reportadas : deVecinos;
+  const puedeEliminar = (x) => presidente || x.autor?.idUsuario === usuario.idUsuario;
 
   return (
     <Box sx={{ maxWidth: 900 }}>
       <Encabezado
         contexto={comunidad.nombre}
-        titulo={soloMarket ? 'Marketplace' : 'Muro y comunicados'}
-        descripcion={soloMarket
-          ? 'Publicaciones de compra, venta y servicios entre vecinos.'
-          : modera ? 'Revisa lo que reportan los vecinos. Al ocultar una publicación, su autor recibe un aviso.' : 'Los comunicados y normas oficiales que se publican en la app.'}
-        acciones={!soloMarket && cargo !== 'conserje' && (
-          <Button variant="contained" startIcon={<RedactarIcon />} onClick={() => setRedactar(true)}>Redactar comunicado</Button>
-        )}
+        titulo="Muro y comunicados"
+        descripcion={modera ? 'Revisa lo que reportan los vecinos y publica comunicados oficiales.' : 'Los comunicados y normas oficiales que se publican en la app.'}
+        acciones={<Button variant="contained" startIcon={<RedactarIcon />} onClick={() => setRedactar(true)}>Redactar comunicado</Button>}
       />
 
       <Tabs value={pestana} onChange={(_, v) => setPestana(v)} sx={{ mb: 2 }} variant="scrollable" allowScrollButtonsMobile>
-        {modera && <Tab value="reportadas" label={`Reportadas (${reportadas.length})`} />}
-        {!soloMarket && <Tab value="oficiales" label="Oficiales" />}
-        <Tab value="vecinos" label={soloMarket ? 'Publicaciones' : 'De vecinos'} />
+        {modera && <Tab value="reportadas" label={`Reportadas${vecinos.items ? ` (${reportadas.length})` : ''}`} />}
+        <Tab value="oficiales" label="Oficiales" />
+        <Tab value="vecinos" label="De vecinos" />
       </Tabs>
 
       {pestana === 'oficiales' ? (
-        <Box sx={{ display: 'grid', gap: 1.5 }}>
-          {oficiales.length === 0 && <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">Todavía no hay publicaciones oficiales.</Typography></Paper>}
-          {oficiales.map((x) => {
-            const publicada = x.estado_aprobacion === 'Aprobada';
-            return (
-              <Paper key={x.id_publicacion} variant="outlined" sx={{ p: 2.5, borderRadius: 1.5, display: 'grid', gap: 1, borderWidth: publicada ? 1.5 : 1, borderColor: publicada ? 'info.main' : 'divider' }}>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Chip size="small" label={x.tipo} sx={{ bgcolor: 'info.light', color: 'info.main' }} />
-                  <Typography variant="body2" color="text.secondary">{conCargo(x.id_usuario)} · {fecha(x.fecha_creacion)}</Typography>
-                  {!publicada && <Chip size="small" variant="outlined" color={x.estado_aprobacion === 'Pendiente' ? 'warning' : 'error'} label={ESTADO_OFICIAL[x.estado_aprobacion]} />}
-                </Box>
-                <Typography variant="h6" component="h2">{x.titulo}</Typography>
-                <Typography color="text.secondary" sx={{ maxWidth: '68ch' }}>{x.contenido}</Typography>
-                {publicada && x.id_aprobador && x.id_aprobador !== x.id_usuario && (
-                  <Typography variant="body2" color="text.secondary">Aprobado por {conCargo(x.id_aprobador)} · {fecha(x.fecha_aprobacion)}</Typography>
-                )}
-                {puedeEliminarOficial(x) && (
-                  <Box>
-                    <Button size="small" color="error" startIcon={<EliminarIcon />} onClick={() => setEliminando(x)} aria-label={`Eliminar ${x.tipo.toLowerCase()} ${x.titulo}`}>
-                      Eliminar
-                    </Button>
-                  </Box>
-                )}
-              </Paper>
-            );
-          })}
-        </Box>
-      ) : (
+        !oficiales.datos ? <EstadoCarga cargando={oficiales.cargando} error={oficiales.error} onReintentar={oficiales.recargar} />
+          : <Oficiales oficiales={oficiales.datos} puedeEliminar={puedeEliminar} onEliminar={setEliminando} />
+      ) : !vecinos.items ? <EstadoCarga cargando={vecinos.cargando} error={vecinos.error} onReintentar={vecinos.recargar} /> : (
         <Box sx={{ display: 'grid', gap: 1.5 }}>
           {lista.length === 0 && (
             <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}>
-              <Typography color="text.secondary">{pestana === 'reportadas' ? 'No hay publicaciones reportadas. Todo en orden.' : 'Todavía no hay publicaciones.'}</Typography>
+              <Typography color="text.secondary">{pestana === 'reportadas' ? 'No hay publicaciones reportadas. Todo en orden.' : 'Todavía no hay publicaciones de vecinos.'}</Typography>
             </Paper>
           )}
-          {lista.map((p) => <Publicacion key={`${p.lugar}-${p.id}`} pub={p} unidad={unidadPorId[p.fila.id_unidad]} moderar={modera} onModerar={acciones.moderar} />)}
+          {lista.map((p) => <PublicacionModerada key={p.idPublicacion} item={p} lugar="muro" moderar={modera} onCambio={vecinos.reemplazar} />)}
+          {vecinos.siguiente && (
+            <Button sx={{ justifySelf: 'center' }} loading={vecinos.cargandoMas} onClick={vecinos.cargarMas}>
+              {pestana === 'reportadas' ? 'Revisar publicaciones más antiguas' : 'Ver más'}
+            </Button>
+          )}
         </Box>
       )}
 
-      {redactar && <DialogoRedactar onClose={() => setRedactar(false)} />}
-      {eliminando && <DialogoEliminarOficial publicacion={eliminando} onClose={() => setEliminando(null)} />}
+      {redactar && <DialogoRedactar directo={presidente} onClose={() => setRedactar(false)} onPublicada={oficiales.recargar} />}
+      {eliminando && <DialogoEliminarOficial publicacion={eliminando} onClose={() => setEliminando(null)} onEliminada={oficiales.recargar} />}
     </Box>
   );
 }

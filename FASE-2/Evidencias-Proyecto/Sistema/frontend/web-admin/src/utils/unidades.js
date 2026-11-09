@@ -2,6 +2,8 @@
 // callePasaje, torre, piso, manzana, orden }.
 
 export const tipoUnidad = (u) => u?.tipo ?? 'Casa';
+// Algunas respuestas traen la unidad sin `tipo` (reservas, exenciones): en un edificio son departamentos
+export const conTipo = (unidad, comunidad) => (unidad ? { ...unidad, tipo: unidad.tipo ?? (comunidad?.tipo === 'Edificio' ? 'Departamento' : 'Casa') } : null);
 // El piso viene en la unidad; si falta, sale del número (depto 603 = piso 6)
 export const pisoDe = (u) => u.piso ?? Math.floor(Number(u.numeroIdentificador) / 100);
 // Torre, manzana o lado del pasaje: va en `callePasaje`

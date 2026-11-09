@@ -12,6 +12,12 @@ export const RolUsuario = {
 } as const;
 export type IdRol = (typeof RolUsuario)[keyof typeof RolUsuario];
 
+// Algunas respuestas traen el cargo por su nombre (`NOMBRE_ROL` del backend)
+export const ID_ROL_POR_NOMBRE: Record<string, IdRol> = {
+  Administrador: RolUsuario.ADMINISTRADOR, Tesorero: RolUsuario.TESORERO, Secretario: RolUsuario.SECRETARIO,
+  Presidente: RolUsuario.PRESIDENTE, Conserje: RolUsuario.CONSERJE, Residente: RolUsuario.RESIDENTE,
+};
+
 // Igual al enum `CodigoModulo` del backend (common/enums/modulo.enum.ts)
 export type CodigoModulo = 'muro' | 'marketplace' | 'votaciones' | 'reservas' | 'cobros' | 'invitaciones_qr' | 'conserjeria' | 'administrador_externo';
 
@@ -116,3 +122,60 @@ export type DatosTransferencia = {
 };
 
 export type MiCuenta = { datosTransferencia: DatosTransferencia; unidades: CuentaUnidad[] };
+
+// ---------- Reservas ----------
+// `estado` visible: 'Entregado' (en uso) y 'Devuelto' salen de las horas de entrega y recepción en conserjería
+export type EstadoReserva = 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Cancelada' | 'Entregado' | 'Devuelto';
+
+export type Reserva = {
+  idReserva: number; idEspacio: number; espacio: string | null; idUnidad: number;
+  unidad: { idUnidad: number; numeroIdentificador: string; torre: string | null; callePasaje: string | null } | null;
+  usuario: { idUsuario: number; nombre: string | null };
+  fecha: string; horaInicio: string; horaFin: string; invitados: number; estado: EstadoReserva;
+  motivoCancelacion: string | null; observacionesRecepcion: string | null;
+  entregadoEn: string | null; recibidoEn: string | null; fechaSolicitud: string;
+  // Solo en GET reservas/mias
+  puedeCancelar?: boolean;
+};
+
+// ---------- Muro ----------
+export type Persona = { idUsuario: number; nombre: string | null };
+export type PublicacionMuro = {
+  idPublicacion: number; tipo: 'Comunicado' | 'Norma' | 'Vecino'; titulo: string | null; contenido: string; fecha: string;
+  autor: (Persona & { cargo: string | null }) | null;
+  unidad: { idUnidad: number; numeroIdentificador: string } | null;
+  estadoAprobacion: 'No requiere' | 'Pendiente' | 'Aprobada' | 'Rechazada';
+  aprobadoPor: (Persona & { cargo: string | null }) | null; aprobadoEn: string | null;
+  estadoModeracion: 'Publicada' | 'Oculta'; moderadoEn: string | null;
+  esMia: boolean; reportadaPorMi: boolean;
+};
+export type PaginaMuro = { publicaciones: PublicacionMuro[]; siguiente: number | null };
+
+// ---------- Mercado ----------
+export type TipoAviso = 'Vendo' | 'Servicio' | 'Busco';
+export type EstadoSolicitudContacto = 'Pendiente' | 'Aceptada' | 'Rechazada';
+export type AvisoMercado = {
+  idProducto: number; tipo: TipoAviso; titulo: string; descripcion: string | null; precio: number | null;
+  fecha: string; cerradoEn: string | null; autor: Persona | null;
+  unidad: { idUnidad: number; numeroIdentificador: string; torre: string | null } | null;
+  estadoModeracion: 'Publicada' | 'Oculta'; moderadoEn: string | null;
+  esMia: boolean; reportadaPorMi: boolean;
+  // La solicitud de contacto de la persona por este aviso (null si es suyo o no la pidió)
+  miSolicitud: { idSolicitud: number; estado: EstadoSolicitudContacto; fecha: string; respondidaEn: string | null; vista: boolean; telefono: string | null } | null;
+};
+export type PaginaMercado = { avisos: AvisoMercado[]; siguiente: number | null };
+export type SolicitudRecibida = {
+  idSolicitud: number; estado: EstadoSolicitudContacto; fecha: string; respondidaEn: string | null;
+  aviso: { idProducto: number; titulo: string }; interesado: Persona | null;
+  unidad: { idUnidad: number; numeroIdentificador: string; torre: string | null } | null;
+};
+export type SolicitudEnviada = {
+  idSolicitud: number; estado: EstadoSolicitudContacto; fecha: string; respondidaEn: string | null; vista: boolean;
+  aviso: { idProducto: number; titulo: string; tipo: TipoAviso }; autor: Persona | null; telefono: string | null;
+};
+export type Solicitudes = { recibidas: SolicitudRecibida[]; enviadas: SolicitudEnviada[] };
+
+export type Disponibilidad = {
+  idEspacio: number; fecha: string;
+  bloques: { idBloque: number; horaInicio: string; horaFin: string; estado: 'Libre' | 'Reservado' | 'Pasado' }[];
+};

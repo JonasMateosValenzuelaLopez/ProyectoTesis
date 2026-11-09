@@ -8,7 +8,11 @@ import * as admin from '../../api/admin';
 import { useConsulta } from '../../api/useConsulta';
 import { rolesEfectivos, RolUsuario } from '../../config/roles';
 import { AVISADOS_CAMBIO_CUENTA, TIPOS_CUENTA, enmascararCuenta, erroresDatosComunidad, limpiarNumeroCuenta, maxLargo } from '../../utils/comunidad';
-import { espaciosParaGuardar, espaciosValidos, hora } from '../../utils/espacios';
+import { espaciosParaGuardar, espaciosValidos, hora, reservasAfectadas } from '../../utils/espacios';
+import { listarReservas } from '../../api/reservas';
+import { tieneModulo } from '../../config/modulos';
+import { fechaCompleta, nombreUnidad } from '../../utils/formato';
+import { conTipo } from '../../utils/unidades';
 import { formatearRut } from '../../utils/rut';
 import { roles } from '../../tokens';
 import Encabezado from '../../components/ui/Encabezado';
@@ -38,7 +42,7 @@ const limpio = (k, v) => {
   if (k === 'correoTransferencias') return t.toLowerCase();
   return t;
 };
-// ¿Se quitó un espacio o cambió algún horario de uno que ya existía? Esas reservas futuras se cancelan.
+// ¿Se quitó un espacio o cambió algún horario de uno que ya existía? Entonces hay que revisar qué reservas se cancelan.
 function afectaReservas(antes, despues) {
   return antes.some((a) => {
     const d = despues.find((x) => x.idEspacio === a.idEspacio);
@@ -81,6 +85,7 @@ export default function RedVecinal() {
 }
 
 function Formulario({ datos, espacios, totalUnidades, onGuardado }) {
+  const { comunidad } = useSesion();
   const { avisar, avisarError } = useAviso();
   const [form, setForm] = useState(() => desde(datos, espacios));
   const [intento, setIntento] = useState(false);
@@ -124,12 +129,24 @@ function Formulario({ datos, espacios, totalUnidades, onGuardado }) {
       setEnviando(false);
     }
   };
-  const guardar = (e) => {
+  // Antes de quitar espacios o cambiar horarios se buscan las reservas que el backend cancelaría (GET reservas).
+  // Si no hay ninguna, se guarda sin preguntar; si no se pudieron revisar, se confirma con un aviso general.
+  const guardar = async (e) => {
     e.preventDefault();
     setIntento(true);
     if (!valido || (!cambianDatos && !cambianEspacios)) return;
-    if (cambianEspacios && afectaReservas(original.espacios, form.espacios)) setConfirmar(true);
-    else aplicar();
+    if (!cambianEspacios || !afectaReservas(original.espacios, form.espacios)) { aplicar(); return; }
+    if (!tieneModulo(comunidad, 'reservas')) { aplicar(); return; }
+    setEnviando(true);
+    try {
+      const afectadas = reservasAfectadas(espacios, form.espacios, await listarReservas());
+      setEnviando(false);
+      if (afectadas.length === 0) aplicar();
+      else setConfirmar({ afectadas });
+    } catch {
+      setEnviando(false);
+      setConfirmar({ afectadas: null });
+    }
   };
 
   const cambios = cambianDatos || cambianEspacios;
@@ -191,9 +208,27 @@ function Formulario({ datos, espacios, totalUnidades, onGuardado }) {
         <Dialog open onClose={() => setConfirmar(false)} fullWidth maxWidth="sm">
           <DialogTitle>¿Guardar los cambios en los espacios?</DialogTitle>
           <DialogContent sx={{ display: 'grid', gap: 2 }}>
-            <Typography color="text.secondary">
-              Quitaste un espacio o cambiaste horarios. Si hay reservas futuras en lo que cambió, se cancelan y sus residentes reciben un correo con el motivo.
-            </Typography>
+            {confirmar.afectadas ? (
+              <>
+                <Typography color="text.secondary">
+                  {confirmar.afectadas.length === 1 ? 'Se cancelará 1 reserva' : `Se cancelarán ${confirmar.afectadas.length} reservas`} y sus residentes recibirán un correo con el motivo:
+                </Typography>
+                <Paper variant="outlined" sx={{ borderRadius: 1.5, maxHeight: 280, overflow: 'auto' }}>
+                  {confirmar.afectadas.map((r, i) => (
+                    <Box key={r.idReserva} sx={{ px: 2, py: 1, borderTop: i ? 1 : 0, borderColor: 'divider' }}>
+                      <Typography sx={{ fontWeight: 700 }}>{r.espacio} · {fechaCompleta(r.fecha)} · {hora(r.horaInicio)} a {hora(r.horaFin)}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {[r.usuario?.nombre, r.unidad && nombreUnidad(conTipo(r.unidad, comunidad)), r.motivo].filter(Boolean).join(' · ')}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Paper>
+              </>
+            ) : (
+              <Typography color="text.secondary">
+                Quitaste un espacio o cambiaste horarios y no pudimos revisar las reservas. Si hay reservas futuras en lo que cambió, se cancelan y sus residentes reciben un correo con el motivo.
+              </Typography>
+            )}
             <Alert severity="warning" variant="outlined">No se puede deshacer: aunque vuelvas a agregar el horario, las reservas quedan canceladas.</Alert>
           </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>

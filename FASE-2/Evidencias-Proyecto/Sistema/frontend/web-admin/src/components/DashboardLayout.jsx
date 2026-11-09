@@ -13,6 +13,7 @@ import { nombreCorto } from '../utils/formato';
 import { RolUsuario, rolesEfectivos } from '../config/roles';
 import { listarSolicitudes } from '../api/admin';
 import { estado as estadoFinanzas, listarExenciones } from '../api/finanzas';
+import { listarOficiales, moderacionMarketplace, moderacionMuro } from '../api/muro';
 import { tieneModulo } from '../config/modulos';
 import { leeFinanzas } from '../utils/permisos';
 import { useConsulta } from '../api/useConsulta';
@@ -42,11 +43,28 @@ export default function DashboardLayout() {
     [comunidad?.idRed, cargo, conFinanzas, location.pathname],
   );
   const exencionesMias = fin ? fin[1].filter((e) => e.estado === (cargo === RolUsuario.PRESIDENTE ? 'Por aprobar' : 'Pendiente')).length : 0;
+  // Muro y marketplace: publicaciones con reportes pendientes (Administración, en las últimas 50)
+  // y comunicados que esperan a la Presidencia.
+  const conMuro = tieneModulo(comunidad, 'muro');
+  const conMarket = tieneModulo(comunidad, 'marketplace');
+  const presidente = cargo === RolUsuario.PRESIDENTE;
+  const { datos: com } = useConsulta(
+    () => Promise.all([
+      administra && conMuro ? moderacionMuro().then((r) => r.publicaciones) : Promise.resolve([]),
+      administra && conMarket ? moderacionMarketplace().then((r) => r.avisos) : Promise.resolve([]),
+      presidente && conMuro ? listarOficiales() : Promise.resolve([]),
+    ]),
+    [comunidad?.idRed, administra, presidente, conMuro, conMarket, location.pathname],
+  );
+  const reportadas = (lista) => lista.filter((p) => p.estadoModeracion === 'Publicada' && p.reportes?.length).length;
+  const comunicadosPorAprobar = com ? com[2].filter((x) => x.estadoAprobacion === 'Pendiente').length : 0;
   const contadores = {
     solicitudes: solicitudes?.length ?? 0,
     morosidad: fin ? fin[0].morosos.length : 0,
     exenciones: exencionesMias,
-    aprobaciones: fin && cargo === RolUsuario.PRESIDENTE ? fin[0].resumen.egresosPorVisar + exencionesMias : 0,
+    aprobaciones: presidente ? (fin ? fin[0].resumen.egresosPorVisar + exencionesMias : 0) + comunicadosPorAprobar : 0,
+    reportes: com ? reportadas(com[0]) : 0,
+    reportesMarket: com ? reportadas(com[1]) : 0,
   };
 
   // Si la ruta actual no corresponde al cargo o a los módulos activos, volver al inicio.

@@ -50,23 +50,51 @@ export const espaciosParaGuardar = (espacios) => ({
   })),
 });
 
-// Reglas de reservas de la API (reglas-reservas.ts). Fechas y horas se comparan como texto local
-// 'AAAA-MM-DD HH:MM:SS', igual que las columnas DATE y TIME de la base.
+// ---------- Reservas (reglas-reservas.ts) ----------
+// Las reservas llegan de la API con `fecha` 'AAAA-MM-DD', `horaInicio`/`horaFin` 'HH:MM' y `estado`:
+// 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Cancelada' | 'Entregado' (en uso) | 'Devuelto'.
 export const MOTIVO_BAJA = 'El espacio dejó de estar disponible';
 export const MOTIVO_HORARIO = 'El horario reservado cambió o dejó de estar disponible';
 export const MAX_MOTIVO = 255;
+
+// Fecha y hora local como texto comparable: 'AAAA-MM-DD HH:MM'
 export const momentoLocal = (d = new Date()) => {
   const l = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString();
-  return `${l.slice(0, 10)} ${l.slice(11, 19)}`;
+  return `${l.slice(0, 10)} ${l.slice(11, 16)}`;
 };
-export const yaEmpezo = (r, ahora = momentoLocal()) => `${r.fecha_reserva} ${r.hora_inicio}` <= ahora;
-// Administración cancela una reserva confirmada que no se entregó y que todavía no empieza
-export const puedeCancelarAdministracion = (r, ahora = momentoLocal()) => r.estado_reserva === 'Aprobada' && !yaEmpezo(r, ahora);
+export const yaEmpezo = (r, ahora = momentoLocal()) => `${r.fecha} ${hora(r.horaInicio)}` <= ahora;
+const yaTermino = (r, ahora = momentoLocal()) => `${r.fecha} ${hora(r.horaFin)}` <= ahora;
+// Administración cancela una reserva vigente que no se entregó y que todavía no empieza
+export const puedeCancelarAdministracion = (r, ahora = momentoLocal()) =>
+  (r.estado === 'Aprobada' || r.estado === 'Pendiente') && !yaEmpezo(r, ahora);
+
 // Quién canceló, según el motivo guardado: el residente cancela sin motivo
 export const origenCancelacion = (r) => {
-  if (!r.motivo_cancelacion) return 'el residente';
-  if (r.motivo_cancelacion === MOTIVO_BAJA || r.motivo_cancelacion === MOTIVO_HORARIO) return 'un cambio en el espacio';
-  return 'Administración';
+  if (!r.motivoCancelacion) return 'el residente';
+  if (r.motivoCancelacion === MOTIVO_BAJA || r.motivoCancelacion === MOTIVO_HORARIO) return 'un cambio en el espacio';
+  return 'la administración';
 };
 
-// La lista de reservas que se cancelan al cambiar los espacios se arma de nuevo con la API en la fase 5 (Reservas).
+// Reservas que cancelaría el backend al guardar los espacios (espacios.service.ts → reservasPorCancelar):
+// las vigentes, no entregadas y que aún no terminan, de un espacio que se quita o de un horario que se quita
+// o cambia su hora de término. `actuales` = espacios guardados; `nuevos` = los del formulario; `reservas` = GET reservas.
+export function reservasAfectadas(actuales, nuevos, reservas, ahora = momentoLocal()) {
+  const porId = new Map(nuevos.filter((e) => e.idEspacio).map((e) => [e.idEspacio, e]));
+  const vigente = (r) => (r.estado === 'Aprobada' || r.estado === 'Pendiente') && !r.entregadoEn && !yaTermino(r, ahora);
+  const afectadas = [];
+  for (const espacio of actuales) {
+    const nuevo = porId.get(espacio.idEspacio);
+    const propias = reservas.filter((r) => r.idEspacio === espacio.idEspacio && vigente(r));
+    if (!nuevo) {
+      afectadas.push(...propias.map((r) => ({ ...r, motivo: MOTIVO_BAJA })));
+      continue;
+    }
+    const finPorInicio = new Map(nuevo.bloques.map((b) => [hora(b.horaInicio), hora(b.horaFin)]));
+    const cambiados = new Set(espacio.bloques
+      .filter((b) => finPorInicio.get(hora(b.horaInicio)) !== hora(b.horaFin))
+      .map((b) => hora(b.horaInicio)));
+    afectadas.push(...propias.filter((r) => cambiados.has(hora(r.horaInicio))).map((r) => ({ ...r, motivo: MOTIVO_HORARIO })));
+  }
+  return afectadas.sort((a, b) => `${a.fecha}${a.horaInicio}`.localeCompare(`${b.fecha}${b.horaInicio}`));
+}
+
