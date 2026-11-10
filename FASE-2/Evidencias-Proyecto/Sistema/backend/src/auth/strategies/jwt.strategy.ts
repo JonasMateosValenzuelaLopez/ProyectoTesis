@@ -8,6 +8,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { Repository } from 'typeorm';
+import { CodigoError } from '../../common/errores/codigo-error.enum';
 import {
   JwtPayload,
   UsuarioAutenticado,
@@ -41,16 +42,20 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Sesión inválida');
     }
     if (usuario.bloqueado) {
-      throw new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA);
+      throw new ForbiddenException({
+        codigo: CodigoError.CUENTA_BLOQUEADA,
+        message: MENSAJE_CUENTA_BLOQUEADA,
+      });
     }
     if (
       usuario.passwordActualizadaEn &&
       (payload.iat ?? 0) <
         Math.floor(usuario.passwordActualizadaEn.getTime() / 1000)
     ) {
-      throw new UnauthorizedException(
-        'Tu contraseña cambió. Inicia sesión nuevamente.',
-      );
+      throw new UnauthorizedException({
+        codigo: CodigoError.CONTRASENA_CAMBIADA,
+        message: 'Tu contraseña cambió. Inicia sesión nuevamente.',
+      });
     }
 
     return { idUsuario: usuario.idUsuario, esPlataforma: usuario.esPlataforma };

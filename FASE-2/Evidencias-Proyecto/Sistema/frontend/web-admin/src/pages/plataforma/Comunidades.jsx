@@ -4,20 +4,23 @@ import {
   Box, Button, ButtonBase, Link as MuiLink, MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material';
 import { AddHomeWorkOutlined as NuevaIcon } from '@mui/icons-material';
-import { usePlataforma } from '../../context/PlataformaContext';
+import { listarComunidades } from '../../api/plataforma';
+import { useConsulta } from '../../api/useConsulta';
+import EstadoCarga from '../../components/ui/EstadoCarga';
+import { ID_ROL_POR_NOMBRE } from '../../config/roles';
 import { fecha, fechaHora } from '../../utils/formato';
 import { roles } from '../../tokens';
 import Encabezado from '../../components/ui/Encabezado';
 import FranjaKpi from '../../components/ui/FranjaKpi';
 import SelloCargo from '../../components/marca/SelloCargo';
 import EstadoComunidad from '../../components/plataforma/EstadoComunidad';
-import { MODULOS, modulosActivos } from '../../config/modulos';
+import { MODULOS } from '../../config/modulos';
 
 const TIPOS = ['Todos', 'Edificio', 'Condominio', 'Villa'];
 const INICIAL_TIPO = { Edificio: 'E', Condominio: 'C', Villa: 'V' };
 const TOTAL_MODULOS = Object.keys(MODULOS).length;
 
-// Monograma neutro: la placa de bronce queda solo para las viviendas
+// Monograma neutro: la placa queda solo para las viviendas
 function Monograma({ tipo }) {
   return (
     <Box aria-hidden sx={{ width: 36, height: 36, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: 1, bgcolor: 'primary.light', fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800 }}>
@@ -26,23 +29,34 @@ function Monograma({ tipo }) {
   );
 }
 
-// Todas las comunidades de EntreCasas, con su responsable y su actividad.
+// Todas las comunidades de EntreCasas, con su responsable y su actividad (GET plataforma/comunidades).
 export default function Comunidades() {
-  const { redes, responsableDe, usuariosDe } = usePlataforma();
+  const { datos: redes, cargando, error, recargar } = useConsulta(listarComunidades);
   const navigate = useNavigate();
   const [tipo, setTipo] = useState('Todos');
   const [busqueda, setBusqueda] = useState('');
 
+  if (!redes) {
+    return (
+      <Box sx={{ maxWidth: 1300 }}>
+        <Encabezado titulo="Comunidades" />
+        <EstadoCarga cargando={cargando} error={error} onReintentar={recargar} />
+      </Box>
+    );
+  }
+
+  // La última actividad puede venir vacía en una comunidad recién creada
+  const actividad = (r) => r.ultimaActividad ?? r.fechaCreacion;
   const texto = busqueda.trim().toLowerCase();
   const filas = redes
-    .map((r) => ({ red: r, responsable: responsableDe(r), personas: usuariosDe(r).filter((u) => u.estado !== 'Desactivado').length }))
+    .map((r) => ({ red: r, responsable: r.responsable, personas: r.totalPersonas }))
     .filter(({ red }) => tipo === 'Todos' || red.tipo === tipo)
     .filter(({ red, responsable }) => !texto || [red.nombre, red.direccion, responsable?.nombre].join(' ').toLowerCase().includes(texto))
-    .sort((a, b) => b.red.ultima_actividad.localeCompare(a.red.ultima_actividad));
+    .sort((a, b) => String(actividad(b.red)).localeCompare(String(actividad(a.red))));
 
   const activas = redes.filter((r) => r.estado !== 'Suspendida');
-  const unidades = redes.reduce((s, r) => s + r.unidades.length, 0);
-  const personas = redes.reduce((s, r) => s + usuariosDe(r).filter((u) => u.estado !== 'Desactivado').length, 0);
+  const unidades = redes.reduce((s, r) => s + r.totalUnidades, 0);
+  const personas = redes.reduce((s, r) => s + r.totalPersonas, 0);
 
   return (
     <Box sx={{ maxWidth: 1300 }}>
@@ -68,20 +82,20 @@ export default function Comunidades() {
       {/* En pantallas angostas cada comunidad es una fila; la tabla completa queda para escritorio */}
       <Paper variant="outlined" sx={{ display: { xs: 'block', md: 'none' }, borderRadius: 1.5, overflow: 'hidden' }}>
         {filas.map(({ red, responsable, personas: n }, i) => (
-          <ButtonBase key={red.id_red} onClick={() => navigate(`/plataforma/comunidades/${red.id_red}`)} sx={{ display: 'grid', gridTemplateColumns: '36px 1fr auto', gap: 1.5, alignItems: 'start', width: '100%', textAlign: 'left', px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', '&:active': { bgcolor: 'action.hover' } }}>
+          <ButtonBase key={red.idRed} onClick={() => navigate(`/plataforma/comunidades/${red.idRed}`)} sx={{ display: 'grid', gridTemplateColumns: '36px 1fr auto', gap: 1.5, alignItems: 'start', width: '100%', textAlign: 'left', px: 2, py: 1.5, borderTop: i ? 1 : 0, borderColor: 'divider', '&:active': { bgcolor: 'action.hover' } }}>
             <Monograma tipo={red.tipo} />
             <Box sx={{ minWidth: 0, display: 'grid', gap: 0.25 }}>
               <Typography sx={{ fontWeight: 700 }}>{red.nombre}</Typography>
-              <Typography variant="body2" color="text.secondary">{red.unidades.length} unidades · {n} {n === 1 ? 'persona' : 'personas'}</Typography>
+              <Typography variant="body2" color="text.secondary">{red.totalUnidades} unidades · {n} {n === 1 ? 'persona' : 'personas'}</Typography>
               <Typography variant="body2" color={responsable ? 'text.secondary' : 'error.main'}>
-                {responsable ? `${responsable.nombre}, ${roles[responsable.cargo].label.toLowerCase()}` : 'Sin responsable'}
+                {responsable ? `${responsable.nombre}, ${roles[ID_ROL_POR_NOMBRE[responsable.cargo]].label.toLowerCase()}` : 'Sin responsable'}
               </Typography>
-              <Typography variant="body2" color="text.secondary">Última actividad {fechaHora(red.ultima_actividad)}</Typography>
+              <Typography variant="body2" color="text.secondary">Última actividad {fechaHora(actividad(red))}</Typography>
             </Box>
             <EstadoComunidad estado={red.estado} />
           </ButtonBase>
         ))}
-        {filas.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>Ninguna comunidad calza con la búsqueda.</Typography>}
+        {filas.length === 0 && <Typography color="text.secondary" sx={{ p: 2 }}>{redes.length ? 'Ninguna comunidad calza con la búsqueda.' : 'Todavía no hay comunidades. Crea la primera con «Nueva comunidad».'}</Typography>}
       </Paper>
 
       <TableContainer component={Paper} variant="outlined" sx={{ display: { xs: 'none', md: 'block' }, borderRadius: 1.5 }}>
@@ -98,39 +112,39 @@ export default function Comunidades() {
           </TableHead>
           <TableBody>
             {filas.map(({ red, responsable, personas: n }) => (
-              <TableRow key={red.id_red} hover onClick={() => navigate(`/plataforma/comunidades/${red.id_red}`)} sx={{ cursor: 'pointer' }}>
+              <TableRow key={red.idRed} hover onClick={() => navigate(`/plataforma/comunidades/${red.idRed}`)} sx={{ cursor: 'pointer' }}>
                 <TableCell>
                   <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
                     <Monograma tipo={red.tipo} />
                     <Box sx={{ minWidth: 0 }}>
                       {/* El nombre es el enlace: así la fila también se abre con el teclado */}
-                      <MuiLink component={RouterLink} to={`/plataforma/comunidades/${red.id_red}`} color="text.primary" underline="hover" onClick={(e) => e.stopPropagation()} sx={{ fontWeight: 700 }}>{red.nombre}</MuiLink>
-                      <Typography variant="body2" color="text.secondary">{red.tipo} · {red.direccion} · desde {fecha(red.fecha_registro)}</Typography>
+                      <MuiLink component={RouterLink} to={`/plataforma/comunidades/${red.idRed}`} color="text.primary" underline="hover" onClick={(e) => e.stopPropagation()} sx={{ fontWeight: 700 }}>{red.nombre}</MuiLink>
+                      <Typography variant="body2" color="text.secondary">{red.tipo} · {red.direccion} · desde {fecha(red.fechaCreacion)}</Typography>
                     </Box>
                   </Box>
                 </TableCell>
                 <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {red.unidades.length}
+                  {red.totalUnidades}
                   <Typography variant="body2" color="text.secondary">{n} {n === 1 ? 'persona' : 'personas'}</Typography>
                 </TableCell>
                 <TableCell>
                   {responsable ? (
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <SelloCargo cargo={responsable.cargo} />
+                      <SelloCargo cargo={ID_ROL_POR_NOMBRE[responsable.cargo]} />
                       <Box sx={{ minWidth: 0 }}>
                         <Typography variant="body2" sx={{ fontWeight: 700 }}>{responsable.nombre}</Typography>
-                        <Typography variant="caption" color="text.secondary">{roles[responsable.cargo].label}</Typography>
+                        <Typography variant="caption" color="text.secondary">{roles[ID_ROL_POR_NOMBRE[responsable.cargo]].label}</Typography>
                       </Box>
                     </Box>
                   ) : <Typography variant="body2" color="error.main">Sin responsable</Typography>}
                 </TableCell>
-                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{modulosActivos(red).length} de {TOTAL_MODULOS}</TableCell>
+                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{red.modulos.length} de {TOTAL_MODULOS}</TableCell>
                 <TableCell><EstadoComunidad estado={red.estado} /></TableCell>
-                <TableCell sx={{ whiteSpace: 'nowrap' }}>{fechaHora(red.ultima_actividad)}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{fechaHora(actividad(red))}</TableCell>
               </TableRow>
             ))}
             {filas.length === 0 && (
-              <TableRow><TableCell colSpan={6}><Typography color="text.secondary" sx={{ py: 2 }}>Ninguna comunidad calza con la búsqueda.</Typography></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6}><Typography color="text.secondary" sx={{ py: 2 }}>{redes.length ? 'Ninguna comunidad calza con la búsqueda.' : 'Todavía no hay comunidades. Crea la primera con «Nueva comunidad».'}</Typography></TableCell></TableRow>
             )}
           </TableBody>
         </Table>

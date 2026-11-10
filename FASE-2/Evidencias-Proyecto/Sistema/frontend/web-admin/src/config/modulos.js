@@ -32,9 +32,9 @@ export const DETALLE_MODULOS = {
   administrador_externo: 'La comunidad tiene una administración contratada. Si se apaga, la Presidencia asume la administración.',
 };
 
-// `red_modulos`: una fila por módulo con `activo`; sin fila = apagado
-export const tieneModulo = (red, modulo) => (red?.red_modulos ?? []).some((m) => m.modulo === modulo && m.activo);
-export const modulosActivos = (red) => (red?.red_modulos ?? []).filter((m) => m.activo).map((m) => m.modulo);
+// La API entrega los módulos activos de cada comunidad como lista de códigos (`comunidad.modulos`)
+export const tieneModulo = (red, modulo) => (red?.modulos ?? []).includes(modulo);
+export const modulosActivos = (red) => red?.modulos ?? [];
 // Enciende o apaga un módulo y devuelve la lista nueva de filas
 export const conModulo = (red, modulo, activo) => {
   const fila = { modulo, activo: activo ? 1 : 0 };

@@ -19,10 +19,11 @@ export const diasHasta = (valor, desde = new Date()) => {
   return Math.round(ms / 86400000);
 };
 
-export const nombreUnidad = (u) => (u ? `${tipoUnidad(u) === 'Departamento' ? 'Depto' : 'Casa'} ${u.numero_identificador}` : '');
-// Nombre para mostrar de una fila de `usuarios`
-export const nombreCompleto = (u) => (u ? [u.nombre, u.apellido_paterno, u.apellido_materno].filter(Boolean).join(' ') : '');
-export const nombreCorto = (u) => (u ? `${u.nombre} ${u.apellido_paterno}` : '');
+// «Depto 502» o «Casa 14», con los campos de la API (`tipo`, `numeroIdentificador`)
+export const nombreUnidad = (u) => (u ? `${tipoUnidad(u) === 'Departamento' ? 'Depto' : 'Casa'} ${u.numeroIdentificador}` : '');
+// Nombre de una persona con los campos del backend (`nombre`, `primerApellido`, `segundoApellido`)
+export const nombreCompleto = (u) => (u ? [u.nombre, u.primerApellido, u.segundoApellido].filter(Boolean).join(' ') : '');
+export const nombreCorto = (u) => (u ? `${u.nombre} ${u.primerApellido}` : '');
 
 // Genera y descarga un CSV (separado por ; para que Excel en español lo abra bien).
 export function descargarCSV(nombreArchivo, filas) {
@@ -55,6 +56,12 @@ export const telefono = (t) => {
   const m = t?.match(/^\+56(9)(\d{4})(\d{4})$/);
   return m ? `+56 ${m[1]} ${m[2]} ${m[3]}` : t ?? '';
 };
+
+// Lo que escribe la persona («9 6123 4501», «+56 9 6123 4501») como lo guarda la base, o null si no es un celular
+export function normalizarTelefono(texto) {
+  const d = texto.replace(/\D/g, '').replace(/^56(?=\d{9}$)/, '');
+  return /^9\d{8}$/.test(d) ? `+56${d}` : null;
+}
 
 // Columnas `text` con un elemento por línea (asistentes y temas de `actas`)
 export const lineas = (texto) => (texto ?? '').split('\n').map((l) => l.trim()).filter(Boolean);

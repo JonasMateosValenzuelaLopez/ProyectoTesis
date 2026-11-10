@@ -1,21 +1,35 @@
-// Qué dice la garita al leer un código
-export function revisarCodigo(invitaciones, codigo, ahora = new Date()) {
-  const limpio = codigo.trim().toUpperCase().replace(/\s/g, '');
-  const inv = invitaciones.find((i) => i.codigo.replace('-', '') === limpio.replace('-', ''));
-  if (!inv) return { resultado: 'no_existe' };
-  if (inv.estado === 'Cancelada') return { resultado: 'cancelada', inv };
-  if (inv.estado === 'Adentro') return { resultado: 'adentro', inv };
-  if (inv.estado === 'Salió') return { resultado: 'usado', inv };
-  // Se acepta hasta 15 minutos antes de la hora de inicio
-  if (ahora < new Date(new Date(inv.fecha_desde).getTime() - 15 * 60000)) return { resultado: 'temprano', inv };
-  if (ahora > new Date(inv.fecha_hasta)) return { resultado: 'vencido', inv };
-  return { resultado: 'valido', inv };
-}
+// Reglas de portería, las mismas de la API (reglas-accesos.ts y los DTO)
+export const TOLERANCIA_ANTICIPO_MIN = 15;
+// Una llegada sin invitación espera la respuesta del residente 30 minutos; después expira
+export const VENTANA_PENDIENTE_MIN = 30;
+export const MIN_NOMBRE_VISITA = 2;
+export const MAX_NOMBRE_VISITA = 100;
+export const PATENTE = /^[A-Z0-9]{4,8}$/;
+export const normalizarPatente = (texto) => texto.toUpperCase().replace(/[\s.·-]/g, '');
+// Momento en que expira una llegada pendiente (`llegada` del acceso)
+export const expiraEn = (acceso) => new Date(acceso.llegada).getTime() + VENTANA_PENDIENTE_MIN * 60000;
 
-// Teléfono del residente para que la garita le escriba o le llame. Con la API vendrá de su perfil;
-// aquí se usan los de las cuentas de prueba y, para el resto, uno ficticio según la unidad.
-const TELEFONOS = { 1001: '+56 9 6123 4501', 1005: '+56 9 6123 4505', 3603: '+56 9 6123 4603', 2027: '+56 9 6123 4027' };
-export const telefonoResidente = (u) => TELEFONOS[u.id_unidad] ?? `+56 9 6123 4${String(u.numero_identificador).padStart(3, '0').slice(-3)}`;
+// Lo que pasa con un código según la API (resultadoValidacion) y los mensajes de MENSAJE_RESULTADO
+export const RESULTADOS = {
+  valido: { titulo: 'Puede ingresar', color: 'success' },
+  temprano: { titulo: 'Todavía no es su hora', color: 'warning' },
+  vencido: { titulo: 'Invitación vencida', color: 'error' },
+  usado: { titulo: 'Este código ya se usó', color: 'error' },
+  adentro: { titulo: 'Ya está adentro', color: 'warning' },
+  cancelada: { titulo: 'Invitación cancelada', color: 'error' },
+  sin_invitante: { titulo: 'Quien invitó ya no vive ahí', color: 'error' },
+  no_existe: { titulo: 'Código no encontrado', color: 'error' },
+};
+
+// Lo que valida la API al registrar una visita sin invitación
+export function errorVisita({ nombre, patente }) {
+  const limpio = nombre.trim().replace(/\s+/g, ' ');
+  if (limpio.length < MIN_NOMBRE_VISITA) return { nombre: `El nombre debe tener al menos ${MIN_NOMBRE_VISITA} caracteres` };
+  if (limpio.length > MAX_NOMBRE_VISITA) return { nombre: `El nombre no puede superar ${MAX_NOMBRE_VISITA} caracteres` };
+  const p = normalizarPatente(patente);
+  if (p && !PATENTE.test(p)) return { patente: 'La patente debe tener entre 4 y 8 letras o números, sin espacios' };
+  return null;
+}
 
 // Solo dígitos con el 56 adelante, como lo piden wa.me y tel:
 export const soloDigitos = (telefono) => {

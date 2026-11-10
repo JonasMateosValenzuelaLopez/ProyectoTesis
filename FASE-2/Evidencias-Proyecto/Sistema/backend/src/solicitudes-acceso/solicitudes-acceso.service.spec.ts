@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource, IsNull, Not } from 'typeorm';
+import { DataSource, In, IsNull, Not } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
 import { BitacoraService } from '../bitacora/bitacora.service';
@@ -27,13 +27,17 @@ import {
   Residencia,
   TipoResidencia,
 } from '../usuarios/entities/residencia.entity';
+import { CuentasService } from '../usuarios/cuentas.service';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
   EstadoSolicitudAcceso,
   SolicitudAcceso,
 } from './entities/solicitud-acceso.entity';
-import { SolicitudesAccesoService } from './solicitudes-acceso.service';
+import {
+  SolicitudesAccesoService,
+  VERSION_AVISO_PRIVACIDAD,
+} from './solicitudes-acceso.service';
 
 jest.mock('bcryptjs', () => ({ hashSync: jest.fn(() => 'hash-falso') }));
 
@@ -72,7 +76,7 @@ describe('SolicitudesAccesoService', () => {
   };
   let mockRedesRepository: { find: jest.Mock; findOneBy: jest.Mock };
   let mockRedModulosRepository: { find: jest.Mock };
-  let mockUnidadesRepository: { findOneBy: jest.Mock };
+  let mockUnidadesRepository: { find: jest.Mock };
   let mockMembresiasRepository: { exists: jest.Mock };
   let mockAuthService: {
     emitirTokenPassword: jest.Mock;
@@ -85,6 +89,7 @@ describe('SolicitudesAccesoService', () => {
     findOne: jest.Mock;
     findOneBy: jest.Mock;
     exists: jest.Mock;
+    find: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
     restore: jest.Mock;
@@ -139,6 +144,7 @@ describe('SolicitudesAccesoService', () => {
         if (entidad === SolicitudAcceso) return Promise.resolve(solicitud);
         if (entidad === Membresia) return Promise.resolve(residente);
         if (entidad === Residencia) return Promise.resolve(residencia);
+        if (entidad === Unidad) return Promise.resolve(unidad);
         if (entidad === Usuario) {
           return Promise.resolve(
             'identificador' in opciones.where ? porIdentificador : porCorreo,
@@ -162,7 +168,7 @@ describe('SolicitudesAccesoService', () => {
     mockSolicitudesRepository = {
       existsBy: jest.fn().mockResolvedValue(false),
       insert: jest.fn(),
-      find: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     mockRedesRepository = {
       find: jest.fn(),
@@ -172,7 +178,7 @@ describe('SolicitudesAccesoService', () => {
       }),
     };
     mockRedModulosRepository = { find: jest.fn().mockResolvedValue([]) };
-    mockUnidadesRepository = { findOneBy: jest.fn() };
+    mockUnidadesRepository = { find: jest.fn().mockResolvedValue([]) };
     mockMembresiasRepository = { exists: jest.fn().mockResolvedValue(false) };
     mockAuthService = {
       emitirTokenPassword: jest.fn().mockResolvedValue('token-activacion'),
@@ -188,6 +194,7 @@ describe('SolicitudesAccesoService', () => {
       findOne: jest.fn(),
       findOneBy: jest.fn(),
       exists: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
       create: jest.fn((entidad: unknown, datos: object) => {
         const creado = { ...datos };
         if (entidad === Usuario) {
@@ -211,6 +218,7 @@ describe('SolicitudesAccesoService', () => {
     const module = await Test.createTestingModule({
       providers: [
         SolicitudesAccesoService,
+        CuentasService,
         {
           provide: getRepositoryToken(SolicitudAcceso),
           useValue: mockSolicitudesRepository,
@@ -237,6 +245,7 @@ describe('SolicitudesAccesoService', () => {
         {
           provide: DataSource,
           useValue: {
+            manager: mockManager,
             transaction: jest.fn((trabajo: (manager: unknown) => unknown) =>
               trabajo(mockManager),
             ),
@@ -303,7 +312,7 @@ describe('SolicitudesAccesoService', () => {
     } as CrearSolicitudAccesoDto;
 
     it('debe guardar la solicitud con país por defecto y la unidad encontrada', async () => {
-      mockUnidadesRepository.findOneBy.mockResolvedValue({ idUnidad: 12 });
+      mockUnidadesRepository.find.mockResolvedValue([{ idUnidad: 12 }]);
 
       const resultado = await target.crear({
         ...dto,
@@ -328,6 +337,8 @@ describe('SolicitudesAccesoService', () => {
         correo: 'ana@correo.cl',
         telefono: null,
         mensaje: null,
+        privacidadAceptadaEn: AHORA,
+        versionPrivacidad: VERSION_AVISO_PRIVACIDAD,
       });
     });
 
@@ -351,10 +362,27 @@ describe('SolicitudesAccesoService', () => {
     });
 
     it('debe guardar idUnidad null cuando el número de unidad no coincide', async () => {
-      mockUnidadesRepository.findOneBy.mockResolvedValue(null);
+      mockUnidadesRepository.find.mockResolvedValue([]);
 
       await target.crear(dto);
 
+      expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ idUnidad: null }),
+      );
+    });
+
+    it('debe guardar idUnidad null cuando el número se repite entre torres, para que la administración elija', async () => {
+      mockUnidadesRepository.find.mockResolvedValue([
+        { idUnidad: 12 },
+        { idUnidad: 40 },
+      ]);
+
+      await target.crear(dto);
+
+      expect(mockUnidadesRepository.find).toHaveBeenCalledWith({
+        where: { idRed: RED.idRed, numeroIdentificador: 'A-101' },
+        take: 2,
+      });
       expect(mockSolicitudesRepository.insert).toHaveBeenCalledWith(
         expect.objectContaining({ idUnidad: null }),
       );
@@ -422,6 +450,69 @@ describe('SolicitudesAccesoService', () => {
       expect(mockSolicitudesRepository.find).toHaveBeenCalledWith(
         expect.objectContaining({ where: { idRed: RED.idRed } }),
       );
+    });
+
+    it('debe marcar correoAjeno cuando el correo pertenece a una cuenta con otro identificador', async () => {
+      mockSolicitudesRepository.find.mockResolvedValue([
+        crearSolicitud({ idSolicitud: 80, correo: 'ana@correo.cl' }),
+        crearSolicitud({
+          idSolicitud: 81,
+          identificador: '11111111-1',
+          correo: 'Luis@Correo.cl',
+        }),
+        crearSolicitud({ idSolicitud: 82, correo: 'nuevo@correo.cl' }),
+      ]);
+      mockManager.find.mockResolvedValue([
+        crearUsuarioExistente({ correo: 'ana@correo.cl' }),
+        crearUsuarioExistente({
+          idUsuario: 9,
+          identificador: '22222222-2',
+          correo: 'luis@correo.cl',
+        }),
+      ]);
+
+      const resultado = await target.listar(RED);
+
+      expect(
+        resultado.map(({ idSolicitud, correoAjeno }) => ({
+          idSolicitud,
+          correoAjeno,
+        })),
+      ).toEqual([
+        { idSolicitud: 80, correoAjeno: false },
+        { idSolicitud: 81, correoAjeno: true },
+        { idSolicitud: 82, correoAjeno: false },
+      ]);
+      expect(mockManager.find).toHaveBeenCalledWith(Usuario, {
+        select: {
+          idUsuario: true,
+          correo: true,
+          pais: true,
+          identificador: true,
+        },
+        where: {
+          correo: In(['ana@correo.cl', 'luis@correo.cl', 'nuevo@correo.cl']),
+        },
+        withDeleted: true,
+      });
+    });
+
+    it('debe marcar correoAjeno cuando el mismo número es de otro país', async () => {
+      mockSolicitudesRepository.find.mockResolvedValue([crearSolicitud()]);
+      mockManager.find.mockResolvedValue([
+        crearUsuarioExistente({ pais: 'PE' }),
+      ]);
+
+      const [solicitud] = await target.listar(RED);
+
+      expect(solicitud.correoAjeno).toBe(true);
+    });
+
+    it('no debe buscar cuentas cuando no hay solicitudes', async () => {
+      const resultado = await target.listar(RED);
+
+      expect(resultado).toEqual([]);
+      expect(mockManager.find).not.toHaveBeenCalled();
     });
   });
 
@@ -778,7 +869,7 @@ describe('SolicitudesAccesoService', () => {
 
       await expect(target.aprobar(80, RED, ID_RESOLUTOR, {})).rejects.toThrow(
         new BadRequestException(
-          'No existe la unidad "A-101" en esta comunidad. Indica idUnidad para aprobar.',
+          'No se pudo identificar la unidad "A-101" en esta comunidad: no existe o el número se repite entre torres. Indica idUnidad para aprobar.',
         ),
       );
     });
@@ -842,6 +933,33 @@ describe('SolicitudesAccesoService', () => {
       expect(mockBitacoraService.marcarActividad).toHaveBeenCalledWith(
         RED.idRed,
       );
+    });
+
+    it('no debe enviar el correo de rechazo cuando el correo pertenece a otra persona', async () => {
+      mockManager.find.mockResolvedValue([
+        crearUsuarioExistente({ identificador: '22222222-2' }),
+      ]);
+
+      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {
+        motivo: 'Correo de otra persona',
+      });
+
+      expect(mockMailService.enviar).not.toHaveBeenCalled();
+      expect(resultado).toMatchObject({
+        estado: EstadoSolicitudAcceso.RECHAZADA,
+        correoAjeno: true,
+        correoEnviado: false,
+      });
+      expect(mockBitacoraService.registrar).toHaveBeenCalledTimes(1);
+    });
+
+    it('debe informar correoAjeno false cuando el correo es de la misma persona', async () => {
+      mockManager.find.mockResolvedValue([crearUsuarioExistente()]);
+
+      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {});
+
+      expect(mockMailService.enviar).toHaveBeenCalledTimes(1);
+      expect(resultado.correoAjeno).toBe(false);
     });
 
     it('debe informar correoEnviado false cuando el correo de rechazo no sale', async () => {

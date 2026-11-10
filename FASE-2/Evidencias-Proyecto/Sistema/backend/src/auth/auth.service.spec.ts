@@ -34,6 +34,7 @@ import {
   MENSAJE_CUENTA_BLOQUEADA,
 } from './auth.constantes';
 import { AuthService } from './auth.service';
+import { LadoTutorial } from './dto/marcar-tutorial.dto';
 import { CodigoOtp } from './entities/codigo-otp.entity';
 import {
   TipoTokenPassword,
@@ -69,6 +70,7 @@ describe('AuthService', () => {
   let mockUsuariosRepository: {
     createQueryBuilder: jest.Mock;
     findOneBy: jest.Mock;
+    update: jest.Mock;
   };
   let mockMembresiasRepository: { find: jest.Mock };
   let mockResidenciasRepository: { find: jest.Mock };
@@ -103,6 +105,8 @@ describe('AuthService', () => {
       esPlataforma: false,
       bloqueado: false,
       motivoBloqueo: null,
+      tutorialAppVisto: false,
+      tutorialPanelVisto: false,
       ...cambios,
     }) as Usuario;
 
@@ -116,6 +120,8 @@ describe('AuthService', () => {
     correo: 'ana@correo.cl',
     telefono: '+56911112222',
     esPlataforma: false,
+    tutorialAppVisto: false,
+    tutorialPanelVisto: false,
   };
 
   const villa = (cambios: Partial<RedVecinal> = {}) =>
@@ -142,8 +148,10 @@ describe('AuthService', () => {
 
   const residenciaEn = (idRed: number, idUnidad: number) =>
     ({
+      idResidencia: idUnidad + 70,
       idUnidad,
       tipo: TipoResidencia.ARRENDATARIO,
+      fechaGuiaVista: null,
       unidad: {
         idUnidad,
         idRed,
@@ -164,10 +172,12 @@ describe('AuthService', () => {
     modulos: [CodigoModulo.MURO, CodigoModulo.COBROS],
     unidades: [
       {
+        idResidencia: 82,
         idUnidad: 12,
         numeroIdentificador: 'A-101',
         tipoUnidad: TipoUnidad.CASA,
         tipoResidencia: TipoResidencia.ARRENDATARIO,
+        fechaGuiaVista: null,
       },
     ],
   };
@@ -199,6 +209,7 @@ describe('AuthService', () => {
     mockUsuariosRepository = {
       createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
       findOneBy: jest.fn(),
+      update: jest.fn().mockResolvedValue({ affected: 1 }),
     };
     mockMembresiasRepository = { find: jest.fn().mockResolvedValue([]) };
     mockResidenciasRepository = { find: jest.fn().mockResolvedValue([]) };
@@ -515,6 +526,32 @@ describe('AuthService', () => {
         { idRol: RolUsuario.PRESIDENTE, nombre: 'Presidente' },
       ]);
     });
+
+    it('debe devolver los tutoriales vistos de la cuenta y cuándo vio la guía cada residencia', async () => {
+      prepararComunidadVilla();
+      const guiaVista = new Date('2026-11-01T15:00:00Z');
+      mockResidenciasRepository.find.mockResolvedValue([
+        { ...residenciaEn(3, 12), fechaGuiaVista: guiaVista },
+      ]);
+      mockQueryBuilder.getOne.mockResolvedValue(
+        crearUsuario({ tutorialAppVisto: true }),
+      );
+      mockBcrypt.compare.mockResolvedValue(true as never);
+      mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
+
+      const resultado = await target.login({
+        identificador: '12345678-5',
+        password: 'clave1234',
+      });
+
+      expect(resultado.usuario).toMatchObject({
+        tutorialAppVisto: true,
+        tutorialPanelVisto: false,
+      });
+      expect(resultado.usuario.comunidades[0].unidades).toEqual([
+        { ...comunidadVilla.unidades[0], fechaGuiaVista: guiaVista },
+      ]);
+    });
   });
 
   describe('solicitarCodigo', () => {
@@ -801,6 +838,70 @@ describe('AuthService', () => {
       await expect(target.perfil(99)).rejects.toThrow(
         new NotFoundException('Usuario no encontrado'),
       );
+    });
+  });
+
+  describe('nuevaSesion', () => {
+    it('debe emitir un token nuevo con el perfil y las comunidades activas', async () => {
+      mockUsuariosRepository.findOneBy.mockResolvedValue(crearUsuario());
+      prepararComunidadVilla();
+      mockJwtService.signAsync.mockResolvedValue('jwt-firmado');
+
+      const resultado = await target.nuevaSesion(7);
+
+      expect(mockJwtService.signAsync).toHaveBeenCalledWith({ sub: 7 });
+      expect(resultado).toEqual({
+        accessToken: 'jwt-firmado',
+        tokenType: 'Bearer',
+        usuario: { ...usuarioSerializado, comunidades: [comunidadVilla] },
+      });
+    });
+
+    it('no debe emitir sesión a una cuenta bloqueada', async () => {
+      mockUsuariosRepository.findOneBy.mockResolvedValue(
+        crearUsuario({ bloqueado: true }),
+      );
+
+      await expect(target.nuevaSesion(7)).rejects.toThrow(
+        new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA),
+      );
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('debe responder 404 si la cuenta no existe', async () => {
+      mockUsuariosRepository.findOneBy.mockResolvedValue(null);
+
+      await expect(target.nuevaSesion(99)).rejects.toThrow(
+        new NotFoundException('Usuario no encontrado'),
+      );
+    });
+  });
+
+  describe('marcarTutorialVisto', () => {
+    it('debe marcar solo el tutorial de la app del usuario indicado', async () => {
+      await target.marcarTutorialVisto(7, LadoTutorial.APP);
+
+      expect(mockUsuariosRepository.update).toHaveBeenCalledWith(
+        { idUsuario: 7, fechaEliminacion: IsNull() },
+        { tutorialAppVisto: true },
+      );
+    });
+
+    it('debe marcar solo el tutorial del panel del usuario indicado', async () => {
+      await target.marcarTutorialVisto(7, LadoTutorial.PANEL);
+
+      expect(mockUsuariosRepository.update).toHaveBeenCalledWith(
+        { idUsuario: 7, fechaEliminacion: IsNull() },
+        { tutorialPanelVisto: true },
+      );
+    });
+
+    it('debe terminar sin error cuando el tutorial ya estaba marcado', async () => {
+      mockUsuariosRepository.update.mockResolvedValue({ affected: 0 });
+
+      await expect(
+        target.marcarTutorialVisto(7, LadoTutorial.APP),
+      ).resolves.toBeUndefined();
     });
   });
 

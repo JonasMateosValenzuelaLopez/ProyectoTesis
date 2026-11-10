@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  Equals,
   IsEmail,
   IsEnum,
   IsInt,
@@ -10,20 +11,13 @@ import {
   Matches,
   MaxLength,
 } from 'class-validator';
+import { recortar, recortarOpcional } from '../../common/utils/texto';
 import {
   EsIdentificador,
   NormalizarIdentificador,
   NormalizarPais,
 } from '../../common/validators/identificador.validator';
 import { TipoResidencia } from '../../usuarios/entities/residencia.entity';
-
-const recortar = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
-const recortarOpcional = ({ value }: { value: unknown }) => {
-  const recortado = recortar({ value });
-  return recortado === '' ? undefined : recortado;
-};
 
 export class CrearSolicitudAccesoDto {
   @IsInt({ message: 'Debes seleccionar tu comunidad' })
@@ -41,28 +35,32 @@ export class CrearSolicitudAccesoDto {
   pais?: string;
 
   @Transform(recortar)
-  @IsString()
+  @IsString({ message: 'El nombre es obligatorio' })
   @IsNotEmpty({ message: 'El nombre es obligatorio' })
-  @MaxLength(50)
+  @MaxLength(50, { message: 'El nombre no puede superar 50 caracteres' })
   nombre: string;
 
   @Transform(recortar)
-  @IsString()
+  @IsString({ message: 'El primer apellido es obligatorio' })
   @IsNotEmpty({ message: 'El primer apellido es obligatorio' })
-  @MaxLength(50)
+  @MaxLength(50, {
+    message: 'El primer apellido no puede superar 50 caracteres',
+  })
   primerApellido: string;
 
   @IsOptional()
   @Transform(recortarOpcional)
-  @IsString()
-  @MaxLength(50)
+  @IsString({ message: 'El segundo apellido debe ser texto' })
+  @MaxLength(50, {
+    message: 'El segundo apellido no puede superar 50 caracteres',
+  })
   segundoApellido?: string;
 
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toLowerCase() : value,
   )
   @IsEmail({}, { message: 'El correo no es válido' })
-  @MaxLength(100)
+  @MaxLength(100, { message: 'El correo no puede superar 100 caracteres' })
   correo: string;
 
   @IsOptional()
@@ -71,9 +69,11 @@ export class CrearSolicitudAccesoDto {
   telefono?: string;
 
   @Transform(recortar)
-  @IsString()
+  @IsString({ message: 'El número de casa o depto es obligatorio' })
   @IsNotEmpty({ message: 'El número de casa o depto es obligatorio' })
-  @MaxLength(20)
+  @MaxLength(20, {
+    message: 'El número de casa o depto no puede superar 20 caracteres',
+  })
   numeroUnidad: string;
 
   @IsOptional()
@@ -84,7 +84,12 @@ export class CrearSolicitudAccesoDto {
 
   @IsOptional()
   @Transform(recortarOpcional)
-  @IsString()
+  @IsString({ message: 'El mensaje debe ser texto' })
   @MaxLength(255, { message: 'El mensaje no puede superar 255 caracteres' })
   mensaje?: string;
+
+  @Equals(true, {
+    message: 'Debes aceptar el aviso de privacidad para enviar la solicitud',
+  })
+  aceptaPrivacidad: boolean;
 }

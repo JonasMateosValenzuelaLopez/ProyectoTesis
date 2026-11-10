@@ -28,6 +28,7 @@ import {
 } from 'typeorm';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import { RolUsuario } from '../common/enums/rol.enum';
+import { CodigoError } from '../common/errores/codigo-error.enum';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { condicionVigente, fechaHoy } from '../common/utils/vigencia';
 import { PAIS_POR_DEFECTO } from '../common/validators/identificador.validator';
@@ -51,6 +52,7 @@ import {
 } from './auth.constantes';
 import { IdentificadorUsuarioDto } from './dto/identificador-usuario.dto';
 import { LoginDto } from './dto/login.dto';
+import { LadoTutorial } from './dto/marcar-tutorial.dto';
 import { RestablecerPasswordDto } from './dto/restablecer-password.dto';
 import { VerificarCodigoDto } from './dto/verificar-codigo.dto';
 import { CodigoOtp } from './entities/codigo-otp.entity';
@@ -227,6 +229,26 @@ export class AuthService {
     return { ...this.serializarUsuario(usuario), comunidades: activas };
   }
 
+  async nuevaSesion(idUsuario: number) {
+    const usuario = await this.usuariosRepository.findOneBy({ idUsuario });
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    return this.iniciarSesion(usuario);
+  }
+
+  async marcarTutorialVisto(
+    idUsuario: number,
+    lado: LadoTutorial,
+  ): Promise<void> {
+    await this.usuariosRepository.update(
+      { idUsuario, fechaEliminacion: IsNull() },
+      lado === LadoTutorial.APP
+        ? { tutorialAppVisto: true }
+        : { tutorialPanelVisto: true },
+    );
+  }
+
   async solicitarRecuperacion(dto: IdentificadorUsuarioDto) {
     const usuario = await this.buscarPorIdentificador(dto, false);
 
@@ -333,7 +355,10 @@ export class AuthService {
 
   private async iniciarSesion(usuario: Usuario) {
     if (usuario.bloqueado) {
-      throw new ForbiddenException(MENSAJE_CUENTA_BLOQUEADA);
+      throw new ForbiddenException({
+        codigo: CodigoError.CUENTA_BLOQUEADA,
+        message: MENSAJE_CUENTA_BLOQUEADA,
+      });
     }
 
     const { activas, suspendidas } = await this.comunidadesDe(
@@ -343,10 +368,14 @@ export class AuthService {
       const [suspendida] = suspendidas;
       throw new ForbiddenException(
         suspendida
-          ? `Tu comunidad ${suspendida.nombre} está suspendida` +
-              (suspendida.motivoSuspension
-                ? `: ${suspendida.motivoSuspension}`
-                : '.')
+          ? {
+              codigo: CodigoError.COMUNIDAD_SUSPENDIDA,
+              message:
+                `Tu comunidad ${suspendida.nombre} está suspendida` +
+                (suspendida.motivoSuspension
+                  ? `: ${suspendida.motivoSuspension}`
+                  : '.'),
+            }
           : 'Tu cuenta no está asociada a ninguna comunidad activa.',
       );
     }
@@ -449,10 +478,12 @@ export class AuthService {
         unidades: residencias
           .filter((r) => r.unidad && r.unidad.idRed === red.idRed)
           .map((r) => ({
+            idResidencia: r.idResidencia,
             idUnidad: r.unidad.idUnidad,
             numeroIdentificador: r.unidad.numeroIdentificador,
             tipoUnidad: r.unidad.tipo,
             tipoResidencia: r.tipo,
+            fechaGuiaVista: r.fechaGuiaVista,
           })),
       };
     });
@@ -470,6 +501,8 @@ export class AuthService {
       correo: usuario.correo,
       telefono: usuario.telefono,
       esPlataforma: usuario.esPlataforma,
+      tutorialAppVisto: usuario.tutorialAppVisto,
+      tutorialPanelVisto: usuario.tutorialPanelVisto,
     };
   }
 }

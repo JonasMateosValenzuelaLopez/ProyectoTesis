@@ -3,17 +3,27 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AccesosModule } from './accesos/accesos.module';
 import { AuthModule } from './auth/auth.module';
 import { BitacoraModule } from './bitacora/bitacora.module';
-import { ErroresBdFilter } from './common/filters/errores-bd.filter';
+import { ErroresApiFilter } from './common/filters/errores-api.filter';
+import { ComunidadModule } from './comunidad/comunidad.module';
 import { obtenerConfiguracionBaseDatos } from './config/database.config';
 import { validarEntorno } from './config/entorno.config';
+import { ZonaHorariaBdService } from './config/zona-horaria-bd.service';
+import { FinanzasModule } from './finanzas/finanzas.module';
+import { HogarModule } from './hogar/hogar.module';
 import { MailModule } from './mail/mail.module';
-import { RedesVecinalesModule } from './redes-vecinales/redes-vecinales.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
+import { MuroModule } from './muro/muro.module';
+import { PlataformaModule } from './plataforma/plataforma.module';
+import { ReservasModule } from './reservas/reservas.module';
+import { ResidentesModule } from './residentes/residentes.module';
 import { RolesModule } from './roles/roles.module';
 import { SolicitudesAccesoModule } from './solicitudes-acceso/solicitudes-acceso.module';
 import { UnidadesModule } from './unidades/unidades.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
+import { VotacionesModule } from './votaciones/votaciones.module';
 
 @Module({
   imports: [
@@ -32,16 +42,26 @@ import { UsuariosModule } from './usuarios/usuarios.module';
     }),
     MailModule,
     BitacoraModule,
+    AccesosModule,
     AuthModule,
-    RedesVecinalesModule,
+    ComunidadModule,
+    FinanzasModule,
+    HogarModule,
+    MarketplaceModule,
+    MuroModule,
+    PlataformaModule,
+    ReservasModule,
+    ResidentesModule,
     RolesModule,
     SolicitudesAccesoModule,
     UnidadesModule,
     UsuariosModule,
+    VotacionesModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_FILTER, useClass: ErroresBdFilter },
+    { provide: APP_FILTER, useClass: ErroresApiFilter },
+    ZonaHorariaBdService,
   ],
 })
 export class AppModule {}

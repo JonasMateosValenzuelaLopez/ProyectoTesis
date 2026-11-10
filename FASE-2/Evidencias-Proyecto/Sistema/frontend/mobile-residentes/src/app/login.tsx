@@ -1,9 +1,12 @@
-import { useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { View } from 'react-native';
 import { router } from 'expo-router';
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useApp } from '@/context/App';
-import { CLAVE_PRUEBA, CODIGO_PRUEBA, CUENTAS, SOLO_PANEL, UNIDADES, type Cuenta } from '@/data/demo';
+import { tieneVivienda, useSesion, viviendasDe } from '@/context/Sesion';
+import * as auth from '@/api/auth';
+import { mensajeDe } from '@/api/cliente';
+import type { Sesion } from '@/api/tipos';
 import { formatearRut, rutValido } from '@/utils/rut';
 import { F, useTema } from '@/constants/tema';
 import Texto from '@/components/ec/Texto';
@@ -12,96 +15,78 @@ import Boton from '@/components/ec/Boton';
 import Segmentos from '@/components/ec/Segmentos';
 import PlacaUnidad from '@/components/ec/PlacaUnidad';
 import Pantalla from '@/components/ec/Pantalla';
+import PasoSesion from '@/components/ec/PasoSesion';
 
-// En la versión publicada se oculta con EXPO_PUBLIC_MODO_PRUEBA=false
-const MODO_PRUEBA = process.env.EXPO_PUBLIC_MODO_PRUEBA !== 'false';
 const ENCENDIDAS = new Set([2, 5, 9, 14, 20, 23]);
-
-const ocultarCorreo = (correo: string) => correo.replace(/^(.)[^@]*/, (_, a) => `${a}•••`);
 
 function Marca() {
   const t = useTema();
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ backgroundColor: t.sidebar, marginHorizontal: -16, marginTop: -(insets.top + 12), paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: 24, gap: 18 }}>
+    <View style={{ backgroundColor: t.sidebar, marginHorizontal: -16, marginTop: -(insets.top + 12), paddingTop: insets.top + 20, paddingHorizontal: 20, paddingBottom: 24, gap: 18, overflow: 'hidden' }}>
+      {/* La misma foto del login del panel (torre, condominio y casas), teñida con el color de la marca */}
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
+        <Image source={require('../../assets/images/login-comunidad.jpg')} contentFit="cover" contentPosition="center" style={{ flex: 1 }} />
+        <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: t.sidebar, opacity: t.oscuro ? 0.84 : 0.78 }} />
+      </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <PlacaUnidad tipo="" numero="EC" size="sm" invertida />
-        <Texto style={{ fontFamily: F.cifra, fontSize: 20, color: '#fff' }}>EntreCasas</Texto>
+        <Texto style={{ fontFamily: F.cifra, fontSize: 20, color: t.sidebarStrong }}>EntreCasas</Texto>
       </View>
-      <Texto style={{ fontFamily: F.cifra, fontSize: 32, lineHeight: 34, color: '#fff' }}>Tu comunidad,{'\n'}casa por casa.</Texto>
+      <Texto style={{ fontFamily: F.cifra, fontSize: 32, lineHeight: 34, color: t.sidebarStrong }}>Tu comunidad,{'\n'}casa por casa.</Texto>
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5 }}>
         {Array.from({ length: 24 }, (_, i) => (
-          <View key={i} style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: ENCENDIDAS.has(i) ? t.bronzeOnSidebar : 'rgba(199,210,205,0.25)', backgroundColor: ENCENDIDAS.has(i) ? t.bronzeOnSidebar : 'transparent' }} />
+          <View key={i} style={{ width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, borderColor: ENCENDIDAS.has(i) ? t.placaSidebar : t.sidebarDot, backgroundColor: ENCENDIDAS.has(i) ? t.placaSidebar : 'transparent' }} />
         ))}
       </View>
     </View>
   );
 }
 
-function CuentasPrueba({ onElegir }: { onElegir: (c: Cuenta) => void }) {
-  const t = useTema();
-  return (
-    <View style={{ borderWidth: 1.5, borderStyle: 'dashed', borderColor: t.line, borderRadius: 16, overflow: 'hidden' }}>
-      <View style={{ padding: 14, gap: 2 }}>
-        <Texto v="fuerte">Cuentas de prueba</Texto>
-        <Texto v="chico">Clave para todas: {CLAVE_PRUEBA} · código: {CODIGO_PRUEBA}</Texto>
-      </View>
-      {CUENTAS.map((c) => {
-        const u = UNIDADES[c.residencias[0].id_unidad];
-        const nombre = `${c.nombre} ${c.apellido_paterno}`;
-        return (
-          <Pressable key={c.id_usuario} onPress={() => onElegir(c)} accessibilityRole="button" accessibilityLabel={`Usar la cuenta de ${nombre}`}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderColor: t.line, backgroundColor: pressed ? t.accionSoft : t.surface })}>
-            <PlacaUnidad tipo="" numero={u.numero_identificador} size="sm" />
-            <View style={{ flex: 1 }}>
-              <Texto v="fuerte">{nombre}</Texto>
-              <Texto v="chico">{c.flujo}</Texto>
-            </View>
-            <Texto v="chico" style={{ fontFamily: F.numero, fontVariant: ['tabular-nums'] }}>{c.rut}</Texto>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-// Entrada con RUT y clave, o con un código de un solo uso que llega al correo.
+// Entrada con RUT y clave, o con un código de un solo uso que llega al correo (auth/codigo).
+// La app es para quienes viven en la comunidad: una cuenta sin vivienda va al panel web.
 export default function Login() {
   const t = useTema();
-  const { acciones } = useApp();
+  const { motivoSalida, acciones } = useSesion();
   const [rut, setRut] = useState('');
   const [metodo, setMetodo] = useState<'clave' | 'codigo'>('clave');
   const [clave, setClave] = useState('');
   const [codigo, setCodigo] = useState('');
-  const [enviadoA, setEnviadoA] = useState<string | null>(null);
+  const [codigoPedido, setCodigoPedido] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  // Respuesta del login mientras se muestra el saludo con la placa de la vivienda
+  const [bienvenida, setBienvenida] = useState<Sesion | null>(null);
 
   const rutMal = rut.length > 3 && !rutValido(rut);
 
-  const entrar = () => {
-    setError(null);
-    if (!rutValido(rut)) return setError('Revisa el RUT: el dígito verificador no calza.');
-    const r = formatearRut(rut);
-    const c = CUENTAS.find((x) => x.rut === r);
-    if (metodo === 'codigo' && !enviadoA) {
-      // No se revela si el RUT existe: siempre se responde que se envió el código
-      setEnviadoA(c ? ocultarCorreo(c.correo) : 'tu correo registrado');
-      return;
-    }
-    const ok = metodo === 'clave' ? clave === CLAVE_PRUEBA : codigo === CODIGO_PRUEBA;
-    if (ok && !c && SOLO_PANEL.includes(r)) return setError('panel');
-    if (!ok || !c) return setError(metodo === 'clave' ? 'RUT o clave incorrectos.' : 'El código no es válido o ya venció.');
-    acciones.iniciarSesion(c);
-    router.replace('/(tabs)');
+  const recibir = (s: Sesion) => {
+    if (!tieneVivienda(s.usuario)) { setError('panel'); return; }
+    setBienvenida(s);
   };
 
-  const elegir = (c: Cuenta) => {
-    setRut(c.rut);
-    setMetodo('clave');
-    setClave(CLAVE_PRUEBA);
-    setEnviadoA(null);
+  const entrar = async () => {
     setError(null);
+    if (!rutValido(rut)) { setError('Revisa el RUT: el dígito verificador no calza.'); return; }
+    const identificador = formatearRut(rut);
+    setEnviando(true);
+    try {
+      if (metodo === 'clave') recibir(await auth.login(identificador, clave));
+      else if (!codigoPedido) setCodigoPedido((await auth.pedirCodigo(identificador)).mensaje);
+      else recibir(await auth.verificarCodigo(identificador, codigo));
+    } catch (e) {
+      setError(mensajeDe(e));
+    } finally {
+      setEnviando(false);
+    }
   };
+
+  const abrirSesion = useCallback(async () => {
+    if (!bienvenida) return;
+    await acciones.iniciarSesion(bienvenida);
+    router.replace('/(tabs)');
+  }, [acciones, bienvenida]);
+  const primera = bienvenida ? viviendasDe(bienvenida.usuario)[0]?.unidad : null;
 
   return (
     <Pantalla>
@@ -110,20 +95,25 @@ export default function Login() {
         <Texto v="titulo" accessibilityRole="header">Entrar</Texto>
         <Texto v="suave">Para residentes, propietarios y arrendatarios.</Texto>
       </View>
+      {motivoSalida && (
+        <View accessibilityLiveRegion="polite" style={{ backgroundColor: t.warnSoft, borderRadius: 12, padding: 12 }}>
+          <Texto color={t.warn}>{motivoSalida}</Texto>
+        </View>
+      )}
       <Campo
         etiqueta="RUT" value={rut} placeholder="12.345.678-5" autoCapitalize="characters" autoComplete="username" textContentType="username"
-        onChangeText={(v) => { setRut(v); setEnviadoA(null); }} onBlur={() => rutValido(rut) && setRut(formatearRut(rut))}
+        onChangeText={(v) => { setRut(v); setCodigoPedido(null); }} onBlur={() => rutValido(rut) && setRut(formatearRut(rut))}
         error={rutMal && 'RUT no válido'}
       />
       <Segmentos
         opciones={[{ valor: 'clave', texto: 'Con clave' }, { valor: 'codigo', texto: 'Con código' }]}
-        valor={metodo} onCambio={(v) => { setMetodo(v); setError(null); setEnviadoA(null); }}
+        valor={metodo} onCambio={(v) => { setMetodo(v); setError(null); setCodigoPedido(null); }}
       />
       {metodo === 'clave' && <Campo etiqueta="Clave" value={clave} onChangeText={setClave} secureTextEntry autoComplete="password" textContentType="password" onSubmitEditing={entrar} />}
-      {metodo === 'codigo' && enviadoA && (
+      {metodo === 'codigo' && codigoPedido && (
         <View style={{ gap: 12 }}>
           <View style={{ backgroundColor: t.accionSoft, borderRadius: 12, padding: 12 }}>
-            <Texto>Enviamos un código de 6 dígitos a {enviadoA}. Vence en 10 minutos.</Texto>
+            <Texto>{codigoPedido} Vence en 10 minutos.</Texto>
           </View>
           <Campo
             etiqueta="Código" value={codigo} onChangeText={(v) => setCodigo(v.replace(/\D/g, '').slice(0, 6))} keyboardType="number-pad"
@@ -141,12 +131,17 @@ export default function Login() {
           <Texto color={t.bad}>{error}</Texto>
         </View>
       )}
-      <Boton texto={metodo === 'codigo' && !enviadoA ? 'Enviarme un código' : 'Entrar'} onPress={entrar} />
+      <Boton
+        texto={metodo === 'codigo' && !codigoPedido ? 'Enviarme un código' : 'Entrar'} onPress={entrar} cargando={enviando}
+        disabled={!rut.trim() || (metodo === 'clave' && !clave) || (metodo === 'codigo' && !!codigoPedido && codigo.length !== 6)}
+      />
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-        <Boton tipo="texto" texto="¿Olvidaste tu clave?" onPress={() => { setMetodo('codigo'); setError(null); }} style={{ paddingHorizontal: 0 }} />
+        <Boton tipo="texto" texto="¿Olvidaste tu clave?" onPress={() => { setMetodo('codigo'); setError(null); setCodigoPedido(null); }} style={{ paddingHorizontal: 0 }} />
         <Boton tipo="texto" texto="Solicitar acceso" onPress={() => router.push('/solicitar-acceso')} style={{ paddingHorizontal: 0 }} />
       </View>
-      {MODO_PRUEBA && <CuentasPrueba onElegir={elegir} />}
+      {bienvenida && primera && (
+        <PasoSesion tipo="entrar" nombre={bienvenida.usuario.nombre} placa={{ tipo: primera.tipoUnidad, numero: primera.numeroIdentificador }} alTerminar={abrirSesion} />
+      )}
     </Pantalla>
   );
 }

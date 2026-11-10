@@ -11,6 +11,8 @@ export const obtenerConfiguracionBaseDatos = (
   password: configService.get<string>('DB_PASSWORD', ''),
   database: configService.getOrThrow<string>('DB_NAME'),
   charset: 'utf8mb4_unicode_ci',
+  timezone: 'Z',
+  dateStrings: ['DATE'],
   autoLoadEntities: true,
   synchronize: false,
 });

@@ -71,6 +71,12 @@ export class Usuario extends EntidadAuditada {
   })
   motivoBloqueo: string | null;
 
+  @Column({ name: 'tutorial_app_visto', type: 'boolean', default: false })
+  tutorialAppVisto: boolean;
+
+  @Column({ name: 'tutorial_panel_visto', type: 'boolean', default: false })
+  tutorialPanelVisto: boolean;
+
   @OneToMany(() => Membresia, (membresia) => membresia.usuario)
   membresias: Membresia[];
 

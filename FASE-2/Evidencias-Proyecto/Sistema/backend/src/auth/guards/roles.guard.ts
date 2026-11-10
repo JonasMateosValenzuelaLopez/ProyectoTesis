@@ -12,6 +12,7 @@ import { Request } from 'express';
 import { Repository } from 'typeorm';
 import { CodigoModulo } from '../../common/enums/modulo.enum';
 import { RolUsuario } from '../../common/enums/rol.enum';
+import { CodigoError } from '../../common/errores/codigo-error.enum';
 import {
   ContextoRed,
   UsuarioAutenticado,
@@ -71,11 +72,12 @@ export class RolesGuard implements CanActivate {
     }
     const { red } = membresias[0];
     if (red.estado === EstadoRedVecinal.SUSPENDIDA) {
-      throw new ForbiddenException(
-        red.motivoSuspension
+      throw new ForbiddenException({
+        codigo: CodigoError.COMUNIDAD_SUSPENDIDA,
+        message: red.motivoSuspension
           ? `Esta comunidad está suspendida: ${red.motivoSuspension}`
           : 'Esta comunidad está suspendida.',
-      );
+      });
     }
 
     const modulos = (
@@ -111,9 +113,10 @@ export class RolesGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
     if (modulo && !modulos.includes(modulo)) {
-      throw new ForbiddenException(
-        'Esta función no está activa en tu comunidad',
-      );
+      throw new ForbiddenException({
+        codigo: CodigoError.MODULO_INACTIVO,
+        message: 'Esta función no está activa en tu comunidad',
+      });
     }
 
     const rolesPermitidos = this.reflector.getAllAndOverride<RolUsuario[]>(

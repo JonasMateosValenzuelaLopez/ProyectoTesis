@@ -1,6 +1,6 @@
 # Modelo de datos
 
-El modelo se implementa en MariaDB y tiene 37 tablas y 86 llaves foráneas. Los diagramas se generaron desde el esquema real de la base de datos. Por claridad omiten las tres fechas de auditoría que tiene cada tabla: `fecha_creacion`, `fecha_actualizacion` y `fecha_eliminacion`.
+El modelo se implementa en MariaDB y tiene 39 tablas y 93 llaves foráneas. Los diagramas se generaron desde el esquema real de la base de datos. Por claridad omiten las tres fechas de auditoría que tiene cada tabla: `fecha_creacion`, `fecha_actualizacion` y `fecha_eliminacion`.
 
 Convenciones: **PK** es llave primaria, **FK** es llave foránea y **UK** es valor único. Cada diagrama incluye las relaciones de su área, por lo que también aparecen tablas de otras áreas relacionadas con ella.
 
@@ -9,6 +9,11 @@ Convenciones: **PK** es llave primaria, **FK** es llave foránea y **UK** es val
 - Cada dato de una comunidad se asocia a `redes_vecinales`.
 - Los registros se eliminan con borrado lógico mediante `fecha_eliminacion`.
 - `muro_reportes.id_publicacion` no tiene llave foránea, porque apunta al muro o al marketplace según `tipo_publicacion`.
+- En el muro y el marketplace, que el autor borre una publicación es un borrado lógico (`fecha_eliminacion`); que la oculte un moderador es `estado_moderacion` = 'Oculta', con `moderado_por` y `moderado_en`.
+- `hogar_fichas` pertenece a la unidad: solo la ven y editan sus residentes vigentes.
+- Cada vivienda tiene como máximo un titular: `residencias.titular` vale 1 o NULL, y el UNIQUE (`id_unidad`, `titular`) no deja dos titulares en la misma unidad. Vota el titular, y `votos` permite un voto por vivienda con el UNIQUE (`id_votacion`, `id_unidad`).
+- En `reservas`, `bloque_activo` es una columna calculada que vale `hora_inicio` mientras la reserva está Pendiente o Aprobada, y su UNIQUE (`id_espacio`, `fecha_reserva`, `bloque_activo`) impide dos reservas activas en el mismo bloque. «En uso» y «Devuelto» no son estados: salen de `entregado_en` y `recibido_en`.
+- Un espacio común dado de baja queda con `estado` = 0 y su nombre es único en la comunidad (`uq_espacio_red_nombre`), para reactivarlo si se vuelve a agregar.
 
 ## Identidad y acceso
 
@@ -20,8 +25,10 @@ erDiagram
     usuarios ||--o{ cobros_avisos_pago : ""
     usuarios ||--o{ cobro_unidades : ""
     usuarios ||--o{ codigos_otp : ""
+    usuarios ||--o{ comunidad_guias : ""
     usuarios ||--o{ egresos : ""
     usuarios ||--o{ exenciones : ""
+    usuarios ||--o{ hogar_fichas : ""
     usuarios ||--o{ invitaciones : ""
     usuarios ||--o{ marketplace_publicaciones : ""
     usuarios ||--o{ marketplace_solicitudes_contacto : ""
@@ -44,6 +51,7 @@ erDiagram
     usuarios ||--o{ vehiculos : ""
     usuarios ||--o{ votaciones : ""
     usuarios ||--o{ votos : ""
+    unidades ||--o{ votos : ""
     usuarios {
         int id_usuario PK
         varchar identificador
@@ -58,6 +66,8 @@ erDiagram
         tinyint es_plataforma
         tinyint bloqueado
         varchar motivo_bloqueo
+        tinyint tutorial_app_visto
+        tinyint tutorial_panel_visto
     }
     roles {
         int id_rol PK
@@ -77,8 +87,10 @@ erDiagram
         int id_usuario FK
         int id_unidad FK
         enum tipo
+        tinyint titular
         date desde
         date hasta
+        datetime fecha_guia_vista
     }
     solicitudes_acceso {
         int id_solicitud PK
@@ -130,8 +142,12 @@ erDiagram
     redes_vecinales ||--o{ cobros : ""
     unidades ||--o{ cobro_unidades : ""
     redes_vecinales ||--o{ comunidad_contactos : ""
+    redes_vecinales ||--o| comunidad_guias : ""
+    usuarios ||--o{ comunidad_guias : ""
     redes_vecinales ||--o{ egresos : ""
     redes_vecinales ||--o{ espacios_comunes : ""
+    unidades ||--o{ hogar_fichas : ""
+    usuarios ||--o{ hogar_fichas : ""
     redes_vecinales ||--o{ invitaciones : ""
     unidades ||--o{ invitaciones : ""
     redes_vecinales ||--o{ marketplace_publicaciones : ""
@@ -181,6 +197,7 @@ erDiagram
         enum tipo
         varchar calle_pasaje
         varchar torre
+        varchar torre_clave
         smallint piso
         varchar manzana
         int orden
@@ -205,6 +222,28 @@ erDiagram
         varchar telefono
         varchar horario
         tinyint visible
+    }
+    comunidad_guias {
+        int id_red PK
+        varchar mensaje
+        set basura_dias
+        varchar basura_horario
+        varchar basura_lugar
+        varchar reciclaje_lugar
+        varchar reciclaje_detalle
+        int actualizado_por FK
+    }
+    hogar_fichas {
+        int id_ficha PK
+        int id_unidad FK
+        enum tipo
+        varchar titulo
+        text detalle
+        varchar contacto_nombre
+        varchar contacto_telefono
+        date fecha
+        date fecha_vence
+        int creado_por FK
     }
     bitacora_auditoria {
         int id_bitacora PK
@@ -288,6 +327,8 @@ erDiagram
         varchar motivo
         int solicitada_por FK
         enum estado
+        int revisada_por FK
+        datetime revisada_en
         int resuelta_por FK
         datetime resuelta_en
         varchar comentario_resolucion
@@ -314,6 +355,7 @@ erDiagram
         varchar asunto
         int id_cobro FK
         int id_votacion FK
+        int id_publicacion FK
         int destinatarios
         int enviado_por FK
     }
@@ -339,7 +381,7 @@ erDiagram
         int numero
         varchar titulo
         enum tipo_reunion
-        datetime fecha_asamblea
+        date fecha_asamblea
         varchar lugar
         int unidades_presentes
         text asistentes
@@ -379,6 +421,7 @@ erDiagram
         int id_voto PK
         int id_votacion FK
         int id_opcion FK
+        int id_unidad FK
         int id_usuario FK
     }
 ```
@@ -407,10 +450,10 @@ erDiagram
         enum tipo
         varchar titulo
         text contenido
-        tinyint estado
         enum estado_aprobacion
         int aprobado_por FK
         datetime aprobado_en
+        enum estado_moderacion
         int moderado_por FK
         datetime moderado_en
     }
@@ -438,9 +481,9 @@ erDiagram
         varchar foto_url
         varchar telefono_contacto
         datetime fecha_publicacion
-        tinyint estado
         enum estado_moderacion
         int moderado_por FK
+        datetime moderado_en
     }
     categorias_marketplace {
         int id_categoria PK
@@ -497,6 +540,7 @@ erDiagram
         date fecha_reserva
         time hora_inicio
         time hora_fin
+        time bloque_activo
         smallint invitados
         varchar observacion
         enum estado_reserva

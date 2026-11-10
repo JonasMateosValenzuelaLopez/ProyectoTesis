@@ -36,6 +36,6 @@
 ## Mantenibilidad y trazabilidad
 | ID | Requisito | Estado |
 |---|---|---|
-| RNF-16 | Cobertura de pruebas unitarias del backend de al menos 70 % de sentencias | Implementado: 76,94 % |
+| RNF-16 | Cobertura de pruebas unitarias del backend de al menos 70 % de sentencias | Implementado: 89,17 % |
 | RNF-17 | Toda acción que cambie datos queda en la bitácora | Implementado en los módulos actuales |
 | RNF-18 | Las tablas registran fechas de creación, actualización y eliminación | Implementado |

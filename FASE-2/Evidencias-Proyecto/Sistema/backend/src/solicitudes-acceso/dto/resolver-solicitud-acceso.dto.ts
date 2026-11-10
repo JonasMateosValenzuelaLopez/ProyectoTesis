@@ -12,8 +12,8 @@ import { EstadoSolicitudAcceso } from '../entities/solicitud-acceso.entity';
 
 export class AprobarSolicitudAccesoDto {
   @IsOptional()
-  @IsInt()
-  @IsPositive()
+  @IsInt({ message: 'La unidad no es válida' })
+  @IsPositive({ message: 'La unidad no es válida' })
   idUnidad?: number;
 
   @IsOptional()
@@ -26,8 +26,8 @@ export class AprobarSolicitudAccesoDto {
 export class RechazarSolicitudAccesoDto {
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString()
-  @MaxLength(255)
+  @IsString({ message: 'El motivo debe ser texto' })
+  @MaxLength(255, { message: 'El motivo no puede superar 255 caracteres' })
   motivo?: string;
 }
 

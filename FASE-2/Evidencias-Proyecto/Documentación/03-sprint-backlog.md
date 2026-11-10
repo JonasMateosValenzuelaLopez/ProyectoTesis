@@ -36,30 +36,39 @@ Los Sprints 0 a 2 se reconstruyeron desde el historial de git, la Guía 2.4 y lo
 
 | Tarea | Responsable | Estado |
 |---|---|---|
-| Cargar datos iniciales para poder entrar | Camila | Pendiente |
-| Implementar comunidades, unidades y residentes | Camila | Pendiente |
-| Implementar asignación de cargos | Camila | Pendiente |
-| Crear el cliente HTTP con token y `X-Red-Id` | Jonas | Pendiente |
+| Mejorar las transiciones y la UI/UX del panel y la app | Jonas | Terminada |
+| Crear la primera cuenta de Plataforma para poder entrar | Camila | Pendiente |
+| Implementar el panel de Plataforma: comunidades, módulos, tipo, alta y bitácora | Camila | Terminada |
+| Implementar unidades y residentes | Camila | Terminada |
+| Implementar asignación de cargos | Camila | Terminada |
+| Implementar Mi hogar, la guía de bienvenida y los contactos de la comunidad | Camila | Terminada |
+| Implementar la bitácora de la comunidad para la Presidencia | Camila | Terminada |
+| Definir el formato de errores de la API | Equipo | Terminada |
+| Crear el cliente HTTP con token, `X-Red-Id` y manejo de errores | Jonas | Pendiente |
 | Conectar el login web y móvil | Jonas | Pendiente |
 | Conectar las vistas de comunidad | Jonas | Pendiente |
 
 ## Sprint 4: Finanzas y convivencia (5 al 8 nov.)
 **Objetivo:** operar cobros y comunicación con datos reales.
-**Historias:** HU-12 a HU-16 y HU-18 a HU-20.
+**Historias:** HU-12 a HU-20.
 
 | Tarea | Responsable | Estado |
 |---|---|---|
-| Implementar cobros, avisos y egresos | Camila | Pendiente |
-| Implementar muro y marketplace | Camila | Pendiente |
+| Implementar categorías, cobros, pagos, avisos y morosidad | Camila | Terminada |
+| Implementar egresos con visado, exenciones y reportes | Camila | Terminada |
+| Implementar el muro, los comunicados con aprobación y la moderación | Camila | Terminada |
+| Implementar el marketplace | Camila | Pendiente |
 | Conectar las vistas correspondientes | Jonas | Pendiente |
 
 ## Sprint 5: Accesos y cierre (9 al 11 nov.)
 **Objetivo:** completar accesos y dejar el sistema listo para la entrega.
-**Historias:** HU-23 a HU-27.
+**Historias:** HU-21 a HU-27.
 
 | Tarea | Responsable | Estado |
 |---|---|---|
-| Implementar reservas e invitaciones QR | Camila | Pendiente |
+| Implementar espacios comunes y reservas, con entrega y recepción en conserjería | Camila | Terminada |
+| Implementar votaciones, encuestas y actas, con titular por vivienda | Camila | Terminada |
+| Implementar invitaciones QR y conserjería | Camila | Pendiente |
 | Conectar las vistas correspondientes | Jonas | Pendiente |
 | Ajustar Docker y levantar el sistema | Equipo | Pendiente |
 | Desplegar y ejecutar las pruebas finales | Equipo | Pendiente |

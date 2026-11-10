@@ -1,90 +1,134 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
-// Vistas de Autenticación
+// Vistas de autenticación
 import Login from './pages/auth/login';
 import SolicitarAcceso from './pages/auth/SolicitarAcceso';
 import RecuperarPassword from './pages/auth/RecuperarPassword';
+import RestablecerPassword from './pages/auth/RestablecerPassword';
+import ElegirComunidad from './pages/auth/ElegirComunidad';
 
-// Layout Principal
+// Armazones del panel y de Plataforma
 import PanelProtegido from './components/PanelProtegido';
+import PlataformaProtegida from './components/PlataformaProtegida';
+import MiCuenta from './pages/MiCuenta';
+import VistaPendiente from './pages/VistaPendiente';
+import { TODAS_LAS_RUTAS } from './config/navegacion';
+import { SECCIONES_PLATAFORMA } from './config/plataforma';
+
+// Administración (fase 3)
 import RedVecinal from './pages/admin/RedVecinal';
 import Unidades from './pages/admin/Unidades';
 import Residentes from './pages/admin/Residentes';
-import Inicio from './pages/admin/Inicio';
-import InicioTesorero from './pages/tesorero/InicioTesorero';
+import GuiaBienvenida from './pages/comunidad/GuiaBienvenida';
+import Directorio from './pages/secretario/Directorio';
+
+// Finanzas (fase 4)
 import Cobros from './pages/tesorero/Cobros';
 import Morosidad from './pages/tesorero/Morosidad';
+import Egresos from './pages/tesorero/Egresos';
 import Exenciones from './pages/tesorero/Exenciones';
 import Categorias from './pages/tesorero/Categorias';
 import Reportes from './pages/tesorero/Reportes';
-import InicioPresidente from './pages/presidente/InicioPresidente';
 import PorAprobar from './pages/presidente/PorAprobar';
-import Bitacora from './pages/presidente/Bitacora';
-import InicioSecretario from './pages/secretario/InicioSecretario';
-import Actas from './pages/secretario/Actas';
-import Votaciones from './pages/secretario/Votaciones';
-import Directorio from './pages/secretario/Directorio';
-import Modulos from './pages/admin/Modulos';
-import Muro from './pages/comunidad/Muro';
-import Porteria from './pages/conserjeria/Porteria';
-import Espacios from './pages/conserjeria/Espacios';
+
+// Reservas (fase 5)
 import Reservas from './pages/admin/Reservas';
-import VistaPendiente from './pages/VistaPendiente';
-import PlataformaProtegida from './components/PlataformaProtegida';
+import Espacios from './pages/conserjeria/Espacios';
+
+// Muro y Marketplace (fase 6)
+import Muro from './pages/comunidad/Muro';
+import Marketplace from './pages/comunidad/Marketplace';
+
+// Votaciones y Actas (fase 7)
+import Votaciones from './pages/secretario/Votaciones';
+import Actas from './pages/secretario/Actas';
+
+// Portería y conservación de datos (fase 8)
+import Porteria from './pages/conserjeria/Porteria';
+import Conservacion from './pages/admin/Conservacion';
+import { useSesion } from './context/SesionContext';
+import { RolUsuario } from './config/roles';
+import { tieneModulo } from './config/modulos';
+
+// Inicio y bitácora (fase 9)
+import InicioAdministracion from './pages/admin/Inicio';
+import InicioPresidente from './pages/presidente/InicioPresidente';
+import InicioTesorero from './pages/tesorero/InicioTesorero';
+import InicioSecretario from './pages/secretario/InicioSecretario';
+import Bitacora from './pages/presidente/Bitacora';
+
+// Plataforma (fase 2)
 import Comunidades from './pages/plataforma/Comunidades';
 import NuevaComunidad from './pages/plataforma/NuevaComunidad';
 import FichaComunidad from './pages/plataforma/FichaComunidad';
-import Personas from './pages/plataforma/Personas';
 import BitacoraPlataforma from './pages/plataforma/BitacoraPlataforma';
-import { TODAS_LAS_RUTAS } from './config/navegacion';
-import { useSesion } from './context/SesionContext';
 
-// Cada ruta del menú con su vista; VistaPendiente queda para opciones nuevas sin pantalla.
+// Vistas conectadas con la API. Las demás rutas del menú muestran VistaPendiente:
+// «En conexión» hasta su fase, o «Próximamente» si la API aún no tiene esa función.
 const VISTAS = {
   '/panel/condominio': <RedVecinal />,
   '/panel/unidades': <Unidades />,
   '/panel/residentes': <Residentes />,
+  '/panel/guia': <GuiaBienvenida />,
+  '/panel/directorio': <Directorio />,
   '/panel/finanzas': <Cobros />,
   '/panel/morosidad': <Morosidad />,
+  '/panel/egresos': <Egresos />,
   '/panel/exenciones': <Exenciones />,
   '/panel/categorias': <Categorias />,
   '/panel/reportes': <Reportes />,
   '/panel/aprobaciones': <PorAprobar />,
-  '/panel/bitacora': <Bitacora />,
-  '/panel/actas': <Actas />,
-  '/panel/votaciones': <Votaciones />,
-  '/panel/directorio': <Directorio />,
-  '/panel/modulos': <Modulos />,
-  '/panel/porteria': <Porteria />,
-  '/panel/espacios': <Espacios />,
   '/panel/reservas': <Reservas />,
-  '/panel/muro': <Muro key="muro" />,
-  '/panel/marketplace': <Muro key="marketplace" lugar="marketplace" />,
+  '/panel/espacios': <Espacios />,
+  '/panel/muro': <Muro />,
+  '/panel/marketplace': <Marketplace />,
+  '/panel/votaciones': <Votaciones />,
+  '/panel/actas': <Actas />,
+  '/panel/porteria': <Porteria />,
+  '/panel/conservacion': <Conservacion />,
+  '/panel/bitacora': <Bitacora />,
 };
+const VISTAS_PLATAFORMA = {
+  '/plataforma': <Comunidades />,
+  '/plataforma/nueva': <NuevaComunidad />,
+  '/plataforma/bitacora': <BitacoraPlataforma />,
+};
+const RUTAS_PLATAFORMA = SECCIONES_PLATAFORMA.flatMap((s) => s.items);
 
-function InicioPorCargo() {
-  const { cargo } = useSesion();
-  if (cargo === 'administrador') return <Inicio />;
-  if (cargo === 'tesorero') return <InicioTesorero />;
-  if (cargo === 'presidente') return <InicioPresidente />;
-  if (cargo === 'secretario') return <InicioSecretario />;
-  if (cargo === 'conserje') return <Porteria />;
-  return null;
+// Inicio del panel según el cargo. Para Conserjería es la garita (o los espacios del día si la comunidad
+// no tiene conserjería); la Presidencia que también administra ve el Inicio de la Presidencia.
+function InicioPanel() {
+  const { cargo, comunidad } = useSesion();
+  switch (cargo) {
+    case RolUsuario.ADMINISTRADOR: return <InicioAdministracion />;
+    case RolUsuario.PRESIDENTE: return <InicioPresidente />;
+    case RolUsuario.TESORERO: return <InicioTesorero />;
+    case RolUsuario.SECRETARIO: return <InicioSecretario />;
+    case RolUsuario.CONSERJE:
+      if (tieneModulo(comunidad, 'conserjeria')) return <Porteria />;
+      if (tieneModulo(comunidad, 'reservas')) return <Espacios />;
+      return <VistaPendiente />;
+    default: return <VistaPendiente />;
+  }
 }
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Flujo Público (Login) */}
+        {/* Flujo público */}
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/solicitar-acceso" element={<SolicitarAcceso />} />
         <Route path="/recuperar-password" element={<RecuperarPassword />} />
+        {/* Enlace de los correos de recuperación y de activación de cuentas invitadas */}
+        <Route path="/restablecer-password" element={<RestablecerPassword />} />
+        <Route path="/elegir-comunidad" element={<ElegirComunidad />} />
 
-        {/* Flujo Privado (Panel). El menú y el acceso a cada ruta dependen del cargo y los módulos. */}
+        {/* Panel de una comunidad. El menú y el acceso a cada ruta dependen del cargo y los módulos. */}
         <Route path="/panel" element={<PanelProtegido />}>
-          <Route index element={<InicioPorCargo />} />
+          <Route index element={<InicioPanel />} />
+          <Route path="mi-cuenta" element={<MiCuenta />} />
           {TODAS_LAS_RUTAS.filter((i) => i.ruta !== '/panel').map((i) => (
             <Route key={i.ruta} path={i.ruta.replace('/panel/', '')} element={VISTAS[i.ruta] ?? <VistaPendiente />} />
           ))}
@@ -92,11 +136,12 @@ function App() {
 
         {/* Panel del equipo EntreCasas: todas las comunidades */}
         <Route path="/plataforma" element={<PlataformaProtegida />}>
-          <Route index element={<Comunidades />} />
-          <Route path="nueva" element={<NuevaComunidad />} />
+          <Route index element={VISTAS_PLATAFORMA['/plataforma'] ?? <VistaPendiente />} />
+          <Route path="mi-cuenta" element={<MiCuenta />} />
           <Route path="comunidades/:id" element={<FichaComunidad />} />
-          <Route path="personas" element={<Personas />} />
-          <Route path="bitacora" element={<BitacoraPlataforma />} />
+          {RUTAS_PLATAFORMA.filter((i) => i.ruta !== '/plataforma').map((i) => (
+            <Route key={i.ruta} path={i.ruta.replace('/plataforma/', '')} element={VISTAS_PLATAFORMA[i.ruta] ?? <VistaPendiente />} />
+          ))}
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>

@@ -13,8 +13,8 @@ export default function Opciones<T extends string>({ opciones, valor, onCambio, 
         key={o.valor} accessibilityRole="radio" accessibilityState={{ selected: activo, disabled: o.deshabilitada }} disabled={o.deshabilitada}
         onPress={() => onCambio(o.valor)}
         style={{
-          minHeight: 48, minWidth: 64, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12, justifyContent: 'center', alignItems: 'center',
-          borderWidth: activo ? 2 : 1.5, borderColor: activo ? t.accion : t.lineStrong, backgroundColor: activo ? t.accionSoft : t.surface,
+          minHeight: 48, minWidth: 64, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, justifyContent: 'center', alignItems: 'center',
+          borderWidth: activo ? 2 : 1, borderColor: activo ? t.accion : t.lineStrong, backgroundColor: activo ? t.accionSoft : t.surface,
           opacity: o.deshabilitada ? 0.4 : 1,
         }}
       >

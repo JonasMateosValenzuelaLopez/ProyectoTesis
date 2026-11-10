@@ -6,6 +6,7 @@ const ESTILOS = {
   directiva: { bgcolor: 'info.main', color: 'info.contrastText' },
   staff: { bgcolor: 'text.primary', color: 'background.paper' },
   residente: { border: '1.5px solid', borderColor: 'text.secondary', color: 'text.secondary' },
+  plataforma: { bgcolor: 'marca.signal', color: 'marca.signalInk' },
 };
 
 export default function SelloCargo({ cargo, conTexto = false, size = 22, sx }) {
@@ -19,7 +20,7 @@ export default function SelloCargo({ cargo, conTexto = false, size = 22, sx }) {
       sx={{
         display: 'inline-grid', placeItems: 'center', flexShrink: 0,
         width: size, height: size, borderRadius: `${Math.round(size / 4.4)}px`,
-        fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: size * 0.5,
+        fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: size * (rol.initial.length > 1 ? 0.42 : 0.5),
         ...ESTILOS[rol.family],
         ...(conTexto ? {} : sx),
       }}

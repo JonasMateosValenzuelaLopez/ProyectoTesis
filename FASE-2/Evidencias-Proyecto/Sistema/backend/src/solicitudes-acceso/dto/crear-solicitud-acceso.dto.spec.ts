@@ -10,6 +10,7 @@ const datosValidos = {
   segundoApellido: 'Soto',
   correo: 'Ana@Correo.cl',
   numeroUnidad: 'A-101',
+  aceptaPrivacidad: true,
 };
 
 const validar = async (datos: object) => {
@@ -149,6 +150,18 @@ describe('CrearSolicitudAccesoDto', () => {
 
     expect(mensajes).toEqual([
       'El tipo de residencia debe ser Propietario o Arrendatario',
+    ]);
+  });
+
+  it.each([
+    [{ aceptaPrivacidad: false }],
+    [{ aceptaPrivacidad: 'true' }],
+    [{ aceptaPrivacidad: undefined }],
+  ])('debe exigir aceptar el aviso de privacidad con %j', async (cambio) => {
+    const { mensajes } = await validar({ ...datosValidos, ...cambio });
+
+    expect(mensajes).toEqual([
+      'Debes aceptar el aviso de privacidad para enviar la solicitud',
     ]);
   });
 });

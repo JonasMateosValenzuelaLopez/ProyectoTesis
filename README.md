@@ -30,9 +30,17 @@ FASE-2/Evidencias-Proyecto/Sistema/
 ```
 
 ## Estado actual
-- Backend implementado: autenticación (contraseña o código por correo), recuperación de contraseña, solicitudes de acceso, correo y bitácora de auditoría.
-- Backend pendiente: comunidades, unidades, usuarios, cobros, muro, marketplace, reservas y accesos.
-- Base de datos: esquema completo de 37 tablas.
+- Backend implementado:
+    - Identidad: autenticación con contraseña o código por correo, recuperación de contraseña y solicitudes de acceso.
+    - Plataforma: comunidades, módulos y alta de comunidades.
+    - Comunidad: unidades, residentes y cargos, Mi hogar, guía de bienvenida y contactos.
+    - Finanzas: cobros, pagos, avisos, morosidad, egresos con visado, exenciones y reportes.
+    - Convivencia: Muro Vecinal con comunicados, aprobación y moderación, y reservas de espacios comunes con entrega y recepción en conserjería.
+    - Directiva: votaciones y encuestas con un voto por vivienda emitido por el titular, y libro de actas.
+    - Transversal: bitácora de auditoría y un formato único de errores.
+- Backend pendiente: marketplace, invitaciones QR y conserjería, y los datos de la comunidad (cuenta de transferencia y umbral de visado).
+- Base de datos: esquema completo de 39 tablas y 93 llaves foráneas.
+- Pruebas: 1176 pruebas unitarias aprobadas, con 89 % de cobertura de sentencias.
 - Panel web y aplicación móvil: las vistas están construidas, pero **todavía no se conectan al backend**. Funcionan con datos de prueba y las cuentas de demostración se muestran en la pantalla de inicio de sesión.
 
 ## Ejecución local
@@ -45,7 +53,7 @@ FASE-2/Evidencias-Proyecto/Sistema/
     git clone https://github.com/JonasMateosValenzuelaLopez/ProyectoTesis.git
     cd ProyectoTesis/FASE-2/Evidencias-Proyecto/Sistema
     ```
-3. Crear la base de datos. Con MariaDB encendido, abrir HeidiSQL y ejecutar `bd/entrecasas_db.sql` (Archivo → Ejecutar archivo SQL, codificación UTF-8). El script borra y recrea `entrecasas_db`.
+3. Crear la base de datos. MariaDB debe trabajar en UTC: en Laragon, abrir `my.ini` (menú MySQL → my.ini), agregar `default-time-zone='+00:00'` bajo `[mysqld]` y reiniciar MariaDB; sin esto la API no arranca. Con MariaDB encendido, abrir HeidiSQL y ejecutar `bd/entrecasas_db.sql` (Archivo → Ejecutar archivo SQL, codificación UTF-8). El script borra y recrea `entrecasas_db`.
 4. Configurar y ejecutar el backend.
     ```bash
     cd backend
@@ -94,8 +102,8 @@ El proyecto comenzó el 22 de agosto de 2026 y se entrega el 11 de noviembre de 
 | Sprint 0 | 22 ago. al 5 sep. | Definición del proyecto, objetivos, stack tecnológico, arquitectura y repositorio.                         | Terminado  |
 | Sprint 1 | 6 sep. al 17 oct. | Requerimientos, flujos UI/UX y diseño del modelo de datos, a ritmo reducido por la práctica profesional.   | Terminado  |
 | Sprint 2 | 18 al 31 oct.    | Identidad y seguridad: esquema de la base de datos, autenticación, solicitudes de acceso, bitácora y vistas web y móvil. | Terminado  |
-| Sprint 3 | 1 al 4 nov.      | Comunidad e integración: comunidades, unidades y residentes, y conexión de las vistas con la API.           | En curso   |
-| Sprint 4 | 5 al 8 nov.      | Finanzas y convivencia: cobros, morosidad, Muro Vecinal y Marketplace.                                      | Pendiente  |
+| Sprint 3 | 1 al 4 nov.      | Comunidad e integración: comunidades, unidades y residentes, y conexión de las vistas con la API.           | Backend terminado; falta conectar las vistas |
+| Sprint 4 | 5 al 8 nov.      | Finanzas y convivencia: cobros, morosidad, Muro Vecinal y Marketplace.                                      | En curso   |
 | Sprint 5 | 9 al 11 nov.     | Reservas y accesos con código QR, Docker, despliegue y pruebas finales.                                     | Pendiente  |
 
 Los documentos de la metodología están en la carpeta `FASE-2/Evidencias-Proyecto/Documentación/`: [Product Vision](FASE-2/Evidencias-Proyecto/Documentación/01-product-vision.md), [Product Backlog](FASE-2/Evidencias-Proyecto/Documentación/02-product-backlog.md), [Sprint Backlog](FASE-2/Evidencias-Proyecto/Documentación/03-sprint-backlog.md), [Definition of Done](FASE-2/Evidencias-Proyecto/Documentación/04-definition-of-done.md) y [Retrospectivas](FASE-2/Evidencias-Proyecto/Documentación/05-retrospectivas.md).

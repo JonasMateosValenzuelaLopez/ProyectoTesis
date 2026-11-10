@@ -42,6 +42,6 @@ export class IdentificadorUsuarioDto {
     return correo || undefined;
   })
   @IsEmail({}, { message: 'El correo no es válido' })
-  @MaxLength(100)
+  @MaxLength(100, { message: 'El correo no puede superar 100 caracteres' })
   correo?: string;
 }

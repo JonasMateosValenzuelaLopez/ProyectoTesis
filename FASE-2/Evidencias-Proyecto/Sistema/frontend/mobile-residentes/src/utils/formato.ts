@@ -1,5 +1,5 @@
 // Formatos para Chile: pesos sin decimales y fechas en español. Igual que en el panel web.
-import { tipoUnidad, type Cuenta, type Unidad } from '@/data/demo';
+import type { Perfil, TipoUnidad } from '@/api/tipos';
 
 const pesos = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 const fechaCorta = new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'short' });
@@ -39,17 +39,29 @@ export function hace(valor: string) {
   return fecha(valor);
 }
 
-export const nombreUnidad = (u?: Unidad) => (u ? `${tipoUnidad(u) === 'Departamento' ? 'Depto' : 'Casa'} ${u.numero_identificador}` : '');
-// Nombre para mostrar de una fila de `usuarios`
-export const nombreCompleto = (c: Pick<Cuenta, 'nombre' | 'apellido_paterno' | 'apellido_materno'>) => [c.nombre, c.apellido_paterno, c.apellido_materno].filter(Boolean).join(' ');
+// «Depto 502» o «Casa 14», con los campos del backend (`tipoUnidad`, `numeroIdentificador`)
+export const nombreUnidad = (u?: { tipoUnidad: TipoUnidad; numeroIdentificador: string } | null) =>
+  (u ? `${u.tipoUnidad === 'Departamento' ? 'Depto' : 'Casa'} ${u.numeroIdentificador}` : '');
+// Nombre para mostrar de una persona (`nombre`, `primerApellido`, `segundoApellido`)
+export const nombreCompleto = (c: Pick<Perfil, 'nombre' | 'primerApellido' | 'segundoApellido'>) =>
+  [c.nombre, c.primerApellido, c.segundoApellido].filter(Boolean).join(' ');
 
 export function saludo(ahora = new Date()) {
   const h = ahora.getHours();
   return h < 12 ? 'Buenos días' : h < 20 ? 'Buenas tardes' : 'Buenas noches';
 }
 
-// La base guarda +56961234501; en pantalla se lee +56 9 6123 4501
+// La base guarda +56961234501; en pantalla se lee +56 9 6123 4501 (fijos: +56 2 2345 6789, +56 45 221 0890)
 export const telefono = (t?: string | null) => {
-  const m = t?.match(/^\+56(9)(\d{4})(\d{4})$/);
+  const m = t?.match(/^\+56(9)(\d{4})(\d{4})$/) ?? t?.match(/^\+56(2)(\d{4})(\d{4})$/) ?? t?.match(/^\+56([3-8]\d)(\d{3})(\d{4})$/);
   return m ? `+56 ${m[1]} ${m[2]} ${m[3]}` : t ?? '';
 };
+
+// Teléfono en el formato de la base. Acepta «9 6123 4501» o «+56 9 6123 4501»; con `fijo` también
+// números de red fija (9 dígitos con su código de área, como 2 2345 6789). Si no sirve, null.
+export function normalizarTelefono(texto: string, { fijo = false } = {}): string | null {
+  const d = texto.replace(/\D/g, '').replace(/^56(?=\d{9}$)/, '');
+  if (/^9\d{8}$/.test(d)) return `+56${d}`;
+  if (fijo && /^[2-8]\d{8}$/.test(d)) return `+56${d}`;
+  return null;
+}

@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, IsNull, Not, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
 import { BitacoraService } from '../bitacora/bitacora.service';
@@ -13,7 +13,7 @@ import { AmbitoBitacora } from '../bitacora/entities/bitacora-auditoria.entity';
 import { CodigoModulo } from '../common/enums/modulo.enum';
 import { RolUsuario } from '../common/enums/rol.enum';
 import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
-import { condicionVigente, fechaHoy } from '../common/utils/vigencia';
+import { condicionVigente } from '../common/utils/vigencia';
 import { PAIS_POR_DEFECTO } from '../common/validators/identificador.validator';
 import { MailService } from '../mail/mail.service';
 import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
@@ -22,8 +22,8 @@ import {
   RedVecinal,
 } from '../redes-vecinales/entities/red-vecinal.entity';
 import { Unidad } from '../unidades/entities/unidad.entity';
+import { CuentasService } from '../usuarios/cuentas.service';
 import { Membresia } from '../usuarios/entities/membresia.entity';
-import { Residencia } from '../usuarios/entities/residencia.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
@@ -34,6 +34,8 @@ import {
   EstadoSolicitudAcceso,
   SolicitudAcceso,
 } from './entities/solicitud-acceso.entity';
+
+export const VERSION_AVISO_PRIVACIDAD = '2026-11-10';
 
 @Injectable()
 export class SolicitudesAccesoService {
@@ -51,6 +53,7 @@ export class SolicitudesAccesoService {
     private readonly authService: AuthService,
     private readonly bitacoraService: BitacoraService,
     private readonly mailService: MailService,
+    private readonly cuentasService: CuentasService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -105,13 +108,13 @@ export class SolicitudesAccesoService {
     });
 
     if (!yaPendiente && !yaMiembro) {
-      const unidad = await this.unidadesRepository.findOneBy({
-        idRed: red.idRed,
-        numeroIdentificador: dto.numeroUnidad,
+      const coincidencias = await this.unidadesRepository.find({
+        where: { idRed: red.idRed, numeroIdentificador: dto.numeroUnidad },
+        take: 2,
       });
       await this.solicitudesRepository.insert({
         idRed: red.idRed,
-        idUnidad: unidad?.idUnidad ?? null,
+        idUnidad: coincidencias.length === 1 ? coincidencias[0].idUnidad : null,
         numeroUnidad: dto.numeroUnidad,
         tipoResidencia: dto.tipoResidencia,
         identificador,
@@ -122,6 +125,8 @@ export class SolicitudesAccesoService {
         correo: dto.correo,
         telefono: dto.telefono ?? null,
         mensaje: dto.mensaje ?? null,
+        privacidadAceptadaEn: new Date(),
+        versionPrivacidad: VERSION_AVISO_PRIVACIDAD,
       });
     }
 
@@ -131,12 +136,20 @@ export class SolicitudesAccesoService {
     };
   }
 
-  listar(red: ContextoRed, estado?: EstadoSolicitudAcceso) {
-    return this.solicitudesRepository.find({
+  async listar(red: ContextoRed, estado?: EstadoSolicitudAcceso) {
+    const solicitudes = await this.solicitudesRepository.find({
       where: { idRed: red.idRed, ...(estado && { estado }) },
       relations: { unidad: true },
       order: { fechaSolicitud: 'DESC' },
     });
+    const ajenas = await this.conCorreoAjeno(
+      this.dataSource.manager,
+      solicitudes,
+    );
+    return solicitudes.map((solicitud) => ({
+      ...solicitud,
+      correoAjeno: ajenas.has(solicitud.idSolicitud),
+    }));
   }
 
   async aprobar(
@@ -151,7 +164,7 @@ export class SolicitudesAccesoService {
       const idUnidad = dto.idUnidad ?? solicitud.idUnidad;
       if (!idUnidad) {
         throw new BadRequestException(
-          `No existe la unidad "${solicitud.numeroUnidad}" en esta comunidad. Indica idUnidad para aprobar.`,
+          `No se pudo identificar la unidad "${solicitud.numeroUnidad}" en esta comunidad: no existe o el número se repite entre torres. Indica idUnidad para aprobar.`,
         );
       }
       const unidad = await manager.findOneBy(Unidad, {
@@ -164,48 +177,22 @@ export class SolicitudesAccesoService {
         );
       }
 
-      const porIdentificador = await manager.findOne(Usuario, {
-        where: { pais: solicitud.pais, identificador: solicitud.identificador },
-        withDeleted: true,
-      });
-      const porCorreo = await manager.findOne(Usuario, {
-        where: { correo: solicitud.correo },
-        withDeleted: true,
-      });
-      if (porCorreo && porCorreo.idUsuario !== porIdentificador?.idUsuario) {
-        throw new ConflictException(
-          'El correo de la solicitud ya está registrado por otra persona',
-        );
-      }
+      const { usuario, cuentaNueva: esNuevo } =
+        await this.cuentasService.obtenerOCrear(manager, solicitud, {
+          correoAjeno:
+            'El correo de la solicitud ya está registrado por otra persona',
+          bloqueada:
+            'La cuenta de esta persona está bloqueada. Debe desbloquearla el equipo EntreCasas antes de aprobar.',
+        });
 
-      let usuario = porIdentificador;
-      const esNuevo = !usuario;
-      if (usuario?.bloqueado) {
-        throw new ConflictException(
-          'La cuenta de esta persona está bloqueada. Debe desbloquearla el equipo EntreCasas antes de aprobar.',
-        );
-      }
-      if (usuario?.fechaEliminacion) {
-        await manager.restore(Usuario, { idUsuario: usuario.idUsuario });
-      }
-      if (!usuario) {
-        usuario = await manager.save(
-          manager.create(Usuario, {
-            identificador: solicitud.identificador,
-            pais: solicitud.pais,
-            nombre: solicitud.nombre,
-            primerApellido: solicitud.primerApellido,
-            segundoApellido: solicitud.segundoApellido,
-            correo: solicitud.correo,
-            telefono: solicitud.telefono,
-            passwordHash: null,
-          }),
-        );
-      }
-
-      await this.asignarResidente(manager, usuario.idUsuario, red.idRed);
+      await this.cuentasService.asignarMembresia(
+        manager,
+        usuario.idUsuario,
+        red.idRed,
+        RolUsuario.RESIDENTE,
+      );
       const tipoResidencia = dto.tipoResidencia ?? solicitud.tipoResidencia;
-      await this.asignarResidencia(
+      await this.cuentasService.asignarResidencia(
         manager,
         usuario.idUsuario,
         idUnidad,
@@ -239,7 +226,8 @@ export class SolicitudesAccesoService {
       );
 
       const requiereActivacion =
-        esNuevo || !(await this.tienePassword(manager, usuario.idUsuario));
+        esNuevo ||
+        !(await this.cuentasService.tienePassword(manager, usuario.idUsuario));
       const tokenActivacion = requiereActivacion
         ? await this.authService.emitirTokenPassword(
             usuario.idUsuario,
@@ -277,8 +265,8 @@ export class SolicitudesAccesoService {
     idResolutor: number,
     dto: RechazarSolicitudAccesoDto,
   ) {
-    const { solicitud, nombreRed } = await this.dataSource.transaction(
-      async (manager) => {
+    const { solicitud, nombreRed, correoAjeno } =
+      await this.dataSource.transaction(async (manager) => {
         const pendiente = await this.buscarPendiente(manager, idSolicitud, red);
         pendiente.estado = EstadoSolicitudAcceso.RECHAZADA;
         pendiente.motivoRechazo = dto.motivo || null;
@@ -298,11 +286,18 @@ export class SolicitudesAccesoService {
           manager,
         );
         const nombreRed = await this.nombreRed(manager, red.idRed);
-        return { solicitud: guardada, nombreRed };
-      },
-    );
+        const ajenas = await this.conCorreoAjeno(manager, [guardada]);
+        return {
+          solicitud: guardada,
+          nombreRed,
+          correoAjeno: ajenas.has(guardada.idSolicitud),
+        };
+      });
 
     await this.bitacoraService.marcarActividad(red.idRed);
+    if (correoAjeno) {
+      return { ...solicitud, correoAjeno, correoEnviado: false };
+    }
     const correoEnviado = await this.mailService.enviar({
       para: solicitud.correo,
       asunto: `Tu solicitud de acceso a ${nombreRed}`,
@@ -315,7 +310,47 @@ export class SolicitudesAccesoService {
         `\n\nSi crees que es un error, contacta a la administración de tu comunidad.`,
     });
 
-    return { ...solicitud, correoEnviado };
+    return { ...solicitud, correoAjeno, correoEnviado };
+  }
+
+  private async conCorreoAjeno(
+    manager: EntityManager,
+    solicitudes: SolicitudAcceso[],
+  ) {
+    if (solicitudes.length === 0) {
+      return new Set<number>();
+    }
+    const correos = [
+      ...new Set(
+        solicitudes.map((solicitud) => solicitud.correo.toLowerCase()),
+      ),
+    ];
+    const usuarios = await manager.find(Usuario, {
+      select: {
+        idUsuario: true,
+        correo: true,
+        pais: true,
+        identificador: true,
+      },
+      where: { correo: In(correos) },
+      withDeleted: true,
+    });
+    const porCorreo = new Map(
+      usuarios.map((usuario) => [usuario.correo.toLowerCase(), usuario]),
+    );
+    return new Set(
+      solicitudes
+        .filter((solicitud) => {
+          const usuario = porCorreo.get(solicitud.correo.toLowerCase());
+          return (
+            usuario !== undefined &&
+            (usuario.pais !== solicitud.pais ||
+              usuario.identificador.toUpperCase() !==
+                solicitud.identificador.toUpperCase())
+          );
+        })
+        .map((solicitud) => solicitud.idSolicitud),
+    );
   }
 
   private async nombreRed(manager: EntityManager, idRed: number) {
@@ -324,79 +359,6 @@ export class SolicitudesAccesoService {
       throw new NotFoundException('La comunidad no existe');
     }
     return red.nombre;
-  }
-
-  private tienePassword(manager: EntityManager, idUsuario: number) {
-    return manager.exists(Usuario, {
-      where: { idUsuario, passwordHash: Not(IsNull()) },
-      withDeleted: true,
-    });
-  }
-
-  private async asignarResidente(
-    manager: EntityManager,
-    idUsuario: number,
-    idRed: number,
-  ) {
-    const existente = await manager.findOne(Membresia, {
-      where: { idUsuario, idRed, idRol: RolUsuario.RESIDENTE },
-      withDeleted: true,
-    });
-    if (existente?.fechaEliminacion) {
-      await manager.restore(Membresia, {
-        idMembresia: existente.idMembresia,
-      });
-    }
-    const hoy = fechaHoy();
-    if (!existente) {
-      await manager.insert(Membresia, {
-        idUsuario,
-        idRed,
-        idRol: RolUsuario.RESIDENTE,
-        activo: true,
-        desde: hoy,
-        hasta: null,
-      });
-      return;
-    }
-    const vencida = existente.hasta !== null && existente.hasta < hoy;
-    await manager.update(
-      Membresia,
-      { idMembresia: existente.idMembresia },
-      {
-        activo: true,
-        hasta: null,
-        ...(vencida || existente.fechaEliminacion ? { desde: hoy } : {}),
-      },
-    );
-  }
-
-  private async asignarResidencia(
-    manager: EntityManager,
-    idUsuario: number,
-    idUnidad: number,
-    tipo: Residencia['tipo'],
-  ) {
-    const vigente = await manager.findOne(Residencia, {
-      where: { idUsuario, idUnidad, ...condicionVigente() },
-    });
-    if (vigente) {
-      if (vigente.tipo !== tipo) {
-        await manager.update(
-          Residencia,
-          { idResidencia: vigente.idResidencia },
-          { tipo },
-        );
-      }
-      return;
-    }
-    await manager.insert(Residencia, {
-      idUsuario,
-      idUnidad,
-      tipo,
-      desde: fechaHoy(),
-      hasta: null,
-    });
   }
 
   private async buscarPendiente(

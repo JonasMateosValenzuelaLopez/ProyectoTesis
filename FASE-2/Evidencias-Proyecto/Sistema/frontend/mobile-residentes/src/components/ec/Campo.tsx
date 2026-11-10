@@ -9,7 +9,7 @@ export default function Campo({ etiqueta, error, ayuda, style, ...rest }: TextIn
   const [foco, setFoco] = useState(false);
   return (
     <View style={{ gap: 6 }}>
-      <Texto v="fuerte" style={{ fontSize: 15 }}>{etiqueta}</Texto>
+      <Texto style={{ fontFamily: F.etiqueta, fontSize: 14, lineHeight: 18, color: t.ink2 }}>{etiqueta}</Texto>
       <TextInput
         placeholderTextColor={t.placeholder}
         accessibilityLabel={etiqueta}
@@ -17,7 +17,7 @@ export default function Campo({ etiqueta, error, ayuda, style, ...rest }: TextIn
         onFocus={(e) => { setFoco(true); rest.onFocus?.(e); }}
         onBlur={(e) => { setFoco(false); rest.onBlur?.(e); }}
         style={[{
-          minHeight: 50, borderRadius: 12, borderWidth: foco ? 2 : 1.5, paddingHorizontal: foco ? 13.5 : 14,
+          minHeight: 52, borderRadius: 14, borderWidth: foco ? 2 : 1, paddingHorizontal: foco ? 15 : 16,
           borderColor: error ? t.bad : foco ? t.accion : t.lineStrong, backgroundColor: t.surface,
           fontFamily: F.texto, fontSize: 17, color: t.ink,
         }, style]}

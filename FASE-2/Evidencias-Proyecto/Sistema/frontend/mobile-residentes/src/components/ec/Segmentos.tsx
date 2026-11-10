@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated';
-import { F, useTema } from '@/constants/tema';
+import { F, sombra, useTema } from '@/constants/tema';
 import { motion } from '@/constants/tokens';
 import Texto from './Texto';
 
@@ -29,17 +29,17 @@ export default function Segmentos<T extends string>({ opciones, valor, onCambio 
   return (
     <View
       accessibilityRole="tablist" onLayout={(e) => setAncho(e.nativeEvent.layout.width)}
-      style={{ flexDirection: 'row', backgroundColor: t.line, borderRadius: 12, padding: PAD, gap: PAD }}
+      style={{ flexDirection: 'row', backgroundColor: t.inkSoft, borderRadius: 999, padding: PAD, gap: PAD }}
     >
       {segmento > 0 && (
-        <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: PAD, bottom: PAD, left: PAD, width: segmento, borderRadius: 9, backgroundColor: t.surface }, ficha]} />
+        <Animated.View pointerEvents="none" style={[{ position: 'absolute', top: PAD, bottom: PAD, left: PAD, width: segmento, borderRadius: 999, backgroundColor: t.oscuro ? t.lineStrong : t.surface }, sombra(t), ficha]} />
       )}
       {opciones.map((o) => {
         const activo = o.valor === valor;
         return (
           <Pressable
             key={o.valor} accessibilityRole="tab" accessibilityState={{ selected: activo }} onPress={() => onCambio(o.valor)}
-            style={{ flex: 1, minHeight: 40, borderRadius: 9, alignItems: 'center', justifyContent: 'center', backgroundColor: activo && !segmento ? t.surface : 'transparent' }}
+            style={{ flex: 1, minHeight: 42, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: activo && !segmento ? t.surface : 'transparent' }}
           >
             <Texto style={{ fontFamily: activo ? F.negrita : F.medio, fontSize: 15, color: activo ? t.ink : t.ink2 }}>{o.texto}</Texto>
           </Pressable>

@@ -7,10 +7,10 @@ import {
 import { Menu as MenuIcon } from '@mui/icons-material';
 import PlacaUnidad from './marca/PlacaUnidad';
 
-const drawerWidth = 248;
+const drawerWidth = 260;
 
 // Armazón compartido por el panel de la comunidad y el de la plataforma:
-// menú lateral oscuro con secciones, barra superior y contenido.
+// menú lateral con secciones, barra superior y contenido.
 // `barra` es lo que va en la barra superior; `activo(item, ruta)` decide qué opción se marca.
 const exacto = (item, ruta) => item.ruta === ruta;
 
@@ -25,10 +25,10 @@ export default function MarcoPanel({ secciones, contadores = {}, barra, etiqueta
   };
 
   const drawer = (
-    <Box sx={{ height: '100%', bgcolor: 'marca.sidebar', color: 'marca.sidebarInk', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '100%', bgcolor: 'marca.sidebar', color: 'marca.sidebarInk', borderRight: 1, borderColor: 'marca.sidebarBorder', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2.5, py: 2.25 }}>
         <PlacaUnidad tipo="" numero="EC" size="sm" invertida />
-        <Typography sx={{ color: '#fff', fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800, fontSize: '1.15rem' }}>
+        <Typography sx={{ color: 'marca.sidebarStrong', fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800, fontSize: '1.15rem' }}>
           EntreCasas
         </Typography>
       </Box>
@@ -52,8 +52,8 @@ export default function MarcoPanel({ secciones, contadores = {}, barra, etiqueta
                     sx={{
                       borderRadius: 1.5, mb: 0.25, py: 0.75, color: 'inherit',
                       transition: 'background-color 150ms ease, color 150ms ease',
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.05)', color: '#fff' },
-                      '&.Mui-selected, &.Mui-selected:hover': { bgcolor: 'marca.sidebarActive', color: '#fff' },
+                      '&:hover': { bgcolor: 'marca.sidebarHover', color: 'marca.sidebarStrong' },
+                      '&.Mui-selected, &.Mui-selected:hover': { bgcolor: 'marca.sidebarActive', color: 'marca.sidebarStrong' },
                       '&.Mui-selected::before': {
                         content: '""', position: 'absolute', left: 0, top: 8, bottom: 8,
                         width: 3, borderRadius: 2, bgcolor: 'marca.bronzeOnSidebar',
@@ -103,7 +103,9 @@ export default function MarcoPanel({ secciones, contadores = {}, barra, etiqueta
 
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 3 }, width: { sm: `calc(100% - ${drawerWidth}px)` }, minHeight: '100vh', bgcolor: 'background.default' }}>
         <Toolbar />
-        <Outlet />
+        <Box key={location.pathname} className="ec-vista">
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );

@@ -1,5 +1,5 @@
 import { IsNull, LessThanOrEqual, MoreThanOrEqual, Or } from 'typeorm';
-import { condicionVigente, fechaHoy } from './vigencia';
+import { condicionVigente, fechaHoy, horaActual } from './vigencia';
 
 describe('fechaHoy', () => {
   it('debe usar la fecha de Chile con dos dígitos en mes y día', () => {
@@ -22,5 +22,15 @@ describe('condicionVigente', () => {
       desde: LessThanOrEqual('2026-10-26'),
       hasta: Or(IsNull(), MoreThanOrEqual('2026-10-26')),
     });
+  });
+});
+
+describe('horaActual', () => {
+  it('debe dar la hora de Chile en formato de 24 horas', () => {
+    expect(horaActual(new Date('2026-11-05T21:07:00.000Z'))).toBe('18:07');
+  });
+
+  it('debe mostrar la medianoche como 00', () => {
+    expect(horaActual(new Date('2026-07-15T04:05:00.000Z'))).toBe('00:05');
   });
 });
