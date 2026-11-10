@@ -54,6 +54,7 @@ export default function MonitorAccesos({ paginado }) {
         {paginado.siguiente && (
           <Box sx={{ p: 1.5, textAlign: 'center', borderTop: 1, borderColor: 'divider' }}>
             <Button loading={paginado.cargandoMas} onClick={paginado.cargarMas}>Ver anteriores</Button>
+            {paginado.errorMas && <Typography variant="body2" color="error">{paginado.errorMas.message}</Typography>}
           </Box>
         )}
       </Box>

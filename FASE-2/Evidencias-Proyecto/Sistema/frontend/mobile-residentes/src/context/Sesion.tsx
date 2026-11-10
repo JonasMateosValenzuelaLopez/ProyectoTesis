@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as auth from '@/api/auth';
 import * as comunidadApi from '@/api/comunidad';
-import { sesionApi } from '@/api/cliente';
+import { ErrorApi, mensajeDe, sesionApi } from '@/api/cliente';
 import { RolUsuario, type CodigoModulo, type ComunidadPerfil, type Perfil, type Sesion, type UnidadPerfil } from '@/api/tipos';
 
 // Sesión de la app: el perfil que devuelve la API (`auth/perfil`) y la vivienda con que actúa la persona.
@@ -48,19 +48,25 @@ function useValor() {
     setMotivoSalida(motivo);
   }, []);
 
-  // Al abrir la app, recupera la sesión guardada
-  useEffect(() => {
-    sesionApi.cargar()
-      .then(async (token) => {
-        if (!token) return;
-        const p = await auth.perfil();
-        if (!tieneVivienda(p)) { cerrarSesion(); return; }
-        setPerfil(p);
-        elegirVivienda(p, null);
-      })
-      .catch(() => cerrarSesion())
-      .finally(() => setCargando(false));
-  }, [cerrarSesion, elegirVivienda]);
+  // Al abrir la app, recupera la sesión guardada. Solo se cierra si el backend rechaza el token (401 o 403);
+  // si falla la red o el servidor, el token se conserva y la entrada ofrece reintentar (`sinConexion`).
+  const [sinConexion, setSinConexion] = useState<string | null>(null);
+  const recuperar = useCallback(() => sesionApi.cargar()
+    .then(async (token) => {
+      if (!token) return;
+      const p = await auth.perfil();
+      if (!tieneVivienda(p)) { cerrarSesion(); return; }
+      setSinConexion(null);
+      setPerfil(p);
+      elegirVivienda(p, null);
+    })
+    .catch((error: unknown) => {
+      if (error instanceof ErrorApi && (error.statusCode === 401 || error.statusCode === 403)) cerrarSesion(error.message);
+      else setSinConexion(mensajeDe(error));
+    })
+    .finally(() => setCargando(false)), [cerrarSesion, elegirVivienda]);
+  useEffect(() => { recuperar(); }, [recuperar]);
+  const reintentar = useCallback(() => { setCargando(true); setSinConexion(null); recuperar(); }, [recuperar]);
 
   // Token vencido o inválido en cualquier llamada: se cierra la sesión con el mensaje del backend
   useEffect(() => {
@@ -75,7 +81,7 @@ function useValor() {
     const cargo = comunidad?.roles.map((r) => r.idRol).find((idRol) => idRol !== RolUsuario.RESIDENTE) ?? null;
 
     return {
-      perfil, cargando, motivoSalida, aviso,
+      perfil, cargando, motivoSalida, aviso, sinConexion,
       viviendas,
       comunidad,
       unidad: actual?.unidad ?? null,
@@ -94,6 +100,8 @@ function useValor() {
           elegirVivienda(s.usuario, null);
         },
         cerrarSesion,
+        // Vuelve a intentar recuperar la sesión guardada (después de un problema de conexión al abrir la app)
+        reintentar,
         cambiarVivienda: (id: number) => {
           elegirVivienda(perfil, id);
           const v = viviendas.find((x) => x.unidad.idUnidad === id);
@@ -127,7 +135,7 @@ function useValor() {
         avisar,
       },
     };
-  }, [perfil, idUnidad, cargando, motivoSalida, aviso, cerrarSesion, elegirVivienda, avisar]);
+  }, [perfil, idUnidad, cargando, motivoSalida, aviso, sinConexion, cerrarSesion, reintentar, elegirVivienda, avisar]);
 }
 
 type Valor = ReturnType<typeof useValor>;

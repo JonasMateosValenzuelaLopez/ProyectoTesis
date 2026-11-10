@@ -9,7 +9,7 @@ import * as admin from '../../api/admin';
 import { RolUsuario } from '../../config/roles';
 import { roles } from '../../tokens';
 import { fecha, nombreCompleto, nombreUnidad, telefono } from '../../utils/formato';
-import { formatearRut } from '../../utils/rut';
+import { enmascararRut, formatearRut } from '../../utils/rut';
 import SelloCargo from '../marca/SelloCargo';
 import PlacaUnidad from '../marca/PlacaUnidad';
 
@@ -38,6 +38,7 @@ export default function DialogoUsuario({ persona: u, personas, unidadPorId, titu
   const [confirmarBaja, setConfirmarBaja] = useState(false);
   const [error, setError] = useState(null);
   const [enviando, setEnviando] = useState(null);
+  const [verRut, setVerRut] = useState(false);
 
   const activo = u.estado !== 'Desactivado';
   const disponibles = ASIGNABLES.filter((idRol) => !u.cargos.some((c) => c.idRol === idRol));
@@ -71,7 +72,11 @@ export default function DialogoUsuario({ persona: u, personas, unidadPorId, titu
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ pr: 7 }}>
         {nombreCompleto(u)}
-        <Typography color="text.secondary">{rut}</Typography>
+        {/* El RUT completo se ve solo a pedido: así no queda a la vista en una pantalla compartida */}
+        <Typography color="text.secondary" component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {verRut ? rut : enmascararRut(u.identificador, u.pais)}
+          <Button size="small" onClick={() => setVerRut(!verRut)} sx={{ minWidth: 0, py: 0 }}>{verRut ? 'Ocultar' : 'Mostrar'}</Button>
+        </Typography>
         <IconButton aria-label="Cerrar" onClick={onClose} sx={{ position: 'absolute', right: 12, top: 12 }}><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2.5 }}>

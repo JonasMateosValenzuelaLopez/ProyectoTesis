@@ -10,7 +10,7 @@ import { useAviso } from '../../context/AvisoContext';
 import * as admin from '../../api/admin';
 import { useConsulta } from '../../api/useConsulta';
 import { fecha, nombreCompleto, nombreUnidad } from '../../utils/formato';
-import { formatearRut } from '../../utils/rut';
+import { enmascararRut, formatearRut } from '../../utils/rut';
 import Encabezado from '../../components/ui/Encabezado';
 import EstadoCarga from '../../components/ui/EstadoCarga';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
@@ -19,6 +19,8 @@ import DialogoUsuario from '../../components/admin/DialogoUsuario';
 import DialogoInvitar from '../../components/admin/DialogoInvitar';
 
 const rutDe = (p) => (p.pais === 'CL' ? formatearRut(p.identificador) : p.identificador);
+// En las listas el RUT va enmascarado; el completo se ve en el detalle de la persona con «Mostrar»
+const rutOculto = (p) => enmascararRut(p.identificador, p.pais);
 const FILTROS = {
   todos: { texto: 'Todas las personas', fn: () => true },
   cargos: { texto: 'Directiva y personal', fn: (u) => u.cargos.length > 0 },
@@ -27,8 +29,14 @@ const FILTROS = {
   invitado: { texto: 'Invitación pendiente', fn: (u) => u.estado === 'Invitado' },
 };
 
+// Mensaje del backend (cuentas.service › obtenerOCrear) cuando el correo de la solicitud ya es de otra persona
+const esCorreoAjeno = (err) => /correo.*registrado por otra persona/i.test(err?.message ?? '');
+
 // Aprobar o rechazar una solicitud. Si la API no la pudo unir a una unidad (el número no calzó), hay que elegirla.
-function DialogoResolver({ solicitud: s, aprobar, unidades, onClose, onResuelta }) {
+// Muestra los datos completos para validar a la persona (en la lista el RUT va enmascarado).
+// Si el correo resultó ser de otra cuenta, advierte que rechazar le enviaría el aviso a esa otra persona:
+// el backend siempre avisa por correo al rechazar.
+function DialogoResolver({ solicitud: s, aprobar, unidades, correoAjeno, onCorreoAjeno, onClose, onResuelta }) {
   const { avisar } = useAviso();
   const [idUnidad, setIdUnidad] = useState(s.idUnidad ?? '');
   const [tipoResidencia, setTipoResidencia] = useState(s.tipoResidencia);
@@ -48,14 +56,28 @@ function DialogoResolver({ solicitud: s, aprobar, unidades, onClose, onResuelta 
       onResuelta();
       onClose();
     } catch (err) {
+      if (esCorreoAjeno(err)) onCorreoAjeno();
       setError(err.message);
       setEnviando(false);
     }
   };
+  const avisoCorreoAjeno = (
+    <Alert severity="warning">
+      El correo {s.correo} ya pertenece a otra cuenta de EntreCasas, que no es la de {s.nombre}. Si rechazas la solicitud, el aviso le llegará a esa otra persona.
+      Lo mejor es pedirle a {s.nombre} que envíe una solicitud nueva con su propio correo.
+    </Alert>
+  );
   return (
     <Dialog open onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>{aprobar ? `Aprobar a ${s.nombre} ${s.primerApellido}` : `Rechazar a ${s.nombre} ${s.primerApellido}`}</DialogTitle>
       <DialogContent sx={{ display: 'grid', gap: 2, pt: '8px !important' }}>
+        <Box sx={{ p: 1.5, borderRadius: 1, bgcolor: 'background.default', display: 'grid', gap: 0.25 }}>
+          <Typography variant="body2"><b>RUT:</b> {rutDe(s)}</Typography>
+          <Typography variant="body2"><b>Correo:</b> {s.correo}</Typography>
+          {s.telefono && <Typography variant="body2"><b>Teléfono:</b> {s.telefono}</Typography>}
+          <Typography variant="body2"><b>Vivienda que indicó:</b> {s.numeroUnidad} · {s.tipoResidencia}</Typography>
+        </Box>
+        {correoAjeno && avisoCorreoAjeno}
         {aprobar ? (
           <>
             {!s.idUnidad && <Alert severity="warning" variant="outlined">Escribió «{s.numeroUnidad}» y no calza con una sola unidad. Elige cuál es.</Alert>}
@@ -72,7 +94,7 @@ function DialogoResolver({ solicitud: s, aprobar, unidades, onClose, onResuelta 
           </>
         ) : (
           <TextField label="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} multiline minRows={2}
-            helperText="Se lo enviamos por correo" slotProps={{ htmlInput: { maxLength: 255 } }} />
+            helperText={`Se lo enviamos por correo a ${s.correo}`} slotProps={{ htmlInput: { maxLength: 255 } }} />
         )}
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
@@ -88,6 +110,9 @@ function DialogoResolver({ solicitud: s, aprobar, unidades, onClose, onResuelta 
 
 function Solicitudes({ solicitudes, unidades, unidadPorId, onResuelta }) {
   const [resolver, setResolver] = useState(null);
+  // Solicitudes cuyo correo ya es de otra cuenta (lo avisa el backend al intentar aprobar): al rechazarlas,
+  // el aviso le llegaría a esa otra persona
+  const [correoAjeno, setCorreoAjeno] = useState(() => new Set());
   if (solicitudes.length === 0) {
     return <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">No hay solicitudes de acceso pendientes.</Typography></Paper>;
   }
@@ -102,7 +127,7 @@ function Solicitudes({ solicitudes, unidades, unidadPorId, onResuelta }) {
               {unidad ? <PlacaUnidad unidad={unidad} size="sm" /> : <Chip size="small" color="warning" variant="outlined" label={`«${s.numeroUnidad}»`} />}
               <Box sx={{ minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 700 }}>{nombreCompleto(s)}</Typography>
-                <Typography variant="body2" color="text.secondary">{rutDe(s)} · {s.tipoResidencia} · pidió el {fecha(s.fechaSolicitud)} · {s.correo}</Typography>
+                <Typography variant="body2" color="text.secondary">{rutOculto(s)} · {s.tipoResidencia} · pidió el {fecha(s.fechaSolicitud)} · {s.correo}</Typography>
               </Box>
             </Box>
             {s.mensaje && <Typography color="text.secondary">«{s.mensaje}»</Typography>}
@@ -118,7 +143,14 @@ function Solicitudes({ solicitudes, unidades, unidadPorId, onResuelta }) {
           </Paper>
         );
       })}
-      {resolver && <DialogoResolver solicitud={resolver.s} aprobar={resolver.aprobar} unidades={unidades} onClose={() => setResolver(null)} onResuelta={onResuelta} />}
+      {resolver && (
+        <DialogoResolver
+          solicitud={resolver.s} aprobar={resolver.aprobar} unidades={unidades}
+          correoAjeno={correoAjeno.has(resolver.s.idSolicitud)}
+          onCorreoAjeno={() => setCorreoAjeno((c) => new Set(c).add(resolver.s.idSolicitud))}
+          onClose={() => setResolver(null)} onResuelta={onResuelta}
+        />
+      )}
     </Box>
   );
 }
@@ -205,7 +237,7 @@ export default function Residentes() {
                 <Box sx={{ minWidth: 0 }}>
                   <Typography sx={{ fontWeight: 700 }}>{nombreCompleto(u)}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {[...u.viviendas.map((v) => v.tipoResidencia), ...u.cargos.map((c) => roles[c.idRol]?.label ?? c.cargo)].join(' · ') || rutDe(u)}
+                    {[...u.viviendas.map((v) => v.tipoResidencia), ...u.cargos.map((c) => roles[c.idRol]?.label ?? c.cargo)].join(' · ') || rutOculto(u)}
                   </Typography>
                   {u.estado === 'Invitado' && <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 700 }}>Invitación pendiente</Typography>}
                 </Box>
@@ -232,7 +264,7 @@ export default function Residentes() {
                   <TableRow key={u.idUsuario} hover tabIndex={0} onClick={() => setSeleccion(u.idUsuario)} onKeyDown={(e) => e.key === 'Enter' && setSeleccion(u.idUsuario)} sx={{ cursor: 'pointer' }}>
                     <TableCell>
                       <Typography sx={{ fontWeight: 700 }}>{nombreCompleto(u)}</Typography>
-                      <Typography variant="body2" color="text.secondary">{rutDe(u)}</Typography>
+                      <Typography variant="body2" color="text.secondary">{rutOculto(u)}</Typography>
                     </TableCell>
                     <TableCell>
                       {u.viviendas.length === 0 ? <Typography color="text.secondary">Personal</Typography> : u.viviendas.map((v) => (

@@ -191,6 +191,7 @@ export default function Muro() {
               {pestana === 'reportadas' ? 'Revisar publicaciones más antiguas' : 'Ver más'}
             </Button>
           )}
+          {vecinos.errorMas && <Typography color="error" sx={{ textAlign: 'center' }}>{vecinos.errorMas.message}</Typography>}
         </Box>
       )}
 

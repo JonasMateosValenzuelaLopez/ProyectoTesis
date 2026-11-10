@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, Box, Button, MenuItem, TextField, Typography, Link as MuiLink } from '@mui/material';
+import { Alert, Box, Button, Checkbox, FormControlLabel, MenuItem, TextField, Typography, Link as MuiLink } from '@mui/material';
+import { AVISO_SOLICITUD, TEXTO_CONSENTIMIENTO } from '../../config/privacidad';
 import { ArrowBack as VolverIcon } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 import { comunidadesParaSolicitar, crearSolicitud } from '../../api/admin';
@@ -22,13 +23,15 @@ export default function SolicitarAcceso() {
   const [error, setError] = useState(null);
   const [enviada, setEnviada] = useState(null);
   const [enviando, setEnviando] = useState(false);
+  const [acepta, setAcepta] = useState(false);
 
   const cambiar = (e) => { setF({ ...f, [e.target.name]: e.target.value }); setError(null); };
   const rutMal = f.identificador.length > 3 && !rutValido(f.identificador);
   const correoMal = f.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(f.correo.trim());
   const telefono = f.telefono.trim() ? normalizarTelefono(f.telefono) : null;
   const telefonoMal = !!f.telefono.trim() && !telefono;
-  const valido = f.idRed && rutValido(f.identificador) && f.nombre.trim() && f.primerApellido.trim() && f.correo.trim() && !correoMal && !telefonoMal && f.numeroUnidad.trim();
+  // La casilla de consentimiento es obligatoria. El backend todavía no la recibe ni la guarda, así que no se envía.
+  const valido = acepta && f.idRed && rutValido(f.identificador) && f.nombre.trim() && f.primerApellido.trim() && f.correo.trim() && !correoMal && !telefonoMal && f.numeroUnidad.trim();
   const marcar = (malo) => intento && !!malo;
 
   const enviar = async (e) => {
@@ -100,6 +103,19 @@ export default function SolicitarAcceso() {
                 </TextField>
               </Box>
               <TextField label="Mensaje para la administración (opcional)" name="mensaje" value={f.mensaje} onChange={cambiar} multiline minRows={2} slotProps={{ htmlInput: { maxLength: 255 } }} />
+              {/* Ley 21.719: antes de enviar, qué datos se piden y para qué, y el consentimiento explícito */}
+              <Box sx={{ display: 'grid', gap: 1, p: 1.5, borderRadius: 1.5, border: 1, borderColor: marcar(!acepta) ? 'error.main' : 'divider', bgcolor: 'background.default' }}>
+                <Typography variant="body2" color="text.secondary">
+                  {AVISO_SOLICITUD}{' '}
+                  <MuiLink component={RouterLink} to="/privacidad" target="_blank" rel="noopener">Lee la Política de privacidad</MuiLink>.
+                </Typography>
+                <FormControlLabel
+                  control={<Checkbox checked={acepta} onChange={(e) => { setAcepta(e.target.checked); setError(null); }} required />}
+                  label={<Typography variant="body2">{TEXTO_CONSENTIMIENTO}</Typography>}
+                  sx={{ alignItems: 'flex-start', m: 0, '& .MuiCheckbox-root': { pt: 0.25, pl: 0 } }}
+                />
+                {marcar(!acepta) && <Typography variant="body2" color="error">Para enviar la solicitud debes aceptar el tratamiento de tus datos.</Typography>}
+              </Box>
               {error && <Alert severity="error">{error}</Alert>}
               <Button type="submit" variant="contained" size="large" loading={enviando} sx={{ mt: 1 }}>Enviar solicitud</Button>
             </Box>

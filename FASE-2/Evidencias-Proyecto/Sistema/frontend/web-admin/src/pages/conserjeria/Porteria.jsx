@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { PersonAddAlt1Outlined as IngresoIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
@@ -45,9 +45,21 @@ export default function Porteria() {
   const { recargar: recargarHistorial } = historial;
 
   const [ahora, setAhora] = useState(() => Date.now());
+  // El refresco no lanza otra consulta si la anterior no terminó (una red lenta no las acumula), se pausa con la
+  // pestaña oculta y, al volver a ella, se pone al día de inmediato.
+  const ocupado = useRef(false);
+  useEffect(() => { ocupado.current = resumen.cargando || historial.cargando; });
   useEffect(() => {
-    const t = setInterval(() => { setAhora(Date.now()); recargarResumen(); recargarHistorial(); }, ACTUALIZAR_MS);
-    return () => clearInterval(t);
+    const refrescar = () => {
+      if (document.hidden || ocupado.current) return;
+      setAhora(Date.now());
+      recargarResumen();
+      recargarHistorial();
+    };
+    const t = setInterval(refrescar, ACTUALIZAR_MS);
+    const alVolver = () => { if (!document.hidden) refrescar(); };
+    document.addEventListener('visibilitychange', alVolver);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', alVolver); };
   }, [recargarResumen, recargarHistorial]);
   const actualizar = () => { recargarResumen(); recargarHistorial(); };
 

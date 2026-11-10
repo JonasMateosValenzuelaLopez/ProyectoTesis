@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSesion } from '@/context/Sesion';
 import { useTema } from '@/constants/tema';
@@ -22,13 +22,19 @@ export default function EnPorteria() {
   const t = useTema();
   const { comunidad, tiene, acciones } = useSesion();
   const conConserjeria = tiene('conserjeria');
-  const { datos, recargar, setDatos } = useConsulta(conConserjeria ? accesos.porAutorizar : sinConserjeria, [comunidad?.idRed, conConserjeria]);
+  const { datos, cargando, recargar, setDatos } = useConsulta(conConserjeria ? accesos.porAutorizar : sinConserjeria, [comunidad?.idRed, conConserjeria]);
   useAlEnfocar(recargar);
   const [enviando, setEnviando] = useState<string | null>(null);
+  // No pregunta con la app en segundo plano ni si la consulta anterior no terminó; al volver a la app, se pone al día
+  const ocupado = useRef(false);
+  useEffect(() => { ocupado.current = cargando; });
   useEffect(() => {
     if (!conConserjeria) return undefined;
-    const intervalo = setInterval(recargar, ACTUALIZAR_MS);
-    return () => clearInterval(intervalo);
+    const intervalo = setInterval(() => {
+      if (AppState.currentState === 'active' && !ocupado.current) recargar();
+    }, ACTUALIZAR_MS);
+    const suscripcion = AppState.addEventListener('change', (estado) => { if (estado === 'active') recargar(); });
+    return () => { clearInterval(intervalo); suscripcion.remove(); };
   }, [conConserjeria, recargar]);
 
   const responder = async (idAcceso: number, visitante: string, aprobado: boolean) => {

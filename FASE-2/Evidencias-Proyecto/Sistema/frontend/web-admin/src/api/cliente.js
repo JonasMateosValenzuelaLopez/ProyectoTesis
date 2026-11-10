@@ -39,6 +39,15 @@ export const sesionApi = {
   alExpirar: (fn) => { alExpirar = fn; },
 };
 
+// Cancelación: `useConsulta` ejecuta sus pedidos dentro de `conSenal(señal, fn)`; cada `api()` que empieza en
+// ese momento toma la señal y se corta si la pantalla se cierra o cambia la consulta (un filtro, otra comunidad).
+let senalActual = null;
+export function conSenal(senal, fn) {
+  const previa = senalActual;
+  senalActual = senal;
+  try { return fn(); } finally { senalActual = previa; }
+}
+
 const consulta = (params) => {
   if (!params) return '';
   const pares = Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '');
@@ -47,7 +56,7 @@ const consulta = (params) => {
 
 // `publica`: no envía token ni trata el 401 como sesión vencida (login, código, recuperar clave).
 // `sinRed`: no envía `X-Red-Id` (perfil, Mi cuenta, Plataforma).
-export async function api(ruta, { metodo = 'GET', cuerpo, params, publica = false, sinRed = false } = {}) {
+export async function api(ruta, { metodo = 'GET', cuerpo, params, publica = false, sinRed = false, senal = senalActual } = {}) {
   const cabeceras = { Accept: 'application/json' };
   if (cuerpo !== undefined) cabeceras['Content-Type'] = 'application/json';
   if (!publica && token) cabeceras.Authorization = `Bearer ${token}`;
@@ -59,8 +68,10 @@ export async function api(ruta, { metodo = 'GET', cuerpo, params, publica = fals
       method: metodo,
       headers: cabeceras,
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+      signal: senal ?? undefined,
     });
   } catch {
+    if (senal?.aborted) throw new ErrorApi({ codigo: 'CANCELADA', mensaje: 'Consulta cancelada' });
     throw new ErrorApi({ mensaje: 'No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.' });
   }
 

@@ -46,6 +46,9 @@ export default function Marketplace() {
           {avisos.siguiente && (
             <Button sx={{ justifySelf: 'center' }} loading={avisos.cargandoMas} onClick={avisos.cargarMas}>Ver avisos más antiguos</Button>
           )}
+          {avisos.errorMas && (
+            <Typography color="error" sx={{ textAlign: 'center' }}>{avisos.errorMas.message}</Typography>
+          )}
         </Box>
       )}
     </Box>

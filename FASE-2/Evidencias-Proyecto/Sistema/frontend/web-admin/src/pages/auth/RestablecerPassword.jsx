@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { Alert, Box, Button, TextField, Typography, Link as MuiLink } from '@mui/material';
+import { Alert, Box, Button, Typography, Link as MuiLink } from '@mui/material';
 import { ArrowBack as VolverIcon } from '@mui/icons-material';
 import * as auth from '../../api/auth';
 import { errorClaveNueva } from '../../utils/clave';
 import PanelMarca from '../../components/marca/PanelMarca';
 import SelectorTema from '../../components/SelectorTema';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
+import CampoClave from '../../components/ui/CampoClave';
 
 // Llega desde el correo (FRONTEND_URL/restablecer-password?token=…). El mismo enlace sirve para
 // recuperar la clave y para crear la primera clave de una cuenta invitada. El token tiene 43 caracteres.
@@ -67,12 +68,12 @@ export default function RestablecerPassword() {
             </>
           ) : (
             <Box component="form" onSubmit={guardar} noValidate sx={{ display: 'grid', gap: 2 }}>
-              <TextField
-                label="Clave nueva" type="password" name="nueva" value={f.nueva} onChange={cambiar} autoFocus autoComplete="new-password"
+              <CampoClave
+                label="Clave nueva" name="nueva" value={f.nueva} onChange={cambiar} autoFocus autoComplete="new-password"
                 error={intento && !!errorNueva} helperText={(intento && errorNueva) || ' '}
               />
-              <TextField
-                label="Repite la clave nueva" type="password" name="repetir" value={f.repetir} onChange={cambiar} autoComplete="new-password"
+              <CampoClave
+                label="Repite la clave nueva" name="repetir" value={f.repetir} onChange={cambiar} autoComplete="new-password"
                 error={intento && !!errorRepetir} helperText={(intento && errorRepetir) || ' '}
               />
               {error && (

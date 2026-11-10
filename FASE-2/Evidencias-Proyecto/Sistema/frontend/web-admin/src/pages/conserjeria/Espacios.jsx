@@ -101,9 +101,12 @@ export default function Espacios() {
   const [entregando, setEntregando] = useState(null);
   const [ahora, setAhora] = useState(horaActual);
   // Cada minuto se mueve la línea de la hora y se vuelven a pedir las reservas (pueden llegar nuevas desde la app)
+  // Con la pestaña oculta no se vuelve a pedir: al volver, se pone al día de inmediato
   useEffect(() => {
-    const t = setInterval(() => { setAhora(horaActual()); recargar(); }, 60000);
-    return () => clearInterval(t);
+    const refrescar = () => { if (!document.hidden) { setAhora(horaActual()); recargar(); } };
+    const t = setInterval(refrescar, 60000);
+    document.addEventListener('visibilitychange', refrescar);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', refrescar); };
   }, [recargar]);
 
   const entregar = async (r) => {

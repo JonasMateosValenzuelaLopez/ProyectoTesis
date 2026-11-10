@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { AVISO_SOLICITUD, TEXTO_CONSENTIMIENTO } from '@/constants/privacidad';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as comunidadApi from '@/api/comunidad';
@@ -28,6 +29,8 @@ export default function SolicitarAcceso() {
   const [error, setError] = useState<string | null>(null);
   const [enviada, setEnviada] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  // Consentimiento obligatorio (Ley 21.719). El backend todavía no lo recibe ni lo guarda, así que no se envía.
+  const [acepta, setAcepta] = useState(false);
   const cambiar = (k: keyof typeof f) => (v: string) => { setF({ ...f, [k]: v }); setError(null); };
   const comunidad = (comunidades.datos ?? []).find((c) => String(c.idRed) === f.idRed);
   const tel = f.telefono.trim() ? normalizarTelefono(f.telefono) : null;
@@ -40,6 +43,7 @@ export default function SolicitarAcceso() {
     identificador: !rutValido(f.identificador) && 'RUT no válido',
     correo: !correoValido(f.correo) && 'Revisa el correo',
     telefono: !!f.telefono.trim() && !tel && 'Escribe un celular de 9 dígitos',
+    acepta: !acepta && 'Para enviar la solicitud debes aceptar el tratamiento de tus datos',
   };
   const err = (k: keyof typeof faltas) => (intento ? faltas[k] : false);
 
@@ -100,6 +104,21 @@ export default function SolicitarAcceso() {
       <Campo etiqueta="Correo" value={f.correo} onChangeText={cambiar('correo')} keyboardType="email-address" autoCapitalize="none" autoComplete="email" maxLength={100} error={err('correo')} ayuda="Aquí te avisamos cuando te aprueben" />
       <Campo etiqueta="Teléfono (opcional)" value={f.telefono} onChangeText={cambiar('telefono')} keyboardType="phone-pad" autoComplete="tel" placeholder="+56 9 6123 4501" error={err('telefono')} />
       <Campo etiqueta="Mensaje para la administración (opcional)" value={f.mensaje} onChangeText={cambiar('mensaje')} multiline maxLength={255} style={{ minHeight: 90, paddingTop: 12, textAlignVertical: 'top' }} />
+      <View style={{ gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: err('acepta') ? t.bad : t.line, backgroundColor: t.paper }}>
+        <Texto v="chico">
+          {AVISO_SOLICITUD}{' '}
+          <Texto v="chico" color={t.accion} onPress={() => router.push('/privacidad')} accessibilityRole="link">Lee la Política de privacidad</Texto>.
+        </Texto>
+        <Pressable
+          onPress={() => { setAcepta(!acepta); setError(null); }}
+          accessibilityRole="checkbox" accessibilityState={{ checked: acepta }} accessibilityLabel={TEXTO_CONSENTIMIENTO}
+          style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 44 }}
+        >
+          <Ionicons name={acepta ? 'checkbox' : 'square-outline'} size={24} color={acepta ? t.accion : t.ink2} />
+          <Texto style={{ flex: 1 }}>{TEXTO_CONSENTIMIENTO}</Texto>
+        </Pressable>
+        {err('acepta') && <Texto v="chico" color={t.bad}>{err('acepta')}</Texto>}
+      </View>
       {error && <Texto color={t.bad}>{error}</Texto>}
     </Hoja>
   );

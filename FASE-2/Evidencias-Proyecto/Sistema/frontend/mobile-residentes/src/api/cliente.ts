@@ -66,7 +66,18 @@ type Opciones = {
   publica?: boolean;
   // No envía `X-Red-Id` (perfil y Mis datos)
   sinRed?: boolean;
+  // Para cortar la petición; por defecto, la de la consulta de `useConsulta` en curso (ver `conSenal`)
+  senal?: AbortSignal | null;
 };
+
+// Cancelación: `useConsulta` ejecuta sus pedidos dentro de `conSenal(señal, fn)`; cada `api()` que empieza en
+// ese momento toma la señal y se corta si la pantalla se cierra o cambia la consulta.
+let senalActual: AbortSignal | null = null;
+export function conSenal<T>(senal: AbortSignal, fn: () => T): T {
+  const previa = senalActual;
+  senalActual = senal;
+  try { return fn(); } finally { senalActual = previa; }
+}
 
 const consulta = (params?: Opciones['params']) => {
   if (!params) return '';
@@ -74,7 +85,7 @@ const consulta = (params?: Opciones['params']) => {
   return pares.length ? `?${pares.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`).join('&')}` : '';
 };
 
-export async function api<T>(ruta: string, { metodo = 'GET', cuerpo, params, publica = false, sinRed = false }: Opciones = {}): Promise<T> {
+export async function api<T>(ruta: string, { metodo = 'GET', cuerpo, params, publica = false, sinRed = false, senal = senalActual }: Opciones = {}): Promise<T> {
   const cabeceras: Record<string, string> = { Accept: 'application/json' };
   if (cuerpo !== undefined) cabeceras['Content-Type'] = 'application/json';
   if (!publica && token) cabeceras.Authorization = `Bearer ${token}`;
@@ -86,8 +97,10 @@ export async function api<T>(ruta: string, { metodo = 'GET', cuerpo, params, pub
       method: metodo,
       headers: cabeceras,
       body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo),
+      signal: senal ?? undefined,
     });
   } catch {
+    if (senal?.aborted) throw new ErrorApi({ codigo: 'CANCELADA', mensaje: 'Consulta cancelada' });
     throw new ErrorApi({ mensaje: 'No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.' });
   }
 

@@ -49,6 +49,7 @@ function Raiz() {
               {/* Entrar y salir de la sesión cambian de pantalla con un fundido (después del saludo o la despedida) */}
               <Stack.Screen name="login" options={{ animation: 'fade' }} />
               <Stack.Screen name="solicitar-acceso" />
+              <Stack.Screen name="privacidad" options={{ presentation: 'modal' }} />
               <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
               {/* El tutorial y la guía de bienvenida ocupan toda la pantalla y no se cierran deslizando: se terminan o se saltan */}
               <Stack.Screen name="bienvenida" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />

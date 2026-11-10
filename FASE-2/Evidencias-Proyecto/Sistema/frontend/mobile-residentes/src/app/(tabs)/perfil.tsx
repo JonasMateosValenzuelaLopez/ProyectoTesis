@@ -77,6 +77,7 @@ export default function Perfil() {
         {tiene('votaciones') && <Fila izquierda={icono('book-outline')} titulo="Libro de actas" detalle="Reuniones y asambleas publicadas por Secretaría" onPress={() => router.push('/actas')} />}
         <Fila izquierda={icono('compass-outline')} titulo="Guía de la comunidad" detalle="Basura, reciclaje, espacios y contactos útiles" onPress={() => router.push('/bienvenida')} />
         <Fila izquierda={icono('help-circle-outline')} titulo="Cómo usar la app" detalle="Qué hay en cada sección y qué puedes hacer" onPress={() => router.push('/tutorial')} />
+        <Fila izquierda={icono('shield-checkmark-outline')} titulo="Privacidad" detalle="Qué datos usamos, para qué y tus derechos" onPress={() => router.push('/privacidad')} />
       </Tarjeta>
 
       <Tarjeta style={{ gap: 0 }}>

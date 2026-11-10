@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { conSenal } from './cliente';
 
 // Carga datos de la API al montar la vista y cada vez que cambian `deps` (o se llama a `recargar`).
 // Devuelve { datos, cargando, error, recargar, setDatos }:
 // - `cargando` es true mientras la respuesta de la consulta actual no llega (los datos anteriores se mantienen);
 // - `setDatos` pone la respuesta de una acción (por ejemplo, el resumen actualizado) sin volver a pedir todo.
+// Si la vista se cierra o la consulta cambia antes de que llegue la respuesta, la petición se cancela.
 export function useConsulta(pedir, deps = []) {
   const [vuelta, setVuelta] = useState(0);
   const clave = JSON.stringify([...deps, vuelta]);
@@ -15,10 +17,11 @@ export function useConsulta(pedir, deps = []) {
 
   useEffect(() => {
     let vigente = true;
-    pedirActual.current()
+    const controlador = new AbortController();
+    conSenal(controlador.signal, () => pedirActual.current())
       .then((datos) => { if (vigente) setEstado({ clave, datos, error: null }); })
       .catch((error) => { if (vigente) setEstado((s) => ({ clave, datos: s.datos, error })); });
-    return () => { vigente = false; };
+    return () => { vigente = false; controlador.abort(); };
   }, [clave]);
 
   const recargar = useCallback(() => setVuelta((n) => n + 1), []);

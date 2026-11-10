@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { conSenal } from './cliente';
 
 // Carga datos de la API al montar la pantalla y cada vez que cambian `deps` (o se llama a `recargar`).
 // Igual que en el panel: { datos, cargando, error, recargar, setDatos }. Los datos anteriores se mantienen
@@ -12,12 +13,14 @@ export function useConsulta<T>(pedir: () => Promise<T>, deps: unknown[] = []) {
   const pedirActual = useRef(pedir);
   useEffect(() => { pedirActual.current = pedir; });
 
+  // Si la pantalla se cierra o la consulta cambia antes de la respuesta, la petición se cancela
   useEffect(() => {
     let vigente = true;
-    pedirActual.current()
+    const controlador = new AbortController();
+    conSenal(controlador.signal, () => pedirActual.current())
       .then((datos) => { if (vigente) setEstado({ clave, datos, error: null }); })
       .catch((error: Error) => { if (vigente) setEstado((s) => ({ clave, datos: s.datos, error })); });
-    return () => { vigente = false; };
+    return () => { vigente = false; controlador.abort(); };
   }, [clave]);
 
   const recargar = useCallback(() => setVuelta((n) => n + 1), []);

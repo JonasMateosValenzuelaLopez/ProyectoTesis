@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 // Vistas de autenticación
 import Login from './pages/auth/login';
 import SolicitarAcceso from './pages/auth/SolicitarAcceso';
+import Privacidad from './pages/auth/Privacidad';
 import RecuperarPassword from './pages/auth/RecuperarPassword';
 import RestablecerPassword from './pages/auth/RestablecerPassword';
 import ElegirComunidad from './pages/auth/ElegirComunidad';
@@ -120,6 +121,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/solicitar-acceso" element={<SolicitarAcceso />} />
+        <Route path="/privacidad" element={<Privacidad />} />
         <Route path="/recuperar-password" element={<RecuperarPassword />} />
         {/* Enlace de los correos de recuperación y de activación de cuentas invitadas */}
         <Route path="/restablecer-password" element={<RestablecerPassword />} />

@@ -110,6 +110,7 @@ export default function Bitacora() {
           {bitacora.siguiente && (
             <Box sx={{ textAlign: 'center', mt: 2 }}>
               <Button loading={bitacora.cargandoMas} onClick={bitacora.cargarMas}>Ver anteriores</Button>
+              {bitacora.errorMas && <Typography color="error">{bitacora.errorMas.message}</Typography>}
             </Box>
           )}
         </>

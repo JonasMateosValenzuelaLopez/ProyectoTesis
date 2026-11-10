@@ -11,6 +11,7 @@ import PlacaUnidad from '../../components/marca/PlacaUnidad';
 import PanelMarca from '../../components/marca/PanelMarca';
 import SelectorTema from '../../components/SelectorTema';
 import PasoSesion from '../../components/marca/PasoSesion';
+import CampoClave from '../../components/ui/CampoClave';
 
 // A dónde va cada persona al entrar: Plataforma, elegir comunidad o el panel de su única comunidad.
 // Si venía de una página (la sesión expiró), vuelve a ella.
@@ -114,7 +115,7 @@ export default function Login() {
             </ToggleButtonGroup>
 
             {metodo === 'clave' && (
-              <TextField label="Clave" type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="current-password" />
+              <CampoClave label="Clave" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="current-password" />
             )}
             {metodo === 'codigo' && codigoPedido && (
               <>

@@ -4,6 +4,7 @@ import { useSesion } from '../context/SesionContext';
 import * as auth from '../api/auth';
 import Encabezado from '../components/ui/Encabezado';
 import Tarjeta from '../components/ui/Tarjeta';
+import CampoClave from '../components/ui/CampoClave';
 import { errorClaveNueva } from '../utils/clave';
 import { formatearRut } from '../utils/rut';
 import { fechaHora, nombreCompleto, normalizarTelefono, telefono } from '../utils/formato';
@@ -155,18 +156,18 @@ function Contrasena() {
   return (
     <Tarjeta titulo="Contraseña">
       <Box component="form" onSubmit={guardar} sx={{ display: 'grid', gap: 1.5, maxWidth: 420 }}>
-        <TextField
-          type="password" label="Contraseña actual" name="actual" value={f.actual} onChange={cambiar}
+        <CampoClave
+          label="Contraseña actual" name="actual" value={f.actual} onChange={cambiar}
           error={!!error?.passwordActual || (intento && !f.actual)} helperText={ayuda('passwordActual', !f.actual && 'Escribe tu contraseña actual')}
           slotProps={{ htmlInput: { autoComplete: 'current-password' } }}
         />
-        <TextField
-          type="password" label="Contraseña nueva" name="nueva" value={f.nueva} onChange={cambiar}
+        <CampoClave
+          label="Contraseña nueva" name="nueva" value={f.nueva} onChange={cambiar}
           error={!!error?.passwordNueva || (intento && !!errorNueva)} helperText={ayuda('passwordNueva', errorNueva, 'Al menos 8 caracteres, con una letra y un número.')}
           slotProps={{ htmlInput: { autoComplete: 'new-password' } }}
         />
-        <TextField
-          type="password" label="Repite la contraseña nueva" name="repetir" value={f.repetir} onChange={cambiar}
+        <CampoClave
+          label="Repite la contraseña nueva" name="repetir" value={f.repetir} onChange={cambiar}
           error={intento && !!errorRepetir} helperText={(intento && errorRepetir) || ' '} slotProps={{ htmlInput: { autoComplete: 'new-password' } }}
         />
         {error?.general && <Alert severity="error">{error.general}</Alert>}

@@ -8,6 +8,17 @@ export function formatearRut(rut) {
   return `${cuerpo}-${r.slice(-1)}`;
 }
 
+// Para listas y vistas generales: oculta los tres dígitos previos al verificador (12.345.***-K).
+// Un documento extranjero (`pais` distinto de CL) deja ver solo el comienzo y el final.
+export function enmascararRut(identificador, pais = 'CL') {
+  if (!identificador) return '';
+  if (pais !== 'CL') {
+    const d = String(identificador);
+    return d.length <= 4 ? '****' : `${d.slice(0, 2)}${'*'.repeat(Math.max(3, d.length - 4))}${d.slice(-2)}`;
+  }
+  return formatearRut(identificador).replace(/\d{3}(?=-)/, '***');
+}
+
 export function digitoVerificador(cuerpo) {
   let suma = 0;
   let factor = 2;
