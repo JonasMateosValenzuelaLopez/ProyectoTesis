@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
 import { BitacoraService } from '../bitacora/bitacora.service';
@@ -24,6 +24,7 @@ import {
 import { Unidad } from '../unidades/entities/unidad.entity';
 import { CuentasService } from '../usuarios/cuentas.service';
 import { Membresia } from '../usuarios/entities/membresia.entity';
+import { Usuario } from '../usuarios/entities/usuario.entity';
 import { CrearSolicitudAccesoDto } from './dto/crear-solicitud-acceso.dto';
 import {
   AprobarSolicitudAccesoDto,
@@ -33,6 +34,8 @@ import {
   EstadoSolicitudAcceso,
   SolicitudAcceso,
 } from './entities/solicitud-acceso.entity';
+
+export const VERSION_AVISO_PRIVACIDAD = '2026-11-10';
 
 @Injectable()
 export class SolicitudesAccesoService {
@@ -122,6 +125,8 @@ export class SolicitudesAccesoService {
         correo: dto.correo,
         telefono: dto.telefono ?? null,
         mensaje: dto.mensaje ?? null,
+        privacidadAceptadaEn: new Date(),
+        versionPrivacidad: VERSION_AVISO_PRIVACIDAD,
       });
     }
 
@@ -131,12 +136,20 @@ export class SolicitudesAccesoService {
     };
   }
 
-  listar(red: ContextoRed, estado?: EstadoSolicitudAcceso) {
-    return this.solicitudesRepository.find({
+  async listar(red: ContextoRed, estado?: EstadoSolicitudAcceso) {
+    const solicitudes = await this.solicitudesRepository.find({
       where: { idRed: red.idRed, ...(estado && { estado }) },
       relations: { unidad: true },
       order: { fechaSolicitud: 'DESC' },
     });
+    const ajenas = await this.conCorreoAjeno(
+      this.dataSource.manager,
+      solicitudes,
+    );
+    return solicitudes.map((solicitud) => ({
+      ...solicitud,
+      correoAjeno: ajenas.has(solicitud.idSolicitud),
+    }));
   }
 
   async aprobar(
@@ -252,8 +265,8 @@ export class SolicitudesAccesoService {
     idResolutor: number,
     dto: RechazarSolicitudAccesoDto,
   ) {
-    const { solicitud, nombreRed } = await this.dataSource.transaction(
-      async (manager) => {
+    const { solicitud, nombreRed, correoAjeno } =
+      await this.dataSource.transaction(async (manager) => {
         const pendiente = await this.buscarPendiente(manager, idSolicitud, red);
         pendiente.estado = EstadoSolicitudAcceso.RECHAZADA;
         pendiente.motivoRechazo = dto.motivo || null;
@@ -273,11 +286,18 @@ export class SolicitudesAccesoService {
           manager,
         );
         const nombreRed = await this.nombreRed(manager, red.idRed);
-        return { solicitud: guardada, nombreRed };
-      },
-    );
+        const ajenas = await this.conCorreoAjeno(manager, [guardada]);
+        return {
+          solicitud: guardada,
+          nombreRed,
+          correoAjeno: ajenas.has(guardada.idSolicitud),
+        };
+      });
 
     await this.bitacoraService.marcarActividad(red.idRed);
+    if (correoAjeno) {
+      return { ...solicitud, correoAjeno, correoEnviado: false };
+    }
     const correoEnviado = await this.mailService.enviar({
       para: solicitud.correo,
       asunto: `Tu solicitud de acceso a ${nombreRed}`,
@@ -290,7 +310,47 @@ export class SolicitudesAccesoService {
         `\n\nSi crees que es un error, contacta a la administración de tu comunidad.`,
     });
 
-    return { ...solicitud, correoEnviado };
+    return { ...solicitud, correoAjeno, correoEnviado };
+  }
+
+  private async conCorreoAjeno(
+    manager: EntityManager,
+    solicitudes: SolicitudAcceso[],
+  ) {
+    if (solicitudes.length === 0) {
+      return new Set<number>();
+    }
+    const correos = [
+      ...new Set(
+        solicitudes.map((solicitud) => solicitud.correo.toLowerCase()),
+      ),
+    ];
+    const usuarios = await manager.find(Usuario, {
+      select: {
+        idUsuario: true,
+        correo: true,
+        pais: true,
+        identificador: true,
+      },
+      where: { correo: In(correos) },
+      withDeleted: true,
+    });
+    const porCorreo = new Map(
+      usuarios.map((usuario) => [usuario.correo.toLowerCase(), usuario]),
+    );
+    return new Set(
+      solicitudes
+        .filter((solicitud) => {
+          const usuario = porCorreo.get(solicitud.correo.toLowerCase());
+          return (
+            usuario !== undefined &&
+            (usuario.pais !== solicitud.pais ||
+              usuario.identificador.toUpperCase() !==
+                solicitud.identificador.toUpperCase())
+          );
+        })
+        .map((solicitud) => solicitud.idSolicitud),
+    );
   }
 
   private async nombreRed(manager: EntityManager, idRed: number) {

@@ -10,6 +10,8 @@ import { Usuario } from '../usuarios/entities/usuario.entity';
 import { AltaComunidadService } from './alta-comunidad.service';
 import { BitacoraPlataformaController } from './bitacora-plataforma.controller';
 import { BitacoraPlataformaService } from './bitacora-plataforma.service';
+import { PersonasPlataformaController } from './personas-plataforma.controller';
+import { PersonasPlataformaService } from './personas-plataforma.service';
 import { PlataformaController } from './plataforma.controller';
 import { PlataformaService } from './plataforma.service';
 
@@ -25,11 +27,16 @@ import { PlataformaService } from './plataforma.service';
       EspacioComun,
     ]),
   ],
-  controllers: [PlataformaController, BitacoraPlataformaController],
+  controllers: [
+    PlataformaController,
+    BitacoraPlataformaController,
+    PersonasPlataformaController,
+  ],
   providers: [
     PlataformaService,
     AltaComunidadService,
     BitacoraPlataformaService,
+    PersonasPlataformaService,
   ],
 })
 export class PlataformaModule {}

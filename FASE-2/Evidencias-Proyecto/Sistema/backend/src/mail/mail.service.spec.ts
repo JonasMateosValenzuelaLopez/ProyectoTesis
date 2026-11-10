@@ -1,7 +1,12 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createTransport } from 'nodemailer';
-import { CorreoSaliente, MailService } from './mail.service';
+import {
+  CorreoSaliente,
+  MailService,
+  TIMEOUT_CONEXION_SMTP_MS,
+  TIMEOUT_SOCKET_SMTP_MS,
+} from './mail.service';
 
 jest.mock('nodemailer', () => ({ createTransport: jest.fn() }));
 
@@ -67,6 +72,19 @@ describe('MailService', () => {
         );
       },
     );
+
+    it('debe crear el transporte con timeouts cortos para no dejar peticiones colgadas', () => {
+      crearTarget(conSmtp);
+
+      expect(mockCreateTransport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          host: 'smtp.correo.cl',
+          connectionTimeout: TIMEOUT_CONEXION_SMTP_MS,
+          greetingTimeout: TIMEOUT_CONEXION_SMTP_MS,
+          socketTimeout: TIMEOUT_SOCKET_SMTP_MS,
+        }),
+      );
+    });
 
     it('no debe crear el transporte cuando falta SMTP_HOST', () => {
       crearTarget(sinSmtp);

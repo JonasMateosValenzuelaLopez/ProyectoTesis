@@ -1,4 +1,5 @@
 import {
+  escaparLike,
   limpiarTelefono,
   normalizarTextoLargo,
   quitarEspacios,
@@ -7,6 +8,17 @@ import {
 } from './texto';
 
 describe('texto', () => {
+  describe('escaparLike', () => {
+    it.each([
+      ['50%', '50\\%'],
+      ['a_b', 'a\\_b'],
+      ['c:\\ruta', 'c:\\\\ruta'],
+      ['Ana Pérez', 'Ana Pérez'],
+    ])('debe escapar los comodines de LIKE en %s', (texto, esperado) => {
+      expect(escaparLike(texto)).toBe(esperado);
+    });
+  });
+
   describe('recortar', () => {
     it('debe quitar los espacios de los extremos', () => {
       expect(recortar({ value: '  Ana  ' })).toBe('Ana');

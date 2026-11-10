@@ -22,6 +22,7 @@ describe('ErroresApiFilter', () => {
   let mockRespuesta: { status: jest.Mock; json: jest.Mock };
   let solicitud: Record<string, unknown>;
   let espiaError: jest.SpyInstance;
+  let espiaWarn: jest.SpyInstance;
 
   const crearHost = () =>
     ({
@@ -56,6 +57,9 @@ describe('ErroresApiFilter', () => {
     };
     espiaError = jest
       .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+    espiaWarn = jest
+      .spyOn(Logger.prototype, 'warn')
       .mockImplementation(() => undefined);
   });
 
@@ -206,6 +210,49 @@ describe('ErroresApiFilter', () => {
       expect(mockRespuesta.status).toHaveBeenCalledWith(status);
       expect(cuerpo.codigo).toBe(codigo);
       expect(espiaError).not.toHaveBeenCalled();
+      expect(espiaWarn).toHaveBeenCalledWith(
+        `[abc123def456] POST /unidades/lote usuario=7 comunidad=3 bd=${code} restriccion=-`,
+      );
+    });
+
+    it('debe registrar el nombre de la restricción sin los valores de la fila', () => {
+      const error = new QueryFailedError(
+        'INSERT INTO usuarios ...',
+        [],
+        Object.assign(
+          new Error(
+            "Duplicate entry 'ana@correo.cl' for key 'uq_usuario_correo'",
+          ),
+          { code: 'ER_DUP_ENTRY' },
+        ),
+      );
+
+      respuestaDe(error);
+
+      const mensaje = espiaWarn.mock.calls[0][0] as string;
+      expect(mensaje).toContain(
+        'bd=ER_DUP_ENTRY restriccion=uq_usuario_correo',
+      );
+      expect(mensaje).not.toContain('ana@correo.cl');
+    });
+
+    it('debe registrar la restricción CHECK que falló', () => {
+      const error = new QueryFailedError(
+        'INSERT INTO egresos ...',
+        [],
+        Object.assign(
+          new Error(
+            'CONSTRAINT `chk_egreso_visado` failed for `entrecasas_db`.`egresos`',
+          ),
+          { code: 'ER_CONSTRAINT_FAILED' },
+        ),
+      );
+
+      respuestaDe(error);
+
+      expect(espiaWarn.mock.calls[0][0]).toContain(
+        'restriccion=chk_egreso_visado',
+      );
     });
   });
 

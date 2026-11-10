@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { DataSource, IsNull, Not } from 'typeorm';
+import { DataSource, In, IsNull, Not } from 'typeorm';
 import { AuthService } from '../auth/auth.service';
 import { TipoTokenPassword } from '../auth/entities/token-password.entity';
 import { BitacoraService } from '../bitacora/bitacora.service';
@@ -34,7 +34,10 @@ import {
   EstadoSolicitudAcceso,
   SolicitudAcceso,
 } from './entities/solicitud-acceso.entity';
-import { SolicitudesAccesoService } from './solicitudes-acceso.service';
+import {
+  SolicitudesAccesoService,
+  VERSION_AVISO_PRIVACIDAD,
+} from './solicitudes-acceso.service';
 
 jest.mock('bcryptjs', () => ({ hashSync: jest.fn(() => 'hash-falso') }));
 
@@ -165,7 +168,7 @@ describe('SolicitudesAccesoService', () => {
     mockSolicitudesRepository = {
       existsBy: jest.fn().mockResolvedValue(false),
       insert: jest.fn(),
-      find: jest.fn(),
+      find: jest.fn().mockResolvedValue([]),
     };
     mockRedesRepository = {
       find: jest.fn(),
@@ -242,6 +245,7 @@ describe('SolicitudesAccesoService', () => {
         {
           provide: DataSource,
           useValue: {
+            manager: mockManager,
             transaction: jest.fn((trabajo: (manager: unknown) => unknown) =>
               trabajo(mockManager),
             ),
@@ -333,6 +337,8 @@ describe('SolicitudesAccesoService', () => {
         correo: 'ana@correo.cl',
         telefono: null,
         mensaje: null,
+        privacidadAceptadaEn: AHORA,
+        versionPrivacidad: VERSION_AVISO_PRIVACIDAD,
       });
     });
 
@@ -444,6 +450,69 @@ describe('SolicitudesAccesoService', () => {
       expect(mockSolicitudesRepository.find).toHaveBeenCalledWith(
         expect.objectContaining({ where: { idRed: RED.idRed } }),
       );
+    });
+
+    it('debe marcar correoAjeno cuando el correo pertenece a una cuenta con otro identificador', async () => {
+      mockSolicitudesRepository.find.mockResolvedValue([
+        crearSolicitud({ idSolicitud: 80, correo: 'ana@correo.cl' }),
+        crearSolicitud({
+          idSolicitud: 81,
+          identificador: '11111111-1',
+          correo: 'Luis@Correo.cl',
+        }),
+        crearSolicitud({ idSolicitud: 82, correo: 'nuevo@correo.cl' }),
+      ]);
+      mockManager.find.mockResolvedValue([
+        crearUsuarioExistente({ correo: 'ana@correo.cl' }),
+        crearUsuarioExistente({
+          idUsuario: 9,
+          identificador: '22222222-2',
+          correo: 'luis@correo.cl',
+        }),
+      ]);
+
+      const resultado = await target.listar(RED);
+
+      expect(
+        resultado.map(({ idSolicitud, correoAjeno }) => ({
+          idSolicitud,
+          correoAjeno,
+        })),
+      ).toEqual([
+        { idSolicitud: 80, correoAjeno: false },
+        { idSolicitud: 81, correoAjeno: true },
+        { idSolicitud: 82, correoAjeno: false },
+      ]);
+      expect(mockManager.find).toHaveBeenCalledWith(Usuario, {
+        select: {
+          idUsuario: true,
+          correo: true,
+          pais: true,
+          identificador: true,
+        },
+        where: {
+          correo: In(['ana@correo.cl', 'luis@correo.cl', 'nuevo@correo.cl']),
+        },
+        withDeleted: true,
+      });
+    });
+
+    it('debe marcar correoAjeno cuando el mismo número es de otro país', async () => {
+      mockSolicitudesRepository.find.mockResolvedValue([crearSolicitud()]);
+      mockManager.find.mockResolvedValue([
+        crearUsuarioExistente({ pais: 'PE' }),
+      ]);
+
+      const [solicitud] = await target.listar(RED);
+
+      expect(solicitud.correoAjeno).toBe(true);
+    });
+
+    it('no debe buscar cuentas cuando no hay solicitudes', async () => {
+      const resultado = await target.listar(RED);
+
+      expect(resultado).toEqual([]);
+      expect(mockManager.find).not.toHaveBeenCalled();
     });
   });
 
@@ -864,6 +933,33 @@ describe('SolicitudesAccesoService', () => {
       expect(mockBitacoraService.marcarActividad).toHaveBeenCalledWith(
         RED.idRed,
       );
+    });
+
+    it('no debe enviar el correo de rechazo cuando el correo pertenece a otra persona', async () => {
+      mockManager.find.mockResolvedValue([
+        crearUsuarioExistente({ identificador: '22222222-2' }),
+      ]);
+
+      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {
+        motivo: 'Correo de otra persona',
+      });
+
+      expect(mockMailService.enviar).not.toHaveBeenCalled();
+      expect(resultado).toMatchObject({
+        estado: EstadoSolicitudAcceso.RECHAZADA,
+        correoAjeno: true,
+        correoEnviado: false,
+      });
+      expect(mockBitacoraService.registrar).toHaveBeenCalledTimes(1);
+    });
+
+    it('debe informar correoAjeno false cuando el correo es de la misma persona', async () => {
+      mockManager.find.mockResolvedValue([crearUsuarioExistente()]);
+
+      const resultado = await target.rechazar(80, RED, ID_RESOLUTOR, {});
+
+      expect(mockMailService.enviar).toHaveBeenCalledTimes(1);
+      expect(resultado.correoAjeno).toBe(false);
     });
 
     it('debe informar correoEnviado false cuando el correo de rechazo no sale', async () => {

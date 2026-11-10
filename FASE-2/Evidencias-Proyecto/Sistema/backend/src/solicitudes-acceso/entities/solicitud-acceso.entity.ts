@@ -76,6 +76,12 @@ export class SolicitudAcceso extends EntidadAuditada {
   @Column({ type: 'varchar', length: 255, nullable: true })
   mensaje: string | null;
 
+  @Column({ name: 'privacidad_aceptada_en', type: 'datetime' })
+  privacidadAceptadaEn: Date;
+
+  @Column({ name: 'version_privacidad', type: 'varchar', length: 20 })
+  versionPrivacidad: string;
+
   @Column({
     type: 'enum',
     enum: EstadoSolicitudAcceso,

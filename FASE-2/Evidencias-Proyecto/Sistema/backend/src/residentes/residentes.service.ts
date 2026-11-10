@@ -47,6 +47,9 @@ const esVigente = (membresia: Membresia, hoy: string) =>
 
 const TERMINAR = () => ({ activo: false, hasta: fechaHoy() });
 
+export const MENSAJE_DATOS_NO_COINCIDEN =
+  'Este RUT ya tiene una cuenta en EntreCasas con otro correo. Pídele a la persona el correo con que se registró.';
+
 @Injectable()
 export class ResidentesService {
   constructor(
@@ -96,6 +99,9 @@ export class ResidentesService {
           throw new ConflictException(
             'Esta persona ya es parte de la comunidad. Búscala en la lista.',
           );
+        }
+        if (usuario.correo.toLowerCase() !== dto.correo.toLowerCase()) {
+          throw new ConflictException(MENSAJE_DATOS_NO_COINCIDEN);
         }
       }
       await this.cuentasService.asignarMembresia(

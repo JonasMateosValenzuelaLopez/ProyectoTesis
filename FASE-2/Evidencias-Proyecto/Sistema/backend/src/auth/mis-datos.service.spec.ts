@@ -235,6 +235,7 @@ describe('MisDatosService', () => {
     it('debe anular lo pendiente, guardar el código hasheado y enviarlo solo al correo nuevo', async () => {
       const resultado = await target.solicitarCambioCorreo(ID_ANA, {
         correo: CORREO_NUEVO,
+        passwordActual: PASSWORD_ACTUAL,
       });
 
       expect(mockManager.findOne).toHaveBeenCalledWith(Usuario, {
@@ -281,6 +282,7 @@ describe('MisDatosService', () => {
 
       const resultado = await target.solicitarCambioCorreo(ID_ANA, {
         correo: 'luis@correo.cl',
+        passwordActual: PASSWORD_ACTUAL,
       });
 
       expect(mockManager.insert).toHaveBeenCalledWith(CambioCorreo, {
@@ -311,7 +313,10 @@ describe('MisDatosService', () => {
         });
 
         await expect(
-          target.solicitarCambioCorreo(ID_ANA, { correo: 'ana@correo.cl' }),
+          target.solicitarCambioCorreo(ID_ANA, {
+            correo: 'ana@correo.cl',
+            passwordActual: PASSWORD_ACTUAL,
+          }),
         ).rejects.toThrow(BadRequestException);
         expect(mockManager.insert).not.toHaveBeenCalled();
       },
@@ -321,7 +326,10 @@ describe('MisDatosService', () => {
       mockManager.count.mockResolvedValue(3);
 
       const error = await target
-        .solicitarCambioCorreo(ID_ANA, { correo: CORREO_NUEVO })
+        .solicitarCambioCorreo(ID_ANA, {
+          correo: CORREO_NUEVO,
+          passwordActual: PASSWORD_ACTUAL,
+        })
         .catch((e: HttpException) => e);
 
       expect(error).toBeInstanceOf(HttpException);
@@ -342,7 +350,10 @@ describe('MisDatosService', () => {
     it('debe permitir el tercer pedido de la ventana', async () => {
       mockManager.count.mockResolvedValue(2);
 
-      await target.solicitarCambioCorreo(ID_ANA, { correo: CORREO_NUEVO });
+      await target.solicitarCambioCorreo(ID_ANA, {
+        correo: CORREO_NUEVO,
+        passwordActual: PASSWORD_ACTUAL,
+      });
 
       expect(mockManager.insert).toHaveBeenCalledTimes(1);
       expect(mockMail.enviar).toHaveBeenCalledTimes(1);
@@ -352,7 +363,10 @@ describe('MisDatosService', () => {
       mockManager.findOne.mockResolvedValue(null);
 
       await expect(
-        target.solicitarCambioCorreo(ID_ANA, { correo: CORREO_NUEVO }),
+        target.solicitarCambioCorreo(ID_ANA, {
+          correo: CORREO_NUEVO,
+          passwordActual: PASSWORD_ACTUAL,
+        }),
       ).rejects.toThrow(NotFoundException);
       expect(mockManager.insert).not.toHaveBeenCalled();
     });
@@ -362,6 +376,7 @@ describe('MisDatosService', () => {
 
       const resultado = await target.solicitarCambioCorreo(ID_ANA, {
         correo: CORREO_NUEVO,
+        passwordActual: PASSWORD_ACTUAL,
       });
       await jest.runAllTimersAsync();
 
@@ -374,13 +389,56 @@ describe('MisDatosService', () => {
     it('si el envío lanza un error debe registrarlo sin dejar la promesa sin manejar', async () => {
       mockMail.enviar.mockRejectedValue(new Error('SMTP caído'));
 
-      await target.solicitarCambioCorreo(ID_ANA, { correo: CORREO_NUEVO });
+      await target.solicitarCambioCorreo(ID_ANA, {
+        correo: CORREO_NUEVO,
+        passwordActual: PASSWORD_ACTUAL,
+      });
       await jest.runAllTimersAsync();
 
       expect(espiaError).toHaveBeenCalledWith(
         `Falló el envío del correo "Confirma tu nuevo correo en EntreCasas" del usuario ${ID_ANA}`,
         expect.stringContaining('SMTP caído'),
       );
+    });
+
+    it('debe rechazar el pedido sin enviar código si la contraseña actual es incorrecta', async () => {
+      const error = await target
+        .solicitarCambioCorreo(ID_ANA, {
+          correo: CORREO_NUEVO,
+          passwordActual: 'otra-clave-123',
+        })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toEqual(
+        expect.objectContaining({
+          campos: { passwordActual: MENSAJE_PASSWORD_ACTUAL_INCORRECTA },
+        }),
+      );
+      expect(mockTransaction).not.toHaveBeenCalled();
+      expect(mockMail.enviar).not.toHaveBeenCalled();
+    });
+
+    it('debe pedir crear una contraseña antes de cambiar el correo si la cuenta no tiene', async () => {
+      mockConsultaUsuario.getOne.mockResolvedValue({
+        idUsuario: ID_ANA,
+        correo: CORREO_ANTERIOR,
+        passwordHash: null,
+      });
+
+      const error = await target
+        .solicitarCambioCorreo(ID_ANA, {
+          correo: CORREO_NUEVO,
+          passwordActual: PASSWORD_ACTUAL,
+        })
+        .catch((e: unknown) => e);
+
+      expect((error as BadRequestException).getResponse()).toEqual(
+        expect.objectContaining({
+          campos: { passwordActual: MENSAJE_CUENTA_SIN_PASSWORD },
+        }),
+      );
+      expect(mockTransaction).not.toHaveBeenCalled();
     });
   });
 

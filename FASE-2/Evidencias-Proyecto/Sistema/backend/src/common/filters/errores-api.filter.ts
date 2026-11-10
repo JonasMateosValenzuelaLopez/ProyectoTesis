@@ -81,6 +81,8 @@ const ERRORES_BD: Record<string, ErrorTraducido> = {
   },
 };
 
+const RESTRICCION_EN_MENSAJE = /[`'](uq_\w+|fk_\w+|chk_\w+|PRIMARY)[`']/;
+
 const MENSAJE_JSON_INVALIDO = 'El cuerpo de la solicitud no es un JSON válido';
 
 const MENSAJES_EN_INGLES =
@@ -97,13 +99,17 @@ export class ErroresApiFilter implements ExceptionFilter {
     const idSolicitud = solicitud.idSolicitud ?? nuevoIdSolicitud();
     const traducido = this.traducir(error);
 
+    const usuario = solicitud.user as UsuarioAutenticado | undefined;
+    const contextoLog =
+      `[${idSolicitud}] ${solicitud.method} ${solicitud.originalUrl} ` +
+      `usuario=${usuario?.idUsuario ?? '-'} comunidad=${solicitud.header('x-red-id') ?? '-'}`;
     if (traducido.status >= 500) {
-      const usuario = solicitud.user as UsuarioAutenticado | undefined;
       this.logger.error(
-        `[${idSolicitud}] ${solicitud.method} ${solicitud.originalUrl} ` +
-          `usuario=${usuario?.idUsuario ?? '-'} comunidad=${solicitud.header('x-red-id') ?? '-'}`,
+        contextoLog,
         error instanceof Error ? error.stack : String(error),
       );
+    } else if (error instanceof QueryFailedError) {
+      this.logger.warn(`${contextoLog} ${this.resumenBd(error)}`);
     }
 
     respuesta.status(traducido.status).json({
@@ -185,6 +191,12 @@ export class ErroresApiFilter implements ExceptionFilter {
     return !texto || MENSAJES_EN_INGLES.test(texto)
       ? MENSAJE_POR_CODIGO[codigo]
       : texto;
+  }
+
+  private resumenBd(error: QueryFailedError) {
+    const codigo = (error as { code?: string }).code ?? '-';
+    const restriccion = RESTRICCION_EN_MENSAJE.exec(error.message)?.[1] ?? '-';
+    return `bd=${codigo} restriccion=${restriccion}`;
   }
 
   private esJsonInvalido(error: unknown) {

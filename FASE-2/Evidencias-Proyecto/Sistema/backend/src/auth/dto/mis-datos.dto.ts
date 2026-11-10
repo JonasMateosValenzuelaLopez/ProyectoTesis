@@ -24,6 +24,11 @@ export class SolicitarCambioCorreoDto {
   @IsEmail({}, { message: 'El correo no es válido' })
   @MaxLength(100, { message: 'El correo no puede superar 100 caracteres' })
   correo: string;
+
+  @IsString({ message: 'Escribe tu contraseña actual' })
+  @IsNotEmpty({ message: 'Escribe tu contraseña actual' })
+  @IsByteLength(0, 72, { message: MENSAJE_PASSWORD_ACTUAL_INCORRECTA })
+  passwordActual: string;
 }
 
 export class ConfirmarCambioCorreoDto {

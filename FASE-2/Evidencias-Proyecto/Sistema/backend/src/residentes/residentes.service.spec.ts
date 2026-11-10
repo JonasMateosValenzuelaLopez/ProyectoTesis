@@ -23,7 +23,11 @@ import {
 } from '../usuarios/entities/residencia.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { InvitarResidenteDto } from './dto/residentes.dto';
-import { EstadoPersona, ResidentesService } from './residentes.service';
+import {
+  EstadoPersona,
+  MENSAJE_DATOS_NO_COINCIDEN,
+  ResidentesService,
+} from './residentes.service';
 
 const AHORA = new Date('2026-11-05T15:00:00Z');
 
@@ -378,6 +382,22 @@ describe('ResidentesService', () => {
           texto: expect.stringContaining('selector de comunidades'),
         }),
       );
+    });
+
+    it('no debe revelar ni vincular una cuenta existente si el correo no coincide con el suyo', async () => {
+      mockCuentasService.obtenerOCrear.mockResolvedValue({
+        usuario: usuario(7, 'Beatriz'),
+        cuentaNueva: false,
+      });
+      membresiasDeLaPersona = [];
+
+      await expect(target.invitar(red, 1, dto)).rejects.toThrow(
+        new ConflictException(MENSAJE_DATOS_NO_COINCIDEN),
+      );
+
+      expect(mockCuentasService.asignarMembresia).not.toHaveBeenCalled();
+      expect(mockCuentasService.asignarResidencia).not.toHaveBeenCalled();
+      expect(mockMailService.enviar).not.toHaveBeenCalled();
     });
 
     it('debe rechazar a quien ya es parte de la comunidad', async () => {

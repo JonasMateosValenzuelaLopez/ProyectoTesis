@@ -17,6 +17,8 @@ export const limpiarTelefono = ({ value }: { value: unknown }) => {
   return limpio === '' ? undefined : limpio;
 };
 
+export const escaparLike = (texto: string) => texto.replace(/[\\%_]/g, '\\$&');
+
 export const normalizarTextoLargo = ({ value }: { value: unknown }) =>
   recortarOpcional({
     value: typeof value === 'string' ? value.replace(/\r\n?/g, '\n') : value,
