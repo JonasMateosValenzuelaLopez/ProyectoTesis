@@ -29,14 +29,12 @@ const FILTROS = {
   invitado: { texto: 'Invitación pendiente', fn: (u) => u.estado === 'Invitado' },
 };
 
-// Mensaje del backend (cuentas.service › obtenerOCrear) cuando el correo de la solicitud ya es de otra persona
-const esCorreoAjeno = (err) => /correo.*registrado por otra persona/i.test(err?.message ?? '');
-
 // Aprobar o rechazar una solicitud. Si la API no la pudo unir a una unidad (el número no calzó), hay que elegirla.
 // Muestra los datos completos para validar a la persona (en la lista el RUT va enmascarado).
-// Si el correo resultó ser de otra cuenta, advierte que rechazar le enviaría el aviso a esa otra persona:
-// el backend siempre avisa por correo al rechazar.
-function DialogoResolver({ solicitud: s, aprobar, unidades, correoAjeno, onCorreoAjeno, onClose, onResuelta }) {
+// `correoAjeno` (lo calcula el backend): el correo ya es de otra cuenta, así que no se puede aprobar con él y,
+// al rechazar, el backend no envía el aviso para no escribirle a quien no corresponde.
+function DialogoResolver({ solicitud: s, aprobar, unidades, onClose, onResuelta }) {
+  const correoAjeno = !!s.correoAjeno;
   const { avisar } = useAviso();
   const [idUnidad, setIdUnidad] = useState(s.idUnidad ?? '');
   const [tipoResidencia, setTipoResidencia] = useState(s.tipoResidencia);
@@ -52,19 +50,18 @@ function DialogoResolver({ solicitud: s, aprobar, unidades, correoAjeno, onCorre
         : await admin.rechazarSolicitud(s.idSolicitud, motivo.trim());
       avisar(aprobar
         ? `${s.nombre} ya puede entrar a la app${r.correoEnviado ? ': le avisamos por correo' : ''}.`
-        : `Rechazamos la solicitud de ${s.nombre}${r.correoEnviado ? ' y le avisamos por correo' : ''}.`);
+        : `Rechazamos la solicitud de ${s.nombre}${r.correoEnviado ? ' y le avisamos por correo' : r.correoAjeno ? '. No enviamos el aviso porque el correo es de otra cuenta' : ''}.`);
       onResuelta();
       onClose();
     } catch (err) {
-      if (esCorreoAjeno(err)) onCorreoAjeno();
       setError(err.message);
       setEnviando(false);
     }
   };
   const avisoCorreoAjeno = (
     <Alert severity="warning">
-      El correo {s.correo} ya pertenece a otra cuenta de EntreCasas, que no es la de {s.nombre}. Si rechazas la solicitud, el aviso le llegará a esa otra persona.
-      Lo mejor es pedirle a {s.nombre} que envíe una solicitud nueva con su propio correo.
+      El correo {s.correo} ya pertenece a otra cuenta de EntreCasas, que no es la de {s.nombre}, así que no se puede aprobar con ese correo.
+      {aprobar ? ' Rechaza esta solicitud y pídele a la persona que envíe una nueva con su propio correo.' : ' Al rechazarla no le enviaremos el aviso a ese correo; avísale a la persona por otro medio que envíe una solicitud nueva con su propio correo.'}
     </Alert>
   );
   return (
@@ -94,13 +91,14 @@ function DialogoResolver({ solicitud: s, aprobar, unidades, correoAjeno, onCorre
           </>
         ) : (
           <TextField label="Motivo (opcional)" value={motivo} onChange={(e) => setMotivo(e.target.value)} multiline minRows={2}
-            helperText={`Se lo enviamos por correo a ${s.correo}`} slotProps={{ htmlInput: { maxLength: 255 } }} />
+            helperText={correoAjeno ? 'Queda registrado; no se envía por correo porque el correo es de otra cuenta.' : `Se lo enviamos por correo a ${s.correo}`}
+            slotProps={{ htmlInput: { maxLength: 255 } }} />
         )}
         {error && <Alert severity="error">{error}</Alert>}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose}>Cancelar</Button>
-        <Button variant="contained" color={aprobar ? 'primary' : 'error'} loading={enviando} disabled={aprobar && !idUnidad} onClick={confirmar}>
+        <Button variant="contained" color={aprobar ? 'primary' : 'error'} loading={enviando} disabled={aprobar && (!idUnidad || correoAjeno)} onClick={confirmar}>
           {aprobar ? 'Aprobar acceso' : 'Rechazar'}
         </Button>
       </DialogActions>
@@ -110,9 +108,6 @@ function DialogoResolver({ solicitud: s, aprobar, unidades, correoAjeno, onCorre
 
 function Solicitudes({ solicitudes, unidades, unidadPorId, onResuelta }) {
   const [resolver, setResolver] = useState(null);
-  // Solicitudes cuyo correo ya es de otra cuenta (lo avisa el backend al intentar aprobar): al rechazarlas,
-  // el aviso le llegaría a esa otra persona
-  const [correoAjeno, setCorreoAjeno] = useState(() => new Set());
   if (solicitudes.length === 0) {
     return <Paper variant="outlined" sx={{ p: 3, borderRadius: 1.5 }}><Typography color="text.secondary">No hay solicitudes de acceso pendientes.</Typography></Paper>;
   }
@@ -130,6 +125,7 @@ function Solicitudes({ solicitudes, unidades, unidadPorId, onResuelta }) {
                 <Typography variant="body2" color="text.secondary">{rutOculto(s)} · {s.tipoResidencia} · pidió el {fecha(s.fechaSolicitud)} · {s.correo}</Typography>
               </Box>
             </Box>
+            {s.correoAjeno && <Alert severity="warning" variant="outlined">El correo {s.correo} ya es de otra cuenta de EntreCasas: no se puede aprobar con él.</Alert>}
             {s.mensaje && <Typography color="text.secondary">«{s.mensaje}»</Typography>}
             <Typography variant="body2">
               {!unidad ? `El número «${s.numeroUnidad}» no calza con una sola unidad: elígela al aprobar.`
@@ -137,19 +133,14 @@ function Solicitudes({ solicitudes, unidades, unidadPorId, onResuelta }) {
                   : `${nombreUnidad(unidad)} no tiene residentes registrados.`}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button variant="contained" onClick={() => setResolver({ s, aprobar: true })}>Aprobar acceso</Button>
+              <Button variant="contained" disabled={!!s.correoAjeno} onClick={() => setResolver({ s, aprobar: true })}>Aprobar acceso</Button>
               <Button color="inherit" onClick={() => setResolver({ s, aprobar: false })}>Rechazar</Button>
             </Box>
           </Paper>
         );
       })}
       {resolver && (
-        <DialogoResolver
-          solicitud={resolver.s} aprobar={resolver.aprobar} unidades={unidades}
-          correoAjeno={correoAjeno.has(resolver.s.idSolicitud)}
-          onCorreoAjeno={() => setCorreoAjeno((c) => new Set(c).add(resolver.s.idSolicitud))}
-          onClose={() => setResolver(null)} onResuelta={onResuelta}
-        />
+        <DialogoResolver solicitud={resolver.s} aprobar={resolver.aprobar} unidades={unidades} onClose={() => setResolver(null)} onResuelta={onResuelta} />
       )}
     </Box>
   );

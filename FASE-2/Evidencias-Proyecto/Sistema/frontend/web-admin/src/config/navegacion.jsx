@@ -78,7 +78,7 @@ export const SECCIONES = [
     items: [
       // La directiva los ve en modo lectura (como la API); solo la administración los edita
       { texto: 'Datos de la comunidad', ruta: '/panel/condominio', icono: <ComunidadIcon />, fase: 3, cargos: [R.ADMINISTRADOR, R.PRESIDENTE, R.TESORERO, R.SECRETARIO] },
-      { texto: 'Módulos', ruta: '/panel/modulos', icono: <ModulosIcon />, sinBackend: true, cargos: [R.ADMINISTRADOR] },
+      { texto: 'Módulos', ruta: '/panel/modulos', icono: <ModulosIcon />, cargos: [R.ADMINISTRADOR] },
       // Ley 21.719: retener registros de visitas por un incidente (la API lo exige con conserjería)
       { texto: 'Conservación de datos', ruta: '/panel/conservacion', icono: <ConservacionIcon />, fase: 8, cargos: [R.ADMINISTRADOR], modulo: 'conserjeria' },
     ],

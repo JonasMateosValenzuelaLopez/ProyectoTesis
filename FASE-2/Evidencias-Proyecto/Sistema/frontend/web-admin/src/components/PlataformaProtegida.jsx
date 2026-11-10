@@ -7,7 +7,7 @@ import { SECCIONES_PLATAFORMA, activoPlataforma } from '../config/plataforma';
 import MarcoPanel from './MarcoPanel';
 import { nombreCorto } from '../utils/formato';
 import { PLATAFORMA } from '../config/roles';
-import { Cargando } from './PanelProtegido';
+import { Cargando, SinConexion } from './PanelProtegido';
 import SelectorTema from './SelectorTema';
 import PasoSesion from './marca/PasoSesion';
 import BotonTutorial from './tutorial/BotonTutorial';
@@ -32,11 +32,12 @@ function BarraContexto() {
 
 // Panel del equipo EntreCasas: solo para cuentas de plataforma.
 export default function PlataformaProtegida() {
-  const { usuario, esPlataforma, cargando, cerrarSesion } = useSesion();
+  const { usuario, esPlataforma, cargando, cerrarSesion, sinConexion } = useSesion();
   const [saliendo, setSaliendo] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   if (cargando) return <Cargando />;
+  if (!usuario && sinConexion) return <SinConexion />;
   if (!usuario) return <Navigate to="/login" replace state={{ desde: location.pathname }} />;
   if (!esPlataforma) return <Navigate to="/panel" replace />;
 

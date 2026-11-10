@@ -64,3 +64,10 @@ export const listarContactos = () => api('/comunidad/contactos');
 export const crearContacto = (datos) => api('/comunidad/contactos', { metodo: 'POST', cuerpo: datos });
 export const actualizarContacto = (idContacto, datos) => api(`/comunidad/contactos/${idContacto}`, { metodo: 'PUT', cuerpo: datos });
 export const eliminarContacto = (idContacto) => api(`/comunidad/contactos/${idContacto}`, { metodo: 'DELETE' });
+
+// ---------- Módulos de la comunidad (modulos-comunidad.controller.ts) ----------
+// Los 8 módulos: [{ codigo, nombre, descripcion, activo, editable }]. `administrador_externo` viene con
+// editable: false (solo lo cambia el equipo EntreCasas).
+export const listarModulos = () => api('/comunidad/modulos');
+// → la lista actualizada. El menú cambia desde la petición siguiente (el perfil trae los módulos activos).
+export const cambiarModuloComunidad = (codigo, activo) => api(`/comunidad/modulos/${codigo}`, { metodo: 'PUT', cuerpo: { activo } });

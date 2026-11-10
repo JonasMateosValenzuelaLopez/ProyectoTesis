@@ -57,12 +57,14 @@ import InicioPresidente from './pages/presidente/InicioPresidente';
 import InicioTesorero from './pages/tesorero/InicioTesorero';
 import InicioSecretario from './pages/secretario/InicioSecretario';
 import Bitacora from './pages/presidente/Bitacora';
+import Modulos from './pages/admin/Modulos';
 
 // Plataforma (fase 2)
 import Comunidades from './pages/plataforma/Comunidades';
 import NuevaComunidad from './pages/plataforma/NuevaComunidad';
 import FichaComunidad from './pages/plataforma/FichaComunidad';
 import BitacoraPlataforma from './pages/plataforma/BitacoraPlataforma';
+import Personas from './pages/plataforma/Personas';
 
 // Vistas conectadas con la API. Las demás rutas del menú muestran VistaPendiente:
 // «En conexión» hasta su fase, o «Próximamente» si la API aún no tiene esa función.
@@ -88,11 +90,13 @@ const VISTAS = {
   '/panel/porteria': <Porteria />,
   '/panel/conservacion': <Conservacion />,
   '/panel/bitacora': <Bitacora />,
+  '/panel/modulos': <Modulos />,
 };
 const VISTAS_PLATAFORMA = {
   '/plataforma': <Comunidades />,
   '/plataforma/nueva': <NuevaComunidad />,
   '/plataforma/bitacora': <BitacoraPlataforma />,
+  '/plataforma/personas': <Personas />,
 };
 const RUTAS_PLATAFORMA = SECCIONES_PLATAFORMA.flatMap((s) => s.items);
 

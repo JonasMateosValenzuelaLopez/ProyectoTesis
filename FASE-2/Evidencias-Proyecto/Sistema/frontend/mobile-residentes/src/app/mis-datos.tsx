@@ -26,6 +26,9 @@ export default function MisDatos() {
   const [pedido, setPedido] = useState<{ correo: string; mensaje: string } | null>(null);
   const [codigo, setCodigo] = useState('');
   const [errorCorreo, setErrorCorreo] = useState<string | null>(null);
+  // Contraseña actual: el backend la pide para cambiar el correo (que nadie lo cambie desde un teléfono ajeno)
+  const [clave, setClave] = useState('');
+  const [errorClave, setErrorClave] = useState<string | null>(null);
   const [enviando, setEnviando] = useState<'telefono' | 'correo' | null>(null);
   if (!perfil) return null;
 
@@ -48,14 +51,18 @@ export default function MisDatos() {
   };
   const pedirCodigo = async () => {
     if (!correoValido(c)) { setErrorCorreo('Revisa el correo'); return; }
+    if (!clave) { setErrorClave('Escribe tu contraseña actual'); return; }
     setEnviando('correo');
     try {
-      const r = await auth.pedirCambioCorreo(c);
+      const r = await auth.pedirCambioCorreo(c, clave);
       setPedido({ correo: c, mensaje: r.mensaje });
       setCodigo('');
+      setClave('');
       setErrorCorreo(null);
+      setErrorClave(null);
     } catch (e) {
-      setErrorCorreo(errorDe(e, 'correo'));
+      if (e instanceof ErrorApi && e.campos?.passwordActual) setErrorClave(e.campos.passwordActual);
+      else setErrorCorreo(errorDe(e, 'correo'));
     } finally {
       setEnviando(null);
     }
@@ -95,7 +102,11 @@ export default function MisDatos() {
               etiqueta="Correo nuevo" value={correo} onChangeText={(v) => { setCorreo(v); setErrorCorreo(null); }} keyboardType="email-address" autoCapitalize="none" autoComplete="email"
               maxLength={100} error={errorCorreo ?? false}
             />
-            <Boton tipo="secundario" texto="Enviarme un código" cargando={enviando === 'correo'} disabled={!correo.trim()} onPress={pedirCodigo} />
+            <Campo
+              etiqueta="Contraseña actual" value={clave} onChangeText={(v) => { setClave(v); setErrorClave(null); }} secureTextEntry
+              autoComplete="current-password" textContentType="password" error={errorClave ?? false} ayuda="Para confirmar que eres tú."
+            />
+            <Boton tipo="secundario" texto="Enviarme un código" cargando={enviando === 'correo'} disabled={!correo.trim() || !clave} onPress={pedirCodigo} />
           </>
         ) : (
           <>

@@ -14,5 +14,7 @@ export const comunidadesParaSolicitar = () => api<ComunidadSolicitud[]>('/solici
 export type DatosSolicitud = {
   idRed: number; identificador: string; nombre: string; primerApellido: string; segundoApellido?: string;
   correo: string; telefono?: string; numeroUnidad: string; tipoResidencia: TipoResidencia; mensaje?: string;
+  // El backend exige el consentimiento del aviso de privacidad y guarda la fecha y la versión aceptada
+  aceptaPrivacidad: true;
 };
 export const crearSolicitud = (datos: DatosSolicitud) => api<Mensaje>('/solicitudes-acceso', { metodo: 'POST', cuerpo: datos, publica: true });

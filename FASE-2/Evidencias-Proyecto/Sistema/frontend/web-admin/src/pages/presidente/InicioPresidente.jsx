@@ -18,6 +18,8 @@ import FranjaKpi from '../../components/ui/FranjaKpi';
 import Tarjeta from '../../components/ui/Tarjeta';
 import PlanoComunidad, { LeyendaPlano } from '../../components/marca/PlanoComunidad';
 import DialogoUnidad from '../../components/finanzas/DialogoUnidad';
+import AvisoConsultas from '../../components/ui/AvisoConsultas';
+import { estadoConsultas } from '../../utils/consultas';
 
 const nada = () => Promise.resolve(null);
 
@@ -49,6 +51,12 @@ export default function InicioPresidente() {
   ];
   // Fondo de reserva: el saldo histórico de su categoría (recaudado menos egresos válidos)
   const fondo = reporte.datos?.porCategoria.find((c) => c.nombre.toLowerCase().includes('reserva'));
+  // «Nada pendiente» solo si respondieron todas las consultas de lo que espera su firma
+  const { fallidas, completo } = estadoConsultas([
+    ...(conCobros ? [{ nombre: 'los egresos', consulta: egresos }, { nombre: 'las exenciones', consulta: exenciones }, { nombre: 'el estado de los cobros', consulta: estado }] : []),
+    ...(conMuro ? [{ nombre: 'los comunicados', consulta: oficiales }] : []),
+  ]);
+  const notaPendientes = pendientes.length ? 'egresos, comunicados y exenciones' : completo ? 'nada pendiente' : fallidas.length ? 'no se pudo revisar todo' : 'revisando…';
 
   const kpis = [];
   if (e) {
@@ -57,7 +65,7 @@ export default function InicioPresidente() {
       { etiqueta: 'Deuda vencida', valor: clp(e.resumen.deudaMorosa), color: e.resumen.deudaMorosa ? 'error.main' : undefined, nota: `${e.morosos.length} ${e.morosos.length === 1 ? 'unidad' : 'unidades'}` },
     );
   }
-  kpis.push({ etiqueta: 'Esperan tu revisión', valor: pendientes.length, color: pendientes.length ? 'warning.main' : undefined, nota: pendientes.length ? 'egresos, comunicados y exenciones' : 'nada pendiente' });
+  kpis.push({ etiqueta: 'Esperan tu revisión', valor: completo || pendientes.length ? pendientes.length : '—', color: pendientes.length ? 'warning.main' : undefined, nota: notaPendientes });
   if (fondo) kpis.push({ etiqueta: fondo.nombre, valor: clp(fondo.saldoHistorico), nota: 'recaudado menos egresos' });
   else if (e) kpis.push({ etiqueta: 'Unidades al día', valor: `${e.resumen.alDia} de ${e.resumen.totalUnidades}` });
 
@@ -75,12 +83,15 @@ export default function InicioPresidente() {
         )}
       />
 
+      <AvisoConsultas fallidas={fallidas} sx={{ mb: 2.5 }} />
       <FranjaKpi items={kpis} />
 
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: '1fr 1.3fr' }, alignItems: 'start' }}>
         <Tarjeta titulo="Por aprobar" extra={pendientes.length > 0 && <Button size="small" onClick={() => navigate('/panel/aprobaciones')}>Ver todo</Button>}>
           {pendientes.length === 0 ? (
-            <Typography color="text.secondary">No hay nada esperando tu revisión.</Typography>
+            <Typography color="text.secondary">
+              {completo ? 'No hay nada esperando tu revisión.' : fallidas.length ? 'No sabemos si hay pendientes porque parte de la información no se pudo cargar.' : 'Revisando pendientes…'}
+            </Typography>
           ) : (
             <Box sx={{ display: 'grid' }}>
               {pendientes.slice(0, 5).map((p, i) => (

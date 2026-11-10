@@ -49,22 +49,29 @@ export function SesionProvider({ children }) {
     setMotivoSalida(motivo);
   }, [elegir]);
 
-  // Recupera la sesión al recargar la pestaña
+  // Recupera la sesión al recargar la pestaña. Solo se cierra si el backend rechaza el token (401 o 403);
+  // si falla la red o el servidor, el token se conserva y el panel ofrece reintentar (`sinConexion`).
+  const [sinConexion, setSinConexion] = useState(null);
+  const recuperar = useCallback(() => auth.perfil()
+    .then((p) => {
+      setSinConexion(null);
+      setUsuario(p);
+      const guardado = leerContexto();
+      elegir(contextoValido(p, guardado) ? guardado : contextoAlEntrar(p));
+    })
+    .catch((error) => {
+      if (error?.statusCode === 401 || error?.statusCode === 403) cerrarSesion(error.message);
+      else setSinConexion(error?.message ?? 'No pudimos conectar con el servidor.');
+    })
+    .finally(() => setCargando(false)), [elegir, cerrarSesion]);
   useEffect(() => {
-    if (!sesionApi.token()) return;
-    auth.perfil()
-      .then((p) => {
-        setUsuario(p);
-        const guardado = leerContexto();
-        elegir(contextoValido(p, guardado) ? guardado : contextoAlEntrar(p));
-      })
-      .catch(() => cerrarSesion())
-      .finally(() => setCargando(false));
-  }, [elegir, cerrarSesion]);
+    if (sesionApi.token()) recuperar();
+  }, [recuperar]);
+  const reintentar = useCallback(() => { setCargando(true); setSinConexion(null); recuperar(); }, [recuperar]);
 
   // Token vencido o inválido en cualquier llamada: se cierra la sesión con el mensaje del backend
   useEffect(() => {
-    sesionApi.alExpirar((error) => cerrarSesion(error.mensaje));
+    sesionApi.alExpirar((error) => cerrarSesion(error.message));
   }, [cerrarSesion]);
 
   const valor = useMemo(() => {
@@ -72,7 +79,7 @@ export function SesionProvider({ children }) {
     const comunidad = activo ? usuario?.comunidades.find((c) => c.idRed === activo.idRed) ?? null : null;
 
     return {
-      usuario, cargando, motivoSalida,
+      usuario, cargando, motivoSalida, sinConexion, reintentar,
       comunidad,
       cargo: activo?.idRol ?? null,
       porComunidad,
@@ -106,7 +113,7 @@ export function SesionProvider({ children }) {
         auth.marcarTutorialVisto().catch(() => { /* se volverá a mostrar la próxima vez */ });
       },
     };
-  }, [usuario, activo, cargando, motivoSalida, elegir, cerrarSesion]);
+  }, [usuario, activo, cargando, motivoSalida, sinConexion, reintentar, elegir, cerrarSesion]);
 
   return <SesionContext.Provider value={valor}>{children}</SesionContext.Provider>;
 }

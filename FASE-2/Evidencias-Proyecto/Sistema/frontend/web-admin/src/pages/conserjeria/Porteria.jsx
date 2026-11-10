@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Alert, Box, Button, Typography } from '@mui/material';
 import { PersonAddAlt1Outlined as IngresoIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
 import * as porteria from '../../api/porteria';
@@ -81,6 +81,13 @@ export default function Porteria() {
           <Reloj />
         </Box>
       </Box>
+
+      {/* Si falla una actualización, la garita sigue mostrando lo último que llegó: hay que decirlo para no confiar en datos viejos */}
+      {r && (resumen.error || historial.error) && (
+        <Alert severity="error" sx={{ mb: 2.5 }} action={<Button color="inherit" size="small" onClick={actualizar}>Reintentar</Button>}>
+          No se pudo actualizar la garita: {(resumen.error ?? historial.error).message} Lo que ves puede estar desactualizado; se volverá a intentar sola cada 15 segundos.
+        </Alert>
+      )}
 
       {r?.porAutorizar.length > 0 && (
         <Box sx={{ mb: 2.5 }}>

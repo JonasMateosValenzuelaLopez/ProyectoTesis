@@ -29,7 +29,7 @@ export default function SolicitarAcceso() {
   const [error, setError] = useState<string | null>(null);
   const [enviada, setEnviada] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
-  // Consentimiento obligatorio (Ley 21.719). El backend todavía no lo recibe ni lo guarda, así que no se envía.
+  // Consentimiento obligatorio (Ley 21.719): se envía como `aceptaPrivacidad` y el backend guarda la fecha y la versión del aviso.
   const [acepta, setAcepta] = useState(false);
   const cambiar = (k: keyof typeof f) => (v: string) => { setF({ ...f, [k]: v }); setError(null); };
   const comunidad = (comunidades.datos ?? []).find((c) => String(c.idRed) === f.idRed);
@@ -63,6 +63,7 @@ export default function SolicitarAcceso() {
         numeroUnidad: f.numeroUnidad.trim(),
         tipoResidencia: f.tipoResidencia,
         ...(f.mensaje.trim() ? { mensaje: f.mensaje.trim() } : {}),
+        aceptaPrivacidad: true,
       });
       setEnviada(r.mensaje);
     } catch (e) {

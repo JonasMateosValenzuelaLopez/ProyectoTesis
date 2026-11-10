@@ -30,3 +30,16 @@ export const cambiarTipo = (idRed, tipo) =>
 // `comunidad`: id de una comunidad o 'ninguna'; `antesDe`: el `siguiente` de la página anterior
 export const bitacoraPlataforma = ({ comunidad, antesDe, limite } = {}) =>
   api('/plataforma/bitacora', { params: { comunidad, antesDe, limite }, sinRed: true });
+
+// ---------- Personas (personas-plataforma.controller.ts) ----------
+// { buscar?, filtro?: 'todas' | 'bloqueadas' | 'plataforma', antesDe? } → { personas, siguiente }, de la más nueva a la más antigua.
+// Persona: { idUsuario, identificador, pais, nombre, correo, telefono, esPlataforma, bloqueado, motivoBloqueo,
+//   accesoActivado (false = nunca creó contraseña), fechaCreacion, comunidades: [{ idRed, nombre, estado, cargos: ['Presidente', ...] }] }
+export const listarPersonas = ({ buscar, filtro, antesDe } = {}) =>
+  api('/plataforma/personas', { params: { limite: 50, buscar, filtro: filtro === 'todas' ? undefined : filtro, antesDe }, sinRed: true });
+// Motivo de 1 a 255 caracteres → persona actualizada. No se puede bloquear la propia cuenta.
+export const bloquearPersona = (idUsuario, motivo) =>
+  api(`/plataforma/personas/${idUsuario}/bloqueo`, { metodo: 'POST', cuerpo: { motivo }, sinRed: true });
+export const desbloquearPersona = (idUsuario) => api(`/plataforma/personas/${idUsuario}/bloqueo`, { metodo: 'DELETE', sinRed: true });
+// Sin contraseña: enlace de activación (3 días); con contraseña: de recuperación (1 hora) → { tipo: 'Activacion' | 'Recuperacion', correoEnviado }
+export const reenviarAcceso = (idUsuario) => api(`/plataforma/personas/${idUsuario}/acceso`, { metodo: 'POST', sinRed: true });

@@ -13,8 +13,7 @@ export const SECCIONES_PLATAFORMA = [
     items: [
       { texto: 'Comunidades', ruta: '/plataforma', icono: <ComunidadesIcon />, fase: 2 },
       { texto: 'Nueva comunidad', ruta: '/plataforma/nueva', icono: <NuevaIcon />, fase: 2 },
-      // La API aún no tiene endpoints para listar, bloquear ni reenviar el acceso de personas
-      { texto: 'Personas', ruta: '/plataforma/personas', icono: <PersonasIcon />, sinBackend: true },
+      { texto: 'Personas', ruta: '/plataforma/personas', icono: <PersonasIcon /> },
       { texto: 'Bitácora', ruta: '/plataforma/bitacora', icono: <BitacoraIcon />, fase: 2 },
     ],
   },

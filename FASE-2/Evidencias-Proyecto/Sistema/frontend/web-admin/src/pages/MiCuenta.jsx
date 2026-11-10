@@ -48,11 +48,14 @@ function Telefono() {
   );
 }
 
-// POST auth/perfil/correo envía un código de 6 dígitos al correo nuevo; POST auth/perfil/correo/confirmacion
-// lo confirma y devuelve el perfil. Mientras tanto, la cuenta sigue con el correo anterior.
+// POST auth/perfil/correo (con la contraseña actual, para que nadie cambie el correo desde una sesión ajena)
+// envía un código de 6 dígitos al correo nuevo; POST auth/perfil/correo/confirmacion lo confirma y devuelve el perfil.
+// Mientras tanto, la cuenta sigue con el correo anterior.
 function Correo() {
   const { usuario, actualizarPerfil } = useSesion();
   const [correo, setCorreo] = useState('');
+  const [clave, setClave] = useState('');
+  const [errorClave, setErrorClave] = useState('');
   const [pedido, setPedido] = useState(null);
   const [codigo, setCodigo] = useState('');
   const [error, setError] = useState('');
@@ -63,15 +66,19 @@ function Correo() {
   const pedir = async (e) => {
     e.preventDefault();
     if (!correoValido(c)) { setError('El correo no es válido'); return; }
+    if (!clave) { setErrorClave('Escribe tu contraseña actual'); return; }
     setEnviando(true);
     try {
-      const r = await auth.pedirCambioCorreo(c);
+      const r = await auth.pedirCambioCorreo(c, clave);
       setPedido({ correo: c, mensaje: r.mensaje, expiraEn: r.expiraEn });
       setCodigo('');
+      setClave('');
       setError('');
+      setErrorClave('');
       setListo(false);
     } catch (err) {
-      setError(err.campos?.correo ?? err.message);
+      if (err.campos?.passwordActual) setErrorClave(err.campos.passwordActual);
+      else setError(err.campos?.correo ?? err.message);
     } finally {
       setEnviando(false);
     }
@@ -97,12 +104,16 @@ function Correo() {
       <Typography>Tu correo es <b>{usuario.correo}</b>.</Typography>
       {listo && <Alert severity="success" variant="outlined">Tu correo quedó actualizado. Le avisamos también a tu correo anterior.</Alert>}
       {!pedido ? (
-        <Box component="form" onSubmit={pedir} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <Box component="form" onSubmit={pedir} sx={{ display: 'grid', gap: 1.5, maxWidth: 520 }}>
           <TextField
             label="Correo nuevo" type="email" value={correo} onChange={(e) => { setCorreo(e.target.value); setError(''); }}
-            error={!!error} helperText={error || ' '} sx={{ minWidth: 260, flex: 1 }} slotProps={{ htmlInput: { maxLength: 100, autoComplete: 'email' } }}
+            error={!!error} helperText={error || ' '} slotProps={{ htmlInput: { maxLength: 100, autoComplete: 'email' } }}
           />
-          <Button type="submit" variant="outlined" loading={enviando} disabled={!correo.trim()} sx={{ mt: 1 }}>Enviarme un código</Button>
+          <CampoClave
+            label="Contraseña actual" value={clave} onChange={(e) => { setClave(e.target.value); setErrorClave(''); }}
+            error={!!errorClave} helperText={errorClave || 'Para confirmar que eres tú.'} slotProps={{ htmlInput: { autoComplete: 'current-password' } }}
+          />
+          <Box><Button type="submit" variant="outlined" loading={enviando} disabled={!correo.trim() || !clave}>Enviarme un código</Button></Box>
         </Box>
       ) : (
         <Box component="form" onSubmit={confirmar} sx={{ display: 'grid', gap: 1.5 }}>

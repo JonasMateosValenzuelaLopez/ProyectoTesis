@@ -2,7 +2,8 @@
 // Es la misma que muestra la app de residentes (mobile-residentes/src/constants/privacidad.ts): si cambia una, cambiar la otra
 // y subir la versión. Texto provisorio: debe revisarlo un abogado antes de publicar la plataforma.
 
-export const VERSION_PRIVACIDAD = '1 · 10 de noviembre de 2026';
+// Debe ser la misma que guarda el backend con cada solicitud (VERSION_AVISO_PRIVACIDAD en solicitudes-acceso.service.ts)
+export const VERSION_PRIVACIDAD = '2026-11-10';
 export const RESPONSABLE = 'EntreCasas';
 export const CORREO_PRIVACIDAD = 'entrecasas@gmail.com';
 

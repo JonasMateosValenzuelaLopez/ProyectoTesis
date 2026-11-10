@@ -24,7 +24,7 @@ const EstadoVisado = ({ egreso }) => {
 // Gastos pagados con la plata de la comunidad (GET/POST finanzas/egresos). Los que llegan al umbral de visado
 // esperan a la Presidencia; los rechazados no cuentan en los reportes.
 export default function Egresos() {
-  const { comunidad, cargo } = useSesion();
+  const { usuario, comunidad, cargo } = useSesion();
   const gestiona = gestionaFinanzas(cargo, comunidad);
   const presidente = esPresidente(cargo);
   const egresos = useConsulta(finanzas.listarEgresos, [comunidad.idRed]);
@@ -60,10 +60,13 @@ export default function Egresos() {
     mensaje: aprobado ? 'Egreso visado.' : 'Egreso rechazado.',
     hacer: (comentario) => finanzas.visarEgreso(e.idEgreso, aprobado, comentario),
   });
+  // Nadie visa un egreso que registró: el backend lo rechaza, así que el botón queda deshabilitado con su motivo
+  const propio = (e) => e.creadoPor?.idUsuario === usuario.idUsuario;
   const acciones = (e) => (presidente && e.estadoVisado === 'Pendiente' ? (
-    <Box sx={{ display: 'flex', gap: 1 }}>
-      <Button size="small" variant="contained" onClick={() => visar(e, true)}>Visar</Button>
+    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Button size="small" variant="contained" disabled={propio(e)} onClick={() => visar(e, true)}>Visar</Button>
       <Button size="small" color="inherit" onClick={() => visar(e, false)}>Rechazar</Button>
+      {propio(e) && <Typography variant="caption" color="warning.main">Lo registraste tú: lo visa otra persona de la directiva.</Typography>}
     </Box>
   ) : <EstadoVisado egreso={e} />);
   const detalle = (e) => [e.categoria?.nombre ?? 'Sin categoría', e.proveedor, `registrado por ${e.creadoPor?.nombre ?? 'sin nombre'}`].filter(Boolean).join(' · ');

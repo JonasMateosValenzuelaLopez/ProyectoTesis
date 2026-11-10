@@ -30,7 +30,7 @@ export default function SolicitarAcceso() {
   const correoMal = f.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(f.correo.trim());
   const telefono = f.telefono.trim() ? normalizarTelefono(f.telefono) : null;
   const telefonoMal = !!f.telefono.trim() && !telefono;
-  // La casilla de consentimiento es obligatoria. El backend todavía no la recibe ni la guarda, así que no se envía.
+  // La casilla de consentimiento es obligatoria: se envía como `aceptaPrivacidad` y el backend guarda la fecha y la versión del aviso.
   const valido = acepta && f.idRed && rutValido(f.identificador) && f.nombre.trim() && f.primerApellido.trim() && f.correo.trim() && !correoMal && !telefonoMal && f.numeroUnidad.trim();
   const marcar = (malo) => intento && !!malo;
 
@@ -51,6 +51,7 @@ export default function SolicitarAcceso() {
         numeroUnidad: f.numeroUnidad.trim(),
         tipoResidencia: f.tipoResidencia,
         ...(f.mensaje.trim() ? { mensaje: f.mensaje.trim() } : {}),
+        aceptaPrivacidad: true,
       });
       setEnviada(r.mensaje);
     } catch (err) {

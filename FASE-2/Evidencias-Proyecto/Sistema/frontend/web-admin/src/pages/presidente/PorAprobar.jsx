@@ -25,9 +25,9 @@ function Fila({ children, acciones, primera }) {
   );
 }
 
-const Decision = ({ onAprobar, onRechazar, aprobar = 'Aprobar', rechazar = 'Rechazar' }) => (
+const Decision = ({ onAprobar, onRechazar, aprobar = 'Aprobar', rechazar = 'Rechazar', sinAprobar = false }) => (
   <>
-    <Button variant="contained" onClick={onAprobar}>{aprobar}</Button>
+    <Button variant="contained" onClick={onAprobar} disabled={sinAprobar}>{aprobar}</Button>
     <Button color="inherit" onClick={onRechazar}>{rechazar}</Button>
   </>
 );
@@ -89,7 +89,7 @@ function UmbralVisado({ umbral, onCambio }) {
 // Lo que necesita la firma de la Presidencia: egresos sobre el umbral, exenciones que Tesorería ya revisó
 // y comunicados o normas que redactó otro cargo de la directiva.
 export default function PorAprobar() {
-  const { comunidad } = useSesion();
+  const { usuario, comunidad } = useSesion();
   const conCobros = tieneModulo(comunidad, 'cobros');
   const sinModulo = () => Promise.resolve([]);
   const egresos = useConsulta(conCobros ? finanzas.listarEgresos : sinModulo, [comunidad.idRed, conCobros]);
@@ -155,13 +155,16 @@ export default function PorAprobar() {
             {!egresos.datos ? <EstadoCarga cargando={egresos.cargando} error={egresos.error} onReintentar={egresos.recargar} />
               : porVisar.length === 0 ? <Typography color="text.secondary">Sin egresos por visar.</Typography>
                 : porVisar.map((e, i) => (
-                  <Fila key={e.idEgreso} primera={i === 0} acciones={<Decision aprobar="Visar" onAprobar={() => visar(e, true)} onRechazar={() => visar(e, false)} />}>
+                  <Fila key={e.idEgreso} primera={i === 0} acciones={<Decision aprobar="Visar" sinAprobar={e.creadoPor?.idUsuario === usuario.idUsuario} onAprobar={() => visar(e, true)} onRechazar={() => visar(e, false)} />}>
                     <Typography sx={{ fontWeight: 700 }}>{e.descripcion}</Typography>
                     <Typography sx={{ fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: '1.3rem' }}>{clp(e.monto)}</Typography>
                     <Typography variant="body2" color="text.secondary">
                       {e.categoria?.nombre ?? 'Sin categoría'}{e.proveedor ? ` · ${e.proveedor}` : ''} · {fecha(e.fechaEgreso)} · registrado por {e.creadoPor?.nombre ?? 'sin nombre'}
                     </Typography>
                     {e.comprobanteUrl && <Typography variant="body2"><a href={e.comprobanteUrl} target="_blank" rel="noopener noreferrer">Ver comprobante</a></Typography>}
+                    {e.creadoPor?.idUsuario === usuario.idUsuario && (
+                      <Typography variant="body2" color="warning.main">Lo registraste tú: lo debe visar otra persona de la directiva. Puedes rechazarlo si fue un error.</Typography>
+                    )}
                   </Fila>
                 ))}
           </Tarjeta>

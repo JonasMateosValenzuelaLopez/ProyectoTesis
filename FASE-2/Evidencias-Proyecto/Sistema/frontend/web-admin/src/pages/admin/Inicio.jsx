@@ -16,6 +16,8 @@ import Tarjeta from '../../components/ui/Tarjeta';
 import SelloCargo from '../../components/marca/SelloCargo';
 import PlanoComunidad, { LeyendaPlano } from '../../components/marca/PlanoComunidad';
 import DialogoUnidad from '../../components/finanzas/DialogoUnidad';
+import AvisoConsultas from '../../components/ui/AvisoConsultas';
+import { estadoConsultas } from '../../utils/consultas';
 
 const cifra = { fontFamily: 'Archivo, sans-serif', fontStretch: '110%', fontWeight: 800, fontVariantNumeric: 'tabular-nums' };
 const nada = () => Promise.resolve(null);
@@ -63,7 +65,16 @@ export default function Inicio() {
   if (residentes.datos) cifras.push({ etiqueta: 'Residentes activos', valor: activos, nota: invitados === 1 ? '1 invitación pendiente' : `${invitados} invitaciones pendientes` });
   if (unidades.datos) cifras.push({ etiqueta: 'Unidades sin residentes', valor: sinResidentes, color: sinResidentes ? 'warning.main' : undefined, nota: sinResidentes ? 'nadie registrado en la app' : 'todas con residentes' });
 
+  // «Nada pendiente» solo si todas las consultas respondieron: si una falló o no ha llegado, no se puede saber
+  const { fallidas, completo } = estadoConsultas([
+    { nombre: 'las solicitudes de acceso', consulta: solicitudes },
+    { nombre: 'los residentes', consulta: residentes },
+    { nombre: 'las unidades', consulta: unidades },
+    ...(conCobros ? [{ nombre: 'los cobros', consulta: estado }] : []),
+    ...(conMuro ? [{ nombre: 'los reportes del muro', consulta: muro }] : []),
+  ]);
   const pendientes = tareas.length === 1 ? 'Tienes 1 cosa por resolver.' : `Tienes ${tareas.length} cosas por resolver.`;
+  const resumenDia = tareas.length ? pendientes : completo ? 'Nada pendiente.' : '';
   const unidad = idUnidad && unidades.datos?.find((u) => u.idUnidad === idUnidad);
   const estados = e ? Object.fromEntries(e.unidades.map((u) => [u.idUnidad, u.estado])) : {};
   const actividad = (bitacora.datos?.registros ?? []).slice(0, 5);
@@ -72,17 +83,26 @@ export default function Inicio() {
     <Box sx={{ maxWidth: 1400 }}>
       <Encabezado
         contexto={`${comunidad.nombre} · ${hoyTexto()}`}
-        titulo={`${saludo()}, ${usuario.nombre}. ${tareas.length ? pendientes : 'Nada pendiente.'}`}
+        titulo={`${saludo()}, ${usuario.nombre}.${resumenDia ? ` ${resumenDia}` : ''}`}
         acciones={conCobros && <Button variant="contained" onClick={() => navigate('/panel/finanzas')}>Ir a cobros</Button>}
       />
+      <AvisoConsultas fallidas={fallidas} sx={{ mb: 2.5 }} />
 
       {/* El día como una cola de trabajo: cada pendiente con su botón, y las cifras, el plano y la actividad a un costado */}
       <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', lg: '1.5fr 1fr' }, alignItems: 'start' }}>
         <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
           {tareas.length === 0 ? (
             <Box sx={{ px: { xs: 2, sm: 2.5 }, py: 3 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '1.05rem' }}>Todo al día</Typography>
-              <Typography color="text.secondary">No hay solicitudes, reportes ni deudas que revisar. Lo nuevo aparecerá aquí.</Typography>
+              {completo ? (
+                <>
+                  <Typography sx={{ fontWeight: 700, fontSize: '1.05rem' }}>Todo al día</Typography>
+                  <Typography color="text.secondary">No hay solicitudes, reportes ni deudas que revisar. Lo nuevo aparecerá aquí.</Typography>
+                </>
+              ) : fallidas.length ? (
+                <Typography color="text.secondary">No sabemos si hay pendientes porque parte de la información no se pudo cargar.</Typography>
+              ) : (
+                <Typography color="text.secondary">Revisando pendientes…</Typography>
+              )}
             </Box>
           ) : tareas.map((t, i) => (
             <Box key={t.texto} sx={{ display: 'grid', gridTemplateColumns: { xs: '36px 1fr auto', sm: '56px 1fr auto' }, alignItems: 'center', gap: { xs: 1.5, sm: 2 }, px: { xs: 2, sm: 2.5 }, py: 2, borderTop: i ? 1 : 0, borderColor: 'divider' }}>

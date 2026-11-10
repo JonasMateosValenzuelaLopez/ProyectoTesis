@@ -22,7 +22,7 @@ export default function EnPorteria() {
   const t = useTema();
   const { comunidad, tiene, acciones } = useSesion();
   const conConserjeria = tiene('conserjeria');
-  const { datos, cargando, recargar, setDatos } = useConsulta(conConserjeria ? accesos.porAutorizar : sinConserjeria, [comunidad?.idRed, conConserjeria]);
+  const { datos, cargando, error, recargar, setDatos } = useConsulta(conConserjeria ? accesos.porAutorizar : sinConserjeria, [comunidad?.idRed, conConserjeria]);
   useAlEnfocar(recargar);
   const [enviando, setEnviando] = useState<string | null>(null);
   // No pregunta con la app en segundo plano ni si la consulta anterior no terminó; al volver a la app, se pone al día
@@ -51,7 +51,19 @@ export default function EnPorteria() {
     }
   };
 
-  return (datos?.porAutorizar ?? []).map((v) => {
+  // Si la consulta falla, se dice: alguien podría estar esperando en portería sin que la persona lo sepa
+  const aviso = error && conConserjeria ? (
+    <Tarjeta key="sin-conexion" acento={t.bad}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Ionicons name="cloud-offline-outline" size={20} color={t.bad} />
+        <Texto v="fuerte" style={{ flex: 1 }}>No pudimos revisar si alguien te espera en portería</Texto>
+      </View>
+      <Texto v="suave">{error.message} Lo intentaremos de nuevo en unos segundos.</Texto>
+      <Boton tipo="secundario" texto="Reintentar" icono="refresh" onPress={recargar} />
+    </Tarjeta>
+  ) : null;
+
+  return [aviso, ...(datos?.porAutorizar ?? []).map((v) => {
     const nombre = v.visitante ?? 'Una visita';
     return (
       <Tarjeta key={v.idAcceso} acento={t.signal}>
@@ -71,5 +83,5 @@ export default function EnPorteria() {
         </View>
       </Tarjeta>
     );
-  });
+  })];
 }

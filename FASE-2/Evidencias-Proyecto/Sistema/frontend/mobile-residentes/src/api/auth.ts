@@ -22,8 +22,9 @@ export const marcarTutorialVisto = () =>
 export const actualizarTelefono = (telefono: string | null) =>
   api<Perfil>('/auth/perfil/telefono', { metodo: 'PUT', cuerpo: { telefono }, sinRed: true });
 
-export const pedirCambioCorreo = (correo: string) =>
-  api<Mensaje & { expiraEn: string }>('/auth/perfil/correo', { metodo: 'POST', cuerpo: { correo }, sinRed: true });
+// Pide la contraseña actual (`passwordActual`); si no calza, el error viene en `campos.passwordActual`
+export const pedirCambioCorreo = (correo: string, passwordActual: string) =>
+  api<Mensaje & { expiraEn: string }>('/auth/perfil/correo', { metodo: 'POST', cuerpo: { correo, passwordActual }, sinRed: true });
 
 export const confirmarCambioCorreo = (codigo: string) =>
   api<Perfil>('/auth/perfil/correo/confirmacion', { metodo: 'POST', cuerpo: { codigo }, sinRed: true });

@@ -10,6 +10,8 @@ import Encabezado from '../../components/ui/Encabezado';
 import FranjaKpi from '../../components/ui/FranjaKpi';
 import Tarjeta from '../../components/ui/Tarjeta';
 import TarjetaVotacion from '../../components/directiva/TarjetaVotacion';
+import AvisoConsultas from '../../components/ui/AvisoConsultas';
+import { estadoConsultas } from '../../utils/consultas';
 
 const nada = () => Promise.resolve(null);
 const ESTADO_PUBLICACION = {
@@ -51,6 +53,11 @@ export default function InicioSecretario() {
     );
   }
   if (conMuro) kpis.push({ etiqueta: 'Comunicados en revisión', valor: enRevision, nota: 'esperan a la Presidencia' });
+  // Si una consulta falla, los ceros de arriba no son ciertos: se avisa qué no se pudo cargar
+  const { fallidas } = estadoConsultas([
+    ...(conVotaciones ? [{ nombre: 'las votaciones', consulta: votaciones }, { nombre: 'las actas', consulta: actas }] : []),
+    ...(conMuro ? [{ nombre: 'los comunicados', consulta: oficiales }] : []),
+  ]);
 
   return (
     <Box sx={{ maxWidth: 1400 }}>
@@ -60,6 +67,7 @@ export default function InicioSecretario() {
         acciones={conVotaciones && <Button variant="contained" onClick={() => navigate('/panel/actas')}>Ir al libro de actas</Button>}
       />
 
+      <AvisoConsultas fallidas={fallidas} sx={{ mb: 2.5 }} />
       {kpis.length > 0 && <FranjaKpi items={kpis} />}
       {!conVotaciones && !conMuro && (
         <Tarjeta><Typography color="text.secondary">Esta comunidad no usa votaciones ni el muro. Desde el menú puedes mantener el directorio y la guía de bienvenida.</Typography></Tarjeta>
@@ -73,7 +81,6 @@ export default function InicioSecretario() {
               <Button size="small" onClick={() => navigate('/panel/votaciones')}>Ver todas</Button>
             </Box>
             {votaciones.datos && abiertas.length === 0 && <Tarjeta><Typography color="text.secondary">No hay votaciones abiertas.</Typography></Tarjeta>}
-            {votaciones.error && <Tarjeta><Typography color="error">{votaciones.error.message}</Typography></Tarjeta>}
             {abiertas.slice(0, 2).map((v) => <TarjetaVotacion key={v.idVotacion} votacion={v} onCambio={votaciones.recargar} compacta />)}
           </Box>
         )}
@@ -81,7 +88,7 @@ export default function InicioSecretario() {
         <Box sx={{ display: 'grid', gap: 2.5 }}>
           {conVotaciones && (
             <Tarjeta titulo="Acuerdos por cumplir" extra="De las actas">
-              {acuerdos.length === 0 ? <Typography color="text.secondary">No hay acuerdos con plazo próximo.</Typography> : acuerdos.map((a, i) => {
+              {!actas.datos ? <Typography color="text.secondary">{actas.error ? "No se pudieron cargar las actas." : "Cargando…"}</Typography> : acuerdos.length === 0 ? <Typography color="text.secondary">No hay acuerdos con plazo próximo.</Typography> : acuerdos.map((a, i) => {
                 const dias = diasHasta(a.plazo);
                 return (
                   <Box key={a.idAcuerdo} sx={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 2, py: 1, borderTop: i ? 1 : 0, borderColor: 'divider', mt: i ? 0 : -1 }}>

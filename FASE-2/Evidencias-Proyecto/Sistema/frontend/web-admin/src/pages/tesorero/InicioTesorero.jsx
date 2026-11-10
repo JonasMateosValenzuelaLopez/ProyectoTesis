@@ -18,6 +18,8 @@ import DialogoUnidad from '../../components/finanzas/DialogoUnidad';
 import DialogoNuevoCobro from '../../components/finanzas/DialogoNuevoCobro';
 import DialogoRecordatorio from '../../components/finanzas/DialogoRecordatorio';
 import DialogoExencion from '../../components/finanzas/DialogoExencion';
+import AvisoConsultas from '../../components/ui/AvisoConsultas';
+import { estadoConsultas } from '../../utils/consultas';
 
 const nada = () => Promise.resolve(null);
 
@@ -76,6 +78,7 @@ export default function InicioTesorero() {
     <Box sx={{ maxWidth: 1400 }}>
       {encabezado}
 
+      <AvisoConsultas fallidas={estadoConsultas([{ nombre: 'los cobros', consulta: cobros }, { nombre: 'las categorías', consulta: categorias }]).fallidas} sx={{ mb: 2.5 }} />
       <FranjaKpi
         items={[
           { etiqueta: `Al día en ${periodo}`, valor: `${e.resumen.alDia} de ${e.resumen.totalUnidades}`, progreso: e.resumen.totalUnidades ? (e.resumen.alDia / e.resumen.totalUnidades) * 100 : 0 },
@@ -101,7 +104,7 @@ export default function InicioTesorero() {
         </Tarjeta>
 
         <Tarjeta titulo={`Cobros de ${periodo.split(' ')[0]}`} extra={<Button size="small" onClick={() => navigate('/panel/finanzas')}>Ver todos</Button>}>
-          {delPeriodo.length === 0 && <Typography color="text.secondary">Todavía no hay cobros este mes. Crea uno con «Nuevo cobro».</Typography>}
+          {cobros.datos && delPeriodo.length === 0 && <Typography color="text.secondary">Todavía no hay cobros este mes. Crea uno con «Nuevo cobro».</Typography>}
           <Box sx={{ display: 'grid' }}>
             {delPeriodo.map((c, i) => {
               const cobrables = c.totales.unidades - c.totales.exentas;
