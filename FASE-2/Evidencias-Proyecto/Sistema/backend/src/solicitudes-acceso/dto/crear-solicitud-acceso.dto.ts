@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  Equals,
   IsEmail,
   IsEnum,
   IsInt,
@@ -86,4 +87,9 @@ export class CrearSolicitudAccesoDto {
   @IsString({ message: 'El mensaje debe ser texto' })
   @MaxLength(255, { message: 'El mensaje no puede superar 255 caracteres' })
   mensaje?: string;
+
+  @Equals(true, {
+    message: 'Debes aceptar el aviso de privacidad para enviar la solicitud',
+  })
+  aceptaPrivacidad: boolean;
 }
