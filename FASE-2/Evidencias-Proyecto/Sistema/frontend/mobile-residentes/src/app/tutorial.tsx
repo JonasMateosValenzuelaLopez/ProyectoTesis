@@ -68,6 +68,10 @@ export default function Tutorial() {
       clave: 'perfil', icono: 'person-circle', pestana: 'Perfil', titulo: 'La memoria de tu casa', texto: 'En Perfil está Mi hogar: colores, garantías, mantenciones y notas.',
       puntos: ['También tus datos, los contactos de la comunidad y este tutorial.'],
     },
+    {
+      clave: 'letra', icono: 'text', pestana: 'Perfil', titulo: 'Letra más grande', texto: 'En Perfil, «Tamaño de letra»: A+ agranda y A− achica.',
+      puntos: ['Mantén apretado para avanzar rápido.', 'También está en la pantalla de entrada, con el botón «Aa».'],
+    },
   ];
   const total = pasos.length + 1; // la portada cuenta como paso
   const portada = n === 0;

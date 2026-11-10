@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { F, sombra, useTema } from '@/constants/tema';
 import Texto from './Texto';
 import Chip from './Chip';
+import { EscalaFija } from '@/context/Tema';
 
 // Escenas animadas del tutorial: una pantalla en miniatura que muestra la función en uso
 // (un dedo toca, el estado cambia), en un ciclo de unos 5 segundos que se repite.
@@ -335,11 +336,66 @@ function Perfil() {
   );
 }
 
+// El dedo que se queda apretando entre `desde` y `hasta` (para «mantén apretado»)
+function Mantiene({ desde, hasta }: { desde: number; hasta: number }) {
+  const p = useP();
+  const t = useTema();
+  const st = useAnimatedStyle(() => ({
+    opacity: interpolate(p.value, [desde - 0.06, desde - 0.02, hasta, hasta + 0.05], [0, 0.55, 0.55, 0], 'clamp'),
+    transform: [{ scale: interpolate(p.value, [desde - 0.06, desde, hasta, hasta + 0.05], [1.5, 0.85, 0.85, 1.25], 'clamp') }],
+  }));
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={[{ width: 38, height: 38, borderRadius: 19, backgroundColor: t.ink, borderWidth: 3, borderColor: t.surface }, st]} />
+    </View>
+  );
+}
+
+function Letra() {
+  const t = useTema();
+  // Mientras se mantiene apretado A+, el porcentaje y la letra suben de a pasos
+  const pasos = [0.3, 0.42, 0.54];
+  const tamanos = [{ pct: '100 %', f: 15 }, { pct: '115 %', f: 17 }, { pct: '130 %', f: 19.5 }, { pct: '145 %', f: 22 }];
+  const tecla = (texto: string, grande: boolean, dedo: boolean) => (
+    <View style={{ position: 'relative', width: 52, height: 42, borderRadius: 12, borderWidth: 1.5, borderColor: t.botonBorde, backgroundColor: t.surface, alignItems: 'center', justifyContent: 'center' }}>
+      <Texto style={{ fontFamily: F.negrita, fontSize: grande ? 19 : 14, lineHeight: 22, color: t.botonBorde }}>{texto}</Texto>
+      {dedo && <Mantiene desde={0.2} hasta={0.64} />}
+    </View>
+  );
+  return (
+    <>
+      <Mini style={{ gap: 10 }}>
+        <Fuerte>Tamaño de letra</Fuerte>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {tecla('A−', false, false)}
+          <Estados cambios={pasos} style={{ flex: 1, alignItems: 'center' }}>
+            {tamanos.map((x) => <View key={x.pct} style={{ alignItems: 'center' }}><Cifra>{x.pct}</Cifra></View>)}
+          </Estados>
+          {tecla('A+', true, true)}
+        </View>
+        <Estados cambios={pasos} style={{ minHeight: 84, backgroundColor: t.paper, borderRadius: 10 }}>
+          {tamanos.map((x) => (
+            <View key={x.pct} style={{ padding: 10 }}>
+              <Texto style={{ fontFamily: F.texto, fontSize: x.f, lineHeight: x.f * 1.35, color: t.ink }}>Hoy pasa el camión de la basura</Texto>
+            </View>
+          ))}
+        </Estados>
+      </Mini>
+      <Entra en={0.7} como="aparece">
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <Ionicons name="checkmark-circle" size={18} color={t.ok} />
+          <Chico color={t.ok}>Toda la app queda con esa letra</Chico>
+        </View>
+      </Entra>
+    </>
+  );
+}
+
 // ---------- Marco ----------
 
-export type ClaveEscena = 'inicio' | 'finanzas' | 'muro' | 'reservas' | 'mercado' | 'visitas' | 'perfil';
+export type ClaveEscena = 'inicio' | 'finanzas' | 'muro' | 'reservas' | 'mercado' | 'visitas' | 'perfil' | 'letra';
 type Opciones = { cobros?: boolean; votaciones?: boolean; muro?: boolean; conserjeria?: boolean; espacio?: string; bloques?: string[] };
-const ESCENAS: Record<ClaveEscena, (o: Opciones) => ReactNode> = { inicio: Inicio, finanzas: Finanzas, muro: Muro, reservas: Reservas, mercado: Mercado, visitas: Visitas, perfil: Perfil };
+const ESCENAS: Record<ClaveEscena, (o: Opciones) => ReactNode> = { inicio: Inicio, finanzas: Finanzas, muro: Muro, reservas: Reservas, mercado: Mercado, visitas: Visitas, perfil: Perfil, letra: Letra };
 
 export default function EscenaTutorial({ clave, opciones = {} }: { clave: ClaveEscena; opciones?: Opciones }) {
   const t = useTema();
@@ -360,9 +416,12 @@ export default function EscenaTutorial({ clave, opciones = {} }: { clave: ClaveE
         accessibilityElementsHidden importantForAccessibility="no-hide-descendants"
         style={{ backgroundColor: t.paper, borderRadius: 24, borderWidth: 1, borderColor: t.line, padding: 14, minHeight: 236, overflow: 'hidden' }}
       >
-        <Animated.View style={[{ gap: 10 }, ciclo]}>
-          <Escena {...opciones} />
-        </Animated.View>
+        {/* Son ilustraciones de tamaño fijo: no siguen el tamaño de letra elegido, así no se descuadran */}
+        <EscalaFija>
+          <Animated.View style={[{ gap: 10 }, ciclo]}>
+            <Escena {...opciones} />
+          </Animated.View>
+        </EscalaFija>
       </View>
     </Ciclo.Provider>
   );

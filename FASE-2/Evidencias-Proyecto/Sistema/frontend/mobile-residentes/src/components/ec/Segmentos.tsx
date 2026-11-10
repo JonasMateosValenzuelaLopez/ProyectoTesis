@@ -39,9 +39,10 @@ export default function Segmentos<T extends string>({ opciones, valor, onCambio 
         return (
           <Pressable
             key={o.valor} accessibilityRole="tab" accessibilityState={{ selected: activo }} onPress={() => onCambio(o.valor)}
-            style={{ flex: 1, minHeight: 42, borderRadius: 999, alignItems: 'center', justifyContent: 'center', backgroundColor: activo && !segmento ? t.surface : 'transparent' }}
+            style={{ flex: 1, minHeight: 42, borderRadius: 999, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: activo && !segmento ? t.surface : 'transparent' }}
           >
-            <Texto style={{ fontFamily: activo ? F.negrita : F.medio, fontSize: 15, color: activo ? t.ink : t.ink2 }}>{o.texto}</Texto>
+            {/* Una sola línea: con letra grande, si no cabe, se achica lo justo para no partir la píldora */}
+            <Texto numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6} style={{ fontFamily: activo ? F.negrita : F.medio, fontSize: 15, color: activo ? t.ink : t.ink2, textAlign: 'center' }}>{o.texto}</Texto>
           </Pressable>
         );
       })}

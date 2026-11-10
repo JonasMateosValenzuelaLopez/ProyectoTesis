@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,6 +16,8 @@ import Segmentos from '@/components/ec/Segmentos';
 import PlacaUnidad from '@/components/ec/PlacaUnidad';
 import Pantalla from '@/components/ec/Pantalla';
 import PasoSesion from '@/components/ec/PasoSesion';
+import ControlTamanoLetra from '@/components/ec/ControlTamanoLetra';
+import { EscalaFija } from '@/context/Tema';
 
 const ENCENDIDAS = new Set([2, 5, 9, 14, 20, 23]);
 
@@ -57,6 +59,7 @@ export default function Login() {
   const [enviando, setEnviando] = useState(false);
   // Respuesta del login mientras se muestra el saludo con la placa de la vivienda
   const [bienvenida, setBienvenida] = useState<Sesion | null>(null);
+  const [verLetra, setVerLetra] = useState(false);
 
   const rutMal = rut.length > 3 && !rutValido(rut);
 
@@ -91,10 +94,31 @@ export default function Login() {
   return (
     <Pantalla>
       <Marca />
-      <View style={{ gap: 4, marginTop: 4 }}>
-        <Texto v="titulo" accessibilityRole="header">Entrar</Texto>
-        <Texto v="suave">Para residentes, propietarios y arrendatarios.</Texto>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginTop: 4 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <Texto v="titulo" accessibilityRole="header">Entrar</Texto>
+          <Texto v="suave">Para residentes, propietarios y arrendatarios.</Texto>
+        </View>
+        {/* Tamaño de letra al alcance antes de entrar: «Aa» abre y cierra el control */}
+        <Pressable
+          onPress={() => setVerLetra((v) => !v)} hitSlop={6}
+          accessibilityRole="button" accessibilityLabel="Tamaño de letra" accessibilityState={{ expanded: verLetra }}
+          style={({ pressed }) => ({
+            width: 52, height: 48, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+            borderColor: verLetra ? t.accion : t.lineStrong, backgroundColor: pressed || verLetra ? t.accionSoft : t.surface,
+          })}
+        >
+          <EscalaFija>
+            <Texto style={{ fontFamily: F.negrita, fontSize: 20, lineHeight: 24, color: t.accion }}>Aa</Texto>
+          </EscalaFija>
+        </Pressable>
       </View>
+      {verLetra && (
+        <View style={{ backgroundColor: t.surface, borderRadius: 16, borderWidth: 1, borderColor: t.lineStrong, padding: 14, gap: 8 }}>
+          <Texto v="fuerte">Tamaño de letra</Texto>
+          <ControlTamanoLetra vistaPrevia={false} />
+        </View>
+      )}
       {motivoSalida && (
         <View accessibilityLiveRegion="polite" style={{ backgroundColor: t.warnSoft, borderRadius: 12, padding: 12 }}>
           <Texto color={t.warn}>{motivoSalida}</Texto>

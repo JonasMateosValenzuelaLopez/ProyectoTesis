@@ -13,8 +13,8 @@ export default function Chip({ texto, tono = 'neutro', codigo }: { texto: string
     accion: [t.accionSoft, t.accion], senal: [t.signalSoft, t.oscuro ? t.signal : t.signalInk],
   }[tono];
   return (
-    <View style={{ alignSelf: 'flex-start', backgroundColor: c[0], borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-      <Texto style={[{ fontFamily: F.negrita, fontSize: 13, lineHeight: 18, color: c[1] }, codigo && { fontFamily: F.etiqueta, letterSpacing: 1, fontVariant: ['tabular-nums'] }]}>{texto}</Texto>
+    <View style={{ alignSelf: 'flex-start', flexShrink: 1, backgroundColor: c[0], borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+      <Texto style={[{ fontFamily: F.negrita, fontSize: 13, lineHeight: 18, color: c[1], flexShrink: 1 }, codigo && { fontFamily: F.etiqueta, letterSpacing: 1, fontVariant: ['tabular-nums'] }]}>{texto}</Texto>
     </View>
   );
 }

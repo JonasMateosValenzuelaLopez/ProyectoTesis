@@ -19,6 +19,7 @@ import PlacaUnidad from '@/components/ec/PlacaUnidad';
 import SelloCargo from '@/components/ec/SelloCargo';
 import Segmentos from '@/components/ec/Segmentos';
 import PasoSesion from '@/components/ec/PasoSesion';
+import ControlTamanoLetra from '@/components/ec/ControlTamanoLetra';
 
 const APARIENCIAS: { valor: Apariencia; texto: string }[] = [
   { valor: 'claro', texto: 'Claro' },
@@ -102,6 +103,14 @@ export default function Perfil() {
           <Texto v="suave">Con «Teléfono», la app cambia sola cuando tu teléfono pasa a modo oscuro.</Texto>
         </View>
         <Segmentos opciones={APARIENCIAS} valor={apariencia} onCambio={setApariencia} />
+      </Tarjeta>
+
+      <Tarjeta>
+        <View style={{ gap: 2 }}>
+          <Texto v="subtitulo">Tamaño de letra</Texto>
+          <Texto v="suave">Agranda la letra de toda la app si te cuesta leer. Se recuerda en este teléfono.</Texto>
+        </View>
+        <ControlTamanoLetra />
       </Tarjeta>
 
       <Boton tipo="peligro" texto="Cerrar sesión" icono="log-out-outline" onPress={() => setSaliendo(true)} />

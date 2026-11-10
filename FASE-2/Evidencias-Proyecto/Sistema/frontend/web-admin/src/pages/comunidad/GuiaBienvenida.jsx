@@ -32,7 +32,8 @@ function VistaPrevia({ paso, form, dias, comunidad, espacios, contactos, firma }
   return (
     <Box
       role="img" aria-label={`Vista previa en el teléfono: ${paso}`}
-      sx={{ width: 280, height: 540, border: 8, borderColor: t.ink, borderRadius: '34px', bgcolor: portada ? t.sidebar : t.paper, color: portada ? t.sidebarStrong : t.ink, p: 2.25, display: 'flex', flexDirection: 'column', gap: 1.5, overflow: 'hidden', boxSizing: 'border-box' }}
+      // En rem (280 × 540 px al 100 %): con letra más grande el teléfono crece igual y no se corta el texto
+      sx={{ width: '17.5rem', height: '33.75rem', maxWidth: '100%', border: 8, borderColor: t.ink, borderRadius: '34px', bgcolor: portada ? t.sidebar : t.paper, color: portada ? t.sidebarStrong : t.ink, p: 2.25, display: 'flex', flexDirection: 'column', gap: 1.5, overflow: 'hidden', boxSizing: 'border-box' }}
     >
       {portada && (
         <>

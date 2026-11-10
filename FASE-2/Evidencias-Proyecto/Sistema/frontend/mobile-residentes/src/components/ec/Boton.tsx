@@ -28,9 +28,10 @@ export default function Boton({ texto, tipo = 'principal', icono, cargando, disa
         alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.45 : 1,
       }, presion.estilo, style]}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      {/* Con letra grande el texto pasa a dos líneas dentro del botón en vez de salirse (flexShrink) */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: '100%' }}>
         {cargando ? <ActivityIndicator color={tinta} /> : icono ? <Ionicons name={icono} size={20} color={tinta} /> : null}
-        <Texto style={{ fontFamily: tipo === 'sutil' ? F.medio : F.negrita, fontSize: tipo === 'sutil' ? 15 : 16, letterSpacing: -0.1, color: tinta }}>{texto}</Texto>
+        <Texto style={{ fontFamily: tipo === 'sutil' ? F.medio : F.negrita, fontSize: tipo === 'sutil' ? 15 : 16, letterSpacing: -0.1, color: tinta, flexShrink: 1, textAlign: 'center' }}>{texto}</Texto>
       </View>
     </PressableAnimado>
   );

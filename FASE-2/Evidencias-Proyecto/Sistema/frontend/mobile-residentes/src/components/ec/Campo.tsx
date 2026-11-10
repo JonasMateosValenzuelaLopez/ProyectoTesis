@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { Pressable, TextInput, View, type TextInputProps } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View, type TextInputProps, type TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { F, useTema } from '@/constants/tema';
-import Texto from './Texto';
+import { useEscalaTexto } from '@/context/Tema';
+import Texto, { escalarEstilo, multiplicadorSistema } from './Texto';
 
 // Campo de formulario con etiqueta arriba (siempre visible) y mensaje de error abajo.
 // Si es de contraseña (`secureTextEntry`), muestra un ojo para ver lo que se escribió.
 export default function Campo({ etiqueta, error, ayuda, style, secureTextEntry, ...rest }: TextInputProps & { etiqueta: string; error?: string | false; ayuda?: string }) {
   const t = useTema();
+  const escala = useEscalaTexto();
   const [foco, setFoco] = useState(false);
   const [visible, setVisible] = useState(false);
   const clave = !!secureTextEntry;
@@ -19,17 +21,18 @@ export default function Campo({ etiqueta, error, ayuda, style, secureTextEntry, 
         <TextInput
           placeholderTextColor={t.placeholder}
           accessibilityLabel={etiqueta}
+          maxFontSizeMultiplier={multiplicadorSistema(escala)}
           {...rest}
           secureTextEntry={clave && !visible}
           autoCapitalize={clave ? 'none' : rest.autoCapitalize}
           autoCorrect={clave ? false : rest.autoCorrect}
           onFocus={(e) => { setFoco(true); rest.onFocus?.(e); }}
           onBlur={(e) => { setFoco(false); rest.onBlur?.(e); }}
-          style={[{
+          style={escalarEstilo(StyleSheet.flatten([{
             minHeight: 52, borderRadius: 14, borderWidth: foco ? 2 : 1, paddingHorizontal: foco ? 15 : 16,
             borderColor: error ? t.bad : foco ? t.accion : t.lineStrong, backgroundColor: t.surface,
             fontFamily: F.texto, fontSize: 17, color: t.ink,
-          }, clave && { paddingRight: 52 }, style]}
+          }, clave && { paddingRight: 52 }, style]) as TextStyle, escala)}
         />
         {clave && (
           <Pressable
