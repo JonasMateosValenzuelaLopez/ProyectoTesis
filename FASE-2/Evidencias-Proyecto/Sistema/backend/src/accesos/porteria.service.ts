@@ -24,6 +24,7 @@ import { Unidad } from '../unidades/entities/unidad.entity';
 import { CuentasService } from '../usuarios/cuentas.service';
 import { Residencia } from '../usuarios/entities/residencia.entity';
 import { nombreCompleto } from '../common/utils/nombres';
+import { escaparLike } from '../common/utils/texto';
 import { nombresPorId } from '../usuarios/nombres-por-id';
 import { finDelDia } from '../votaciones/reglas-votaciones';
 import {
@@ -59,8 +60,6 @@ import { obtenerVisitante } from './visitantes';
 const LIMITE_POR_DEFECTO = 50;
 const MAX_RESULTADOS_BUSQUEDA = 8;
 const MAX_LISTA_GARITA = 200;
-
-const escaparLike = (texto: string) => texto.replace(/[\\%_]/g, '\\$&');
 
 @Injectable()
 export class PorteriaService {

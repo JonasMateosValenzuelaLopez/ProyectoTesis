@@ -11,6 +11,7 @@ import { CodigoModulo } from '../common/enums/modulo.enum';
 import { NOMBRE_ROL, RolUsuario } from '../common/enums/rol.enum';
 import { nombreCompleto } from '../common/utils/nombres';
 import { condicionVigente } from '../common/utils/vigencia';
+import { aplicarCambioModulo } from '../redes-vecinales/cambiar-modulo';
 import { RedModulo } from '../redes-vecinales/entities/red-modulo.entity';
 import {
   EstadoRedVecinal,
@@ -121,32 +122,15 @@ export class PlataformaService {
   ) {
     await this.dataSource.transaction(async (manager) => {
       await this.bloquearRed(manager, idRed);
-      const actual = await manager.findOne(RedModulo, {
-        where: { idRed, codigoModulo },
-        withDeleted: true,
-      });
-      const estabaActivo = Boolean(
-        actual && !actual.fechaEliminacion && actual.activo,
+      const cambio = await aplicarCambioModulo(
+        manager,
+        idRed,
+        codigoModulo,
+        activo,
+        idUsuario,
       );
-      if (estabaActivo === activo) {
+      if (!cambio) {
         return;
-      }
-      if (!actual) {
-        await manager.insert(RedModulo, {
-          idRed,
-          codigoModulo,
-          activo,
-          actualizadoPor: idUsuario,
-        });
-      } else {
-        if (actual.fechaEliminacion) {
-          await manager.restore(RedModulo, { idRed, codigoModulo });
-        }
-        await manager.update(
-          RedModulo,
-          { idRed, codigoModulo },
-          { activo, actualizadoPor: idUsuario },
-        );
       }
       await this.registrar(
         manager,
