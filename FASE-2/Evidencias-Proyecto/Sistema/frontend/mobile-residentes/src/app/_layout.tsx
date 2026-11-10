@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   useFonts, Archivo_400Regular, Archivo_500Medium, Archivo_600SemiBold, Archivo_700Bold, Archivo_800ExtraBold,
 } from '@expo-google-fonts/archivo';
-import { AppProvider } from '@/context/App';
+import { SesionProvider } from '@/context/Sesion';
 import { TemaProvider } from '@/context/Tema';
 import { useTema } from '@/constants/tema';
 import Aviso from '@/components/ec/Aviso';
@@ -41,7 +41,7 @@ function Raiz() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={tema}>
-        <AppProvider>
+        <SesionProvider>
           <View style={{ flex: 1, backgroundColor: t.paper }}>
             <StatusBar style={t.oscuro ? 'light' : 'dark'} />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.paper } }}>
@@ -53,13 +53,13 @@ function Raiz() {
               {/* El tutorial y la guía de bienvenida ocupan toda la pantalla y no se cierran deslizando: se terminan o se saltan */}
               <Stack.Screen name="bienvenida" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
               <Stack.Screen name="tutorial" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false }} />
-              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos', 'actas', 'acta/[id]', 'mis-datos', 'mi-hogar', 'hogar/[id]', 'hogar-ficha'].map((n) => (
+              {['invitar', 'invitacion/[id]', 'transferencia', 'reservar', 'publicar', 'votacion/[id]', 'aviso/[id]', 'invitaciones', 'contactos', 'actas', 'acta/[id]', 'mis-datos', 'cambiar-clave', 'mi-hogar', 'hogar/[id]', 'hogar-ficha'].map((n) => (
                 <Stack.Screen key={n} name={n} options={{ presentation: 'modal' }} />
               ))}
             </Stack>
             <Aviso />
           </View>
-        </AppProvider>
+        </SesionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

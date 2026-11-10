@@ -16,6 +16,7 @@ const RESULTADOS = {
   usado: { titulo: 'Este código ya se usó', color: 'error' },
   adentro: { titulo: 'Ya está adentro', color: 'warning' },
   cancelada: { titulo: 'Invitación cancelada', color: 'error' },
+  sin_invitante: { titulo: 'Quien invitó ya no vive ahí', color: 'error' },
   no_existe: { titulo: 'Código no encontrado', color: 'error' },
 };
 
@@ -27,21 +28,22 @@ const motivo = (r) => {
     case 'usado': return 'La visita ya entró y salió con este código. Cada código sirve para una visita.';
     case 'adentro': return 'Su ingreso ya está registrado. Si va saliendo, registra la salida en la lista de visitas.';
     case 'cancelada': return 'El residente canceló esta invitación.';
-    case 'no_existe': return 'Revisa que el código esté completo. Si la persona no tiene invitación, llama a la unidad.';
+    case 'sin_invitante': return 'Quien invitó ya no vive en la vivienda o no tiene acceso a la comunidad. Si la visita va a otra persona de la casa, regístrala como ingreso sin invitación.';
+    case 'no_existe': return 'Revisa que el código esté completo (EC y 8 letras o números). Si la persona no tiene invitación, regístrala como ingreso sin invitación.';
     default: return null;
   }
 };
 
 // Validación de invitaciones: el lector de QR escribe el código y presiona Enter, igual que un teclado.
 export default function ValidarQR() {
-  const { invitaciones, unidadPorId, acciones } = useConserjeria();
+  const { invitaciones, unidadPorId, invitanteVigente, acciones } = useConserjeria();
   const [codigo, setCodigo] = useState('');
   const [revision, setRevision] = useState(null);
 
   const validar = (e) => {
     e?.preventDefault();
     if (!codigo.trim()) return;
-    setRevision(revisarCodigo(invitaciones, codigo));
+    setRevision(revisarCodigo(invitaciones, codigo, invitanteVigente));
   };
   const registrar = () => {
     acciones.ingresoInvitacion(revision.inv, 'QR');
@@ -74,7 +76,7 @@ export default function ValidarQR() {
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Typography variant="body2" color="text.secondary">Códigos de prueba:</Typography>
             {ejemplos.map((i) => (
-              <Chip key={i.id_invitacion} size="small" variant="outlined" label={i.codigo} onClick={() => { setCodigo(i.codigo); setRevision(revisarCodigo(invitaciones, i.codigo)); }} />
+              <Chip key={i.id_invitacion} size="small" variant="outlined" label={i.codigo} onClick={() => { setCodigo(i.codigo); setRevision(revisarCodigo(invitaciones, i.codigo, invitanteVigente)); }} />
             ))}
           </Box>
         )}

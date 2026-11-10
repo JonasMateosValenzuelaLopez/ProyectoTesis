@@ -5,7 +5,8 @@ import { adminInicial, adminVacio } from '../data/adminMock';
 import { MODULOS, conModulo } from '../config/modulos';
 import { ID_ROL, cargoDe, cargosDe, membresiasVigentes, residenciasActivas } from '../config/roles';
 import { roles } from '../tokens';
-import { nombreCompleto, nombreUnidad } from '../utils/formato';
+import { clp, nombreCompleto, nombreUnidad } from '../utils/formato';
+import { MAX_UMBRAL_VISADO } from '../utils/comunidad';
 import { conTitular, conTitulares, motivoNoTitular } from '../utils/titulares';
 
 // Estado de Administración de cada comunidad: usuarios con sus residencias y cargos,
@@ -171,9 +172,21 @@ export function AdminProvider({ children }) {
         finanzas.anotar(aprobada ? 'Aprobó una solicitud de acceso' : 'Rechazó una solicitud de acceso', `${nombre} · ${nombreUnidad(unidadPorId[s.id_unidad])}`,
           aprobada ? `${nombre} ya puede entrar a la app.` : 'Solicitud rechazada. Se le avisó por correo.');
       },
-      guardarComunidad: (cambios) => {
+      guardarComunidad: (cambios, mensaje = 'Datos de la comunidad guardados.') => {
         actualizarComunidad(cambios);
-        finanzas.anotar('Editó los datos de la comunidad', Object.keys(cambios).join(', '), 'Datos de la comunidad guardados.');
+        finanzas.anotar('Editó los datos de la comunidad', Object.keys(cambios).join(', '), mensaje);
+      },
+      // PUT comunidad/umbral-visado: solo el Presidente. Los gastos desde ese monto necesitan su visto bueno.
+      cambiarUmbralVisado: (monto) => {
+        if (!Number.isInteger(monto) || monto < 1 || monto > MAX_UMBRAL_VISADO) {
+          finanzas.avisar(`El monto debe ser un número entero entre 1 y ${MAX_UMBRAL_VISADO.toLocaleString('es-CL')}.`);
+          return false;
+        }
+        if (monto === comunidad.umbral_visado) return true;
+        const anterior = comunidad.umbral_visado;
+        actualizarComunidad({ umbral_visado: monto });
+        finanzas.anotar('Cambió el umbral de visado', `${clp(anterior)} → ${clp(monto)}`, `Desde ahora los gastos de ${clp(monto)} o más necesitan tu visto bueno.`);
+        return true;
       },
       cambiarModulo: (modulo, activo) => {
         actualizarComunidad((c) => ({ red_modulos: conModulo(c, modulo, activo) }));

@@ -1,142 +1,92 @@
 import { useState } from 'react';
-import { Link as RouterLink, Navigate, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Alert, Box, Button, ButtonBase, Collapse, Link as MuiLink, Paper, TextField, ToggleButton, ToggleButtonGroup, Typography,
+  Alert, Box, Button, Link as MuiLink, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material';
 import { useSesion } from '../../context/SesionContext';
-import { CLAVE_PRUEBA, CODIGO_PRUEBA } from '../../data/cuentasDemo';
+import * as auth from '../../api/auth';
+import { comunidadesPanel } from '../../config/roles';
 import { formatearRut, rutValido } from '../../utils/rut';
 import PlacaUnidad from '../../components/marca/PlacaUnidad';
 import PanelMarca from '../../components/marca/PanelMarca';
 import SelectorTema from '../../components/SelectorTema';
-import SelloCargo from '../../components/marca/SelloCargo';
 import PasoSesion from '../../components/marca/PasoSesion';
-import { cargoDe, esPlataforma } from '../../config/roles';
-import { nombreCorto } from '../../utils/formato';
 
-// Las cuentas de prueba se muestran salvo que el build defina VITE_MODO_PRUEBA=false
-const MODO_PRUEBA = import.meta.env.VITE_MODO_PRUEBA !== 'false';
-
-const ocultarCorreo = (correo) => correo.replace(/^(.)[^@]*/, (_, a) => `${a}•••`);
-
-function CuentasPrueba({ onElegir }) {
-  const { cuentas } = useSesion();
-  const [abierto, setAbierto] = useState(true);
-  return (
-    <Paper variant="outlined" sx={{ borderRadius: 1.5, borderStyle: 'dashed', overflow: 'hidden' }}>
-      <ButtonBase onClick={() => setAbierto(!abierto)} aria-expanded={abierto} sx={{ width: '100%', justifyContent: 'space-between', gap: 2, px: 2, py: 1.5, textAlign: 'left' }}>
-        <Box>
-          <Typography sx={{ fontWeight: 700 }}>Cuentas de prueba</Typography>
-          <Typography variant="body2" color="text.secondary">Clave para todas: <b>{CLAVE_PRUEBA}</b> · código por correo: <b>{CODIGO_PRUEBA}</b></Typography>
-        </Box>
-        <Typography variant="body2" color="bronce.main" sx={{ fontWeight: 700 }}>{abierto ? 'Ocultar' : 'Ver'}</Typography>
-      </ButtonBase>
-      <Collapse in={abierto}>
-        <Box sx={{ display: 'grid', borderTop: 1, borderColor: 'divider', maxHeight: 320, overflowY: 'auto' }}>
-          {cuentas.map((c, i) => (
-            <ButtonBase
-              key={c.id_usuario} onClick={() => onElegir(c)}
-              sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 1.5, alignItems: 'center', px: 2, py: 1, textAlign: 'left', borderTop: i ? 1 : 0, borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}
-            >
-              {esPlataforma(c)
-                ? <Box sx={{ width: 22, height: 22, borderRadius: '5px', bgcolor: 'marca.signal', color: 'marca.signalInk', display: 'grid', placeItems: 'center', fontFamily: 'Archivo, sans-serif', fontWeight: 800, fontSize: 11 }}>EC</Box>
-                : <SelloCargo cargo={c.membresias[0] ? cargoDe(c.membresias[0]) : 'residente'} />}
-              <Box sx={{ minWidth: 0 }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>{nombreCorto(c)}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{c.flujo}</Typography>
-              </Box>
-              <Typography variant="caption" sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary', whiteSpace: 'nowrap' }}>{c.rut}</Typography>
-            </ButtonBase>
-          ))}
-        </Box>
-      </Collapse>
-    </Paper>
-  );
+// A dónde va cada persona al entrar: Plataforma, elegir comunidad o el panel de su única comunidad.
+// Si venía de una página (la sesión expiró), vuelve a ella.
+function destinoDe(usuario, desde) {
+  const grupos = comunidadesPanel(usuario);
+  if (usuario.esPlataforma && grupos.length === 0) {
+    return { ruta: desde?.startsWith('/plataforma') ? desde : '/plataforma', detalle: 'la plataforma' };
+  }
+  if (grupos.length > 1) return { ruta: '/elegir-comunidad', detalle: null };
+  return { ruta: desde?.startsWith('/panel') ? desde : '/panel', detalle: grupos[0].comunidad.nombre };
 }
 
-// Entrada al panel con RUT y clave, o con un código de un solo uso enviado al correo.
+// Entrada al panel con RUT y clave, o con un código de un solo uso que llega al correo (auth/codigo).
 export default function Login() {
   const navigate = useNavigate();
-  const { usuario, cuentas, bloqueados, iniciarSesion, membresiasVigentes, redes } = useSesion();
-  const [entrando, setEntrando] = useState(null);
+  const location = useLocation();
+  const { usuario, motivoSalida, iniciarSesion } = useSesion();
   const [rut, setRut] = useState('');
   const [metodo, setMetodo] = useState('clave');
   const [clave, setClave] = useState('');
   const [codigo, setCodigo] = useState('');
-  const [codigoEnviadoA, setCodigoEnviadoA] = useState(null);
+  const [codigoPedido, setCodigoPedido] = useState(null);
   const [error, setError] = useState(null);
+  const [enviando, setEnviando] = useState(false);
+  // Respuesta del login mientras se muestra la transición de entrada
+  const [entrando, setEntrando] = useState(null);
 
-  if (usuario) return <Navigate to={esPlataforma(usuario) ? '/plataforma' : '/panel'} replace />;
+  if (usuario && !entrando) return <Navigate to={usuario.esPlataforma && !comunidadesPanel(usuario).length ? '/plataforma' : '/panel'} replace />;
 
   const rutMal = rut.length > 3 && !rutValido(rut);
 
-  const entrar = (c) => {
-    if (bloqueados.includes(c.rut)) {
-      setError('Tu cuenta está bloqueada. Escribe a soporte@entrecasas.cl para revisarla.');
-      return;
-    }
-    if (esPlataforma(c)) {
-      setEntrando({ cuenta: c, destino: '/plataforma', detalle: 'la plataforma' });
-      return;
-    }
-    if (c.membresias.length === 0) {
+  // Solo entran al panel quienes tienen un cargo o son del equipo EntreCasas; los residentes usan la app
+  const recibir = (respuesta) => {
+    const u = respuesta.usuario;
+    if (!u.esPlataforma && comunidadesPanel(u).length === 0) {
       setError('residente');
       return;
     }
-    if (membresiasVigentes(c).length === 0) {
-      setError('Tu comunidad está suspendida en EntreCasas. Habla con tu administración.');
+    const destino = destinoDe(u, location.state?.desde);
+    if (!destino.detalle) {
+      iniciarSesion(respuesta);
+      navigate(destino.ruta, { replace: true });
       return;
     }
-    // Con cargos en varias comunidades elige primero; la transición se muestra al elegir
-    if (new Set(membresiasVigentes(c).map((m) => m.id_red)).size > 1) {
-      iniciarSesion(c);
-      navigate('/elegir-comunidad');
-      return;
-    }
-    // Con una sola comunidad la transición muestra su nombre, que es donde abre el panel
-    const primera = membresiasVigentes(c)[0];
-    setEntrando({ cuenta: c, destino: '/panel', detalle: redes.find((r) => r.id_red === primera.id_red)?.nombre ?? 'tu comunidad' });
+    setEntrando({ respuesta, destino });
   };
   const abrirSesion = () => {
-    iniciarSesion(entrando.cuenta);
-    navigate(entrando.destino);
+    iniciarSesion(entrando.respuesta);
+    navigate(entrando.destino.ruta, { replace: true });
   };
 
-  const enviar = (e) => {
+  const enviar = async (e) => {
     e.preventDefault();
     setError(null);
     if (!rutValido(rut)) {
       setError('Revisa el RUT: el dígito verificador no calza.');
       return;
     }
-    const c = cuentas.find((x) => x.rut === formatearRut(rut));
-    if (metodo === 'clave') {
-      if (!c || clave !== CLAVE_PRUEBA) setError('RUT o clave incorrectos.');
-      else entrar(c);
-      return;
+    const identificador = formatearRut(rut);
+    setEnviando(true);
+    try {
+      if (metodo === 'clave') recibir(await auth.login(identificador, clave));
+      else if (!codigoPedido) setCodigoPedido((await auth.pedirCodigo(identificador)).mensaje);
+      else recibir(await auth.verificarCodigo(identificador, codigo));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setEnviando(false);
     }
-    if (!codigoEnviadoA) {
-      // No se revela si el RUT existe: siempre se responde que se envió el código
-      setCodigoEnviadoA(c ? ocultarCorreo(c.correo) : 'tu correo registrado');
-      return;
-    }
-    if (!c || codigo !== CODIGO_PRUEBA) setError('El código no es válido o ya venció.');
-    else entrar(c);
-  };
-
-  const elegirCuenta = (c) => {
-    setRut(c.rut);
-    setMetodo('clave');
-    setClave(CLAVE_PRUEBA);
-    setCodigoEnviadoA(null);
-    setError(null);
   };
 
   return (
     <Box component="main" sx={{ minHeight: '100vh', display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.1fr 1fr' }, bgcolor: 'background.paper' }}>
       <PanelMarca />
       <SelectorTema flotante />
-      {entrando && <PasoSesion tipo="entrar" nombre={entrando.cuenta.nombre} detalle={entrando.detalle} alTerminar={abrirSesion} />}
+      {entrando && <PasoSesion tipo="entrar" nombre={entrando.respuesta.usuario.nombre} detalle={entrando.destino.detalle} alTerminar={abrirSesion} />}
 
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', px: 2, py: { xs: 4, md: 6 } }}>
         <Box sx={{ width: '100%', maxWidth: 420, display: 'grid', gap: 3 }}>
@@ -149,14 +99,16 @@ export default function Login() {
             <Typography color="text.secondary">Para la directiva, la administración, la conserjería y el equipo de EntreCasas.</Typography>
           </Box>
 
+          {motivoSalida && <Alert severity="warning" variant="outlined">{motivoSalida}</Alert>}
+
           <Box component="form" onSubmit={enviar} noValidate sx={{ display: 'grid', gap: 2 }}>
             <TextField
               label="RUT" value={rut} autoComplete="username" placeholder="12.345.678-5"
-              onChange={(e) => { setRut(e.target.value); setCodigoEnviadoA(null); }}
+              onChange={(e) => { setRut(e.target.value); setCodigoPedido(null); }}
               onBlur={() => rutValido(rut) && setRut(formatearRut(rut))}
               error={rutMal} helperText={rutMal ? 'RUT no válido' : ' '}
             />
-            <ToggleButtonGroup exclusive fullWidth size="small" value={metodo} onChange={(_, v) => { if (v) { setMetodo(v); setError(null); setCodigoEnviadoA(null); } }}>
+            <ToggleButtonGroup exclusive fullWidth size="small" value={metodo} onChange={(_, v) => { if (v) { setMetodo(v); setError(null); setCodigoPedido(null); } }}>
               <ToggleButton value="clave">Con clave</ToggleButton>
               <ToggleButton value="codigo">Con código por correo</ToggleButton>
             </ToggleButtonGroup>
@@ -164,9 +116,9 @@ export default function Login() {
             {metodo === 'clave' && (
               <TextField label="Clave" type="password" value={clave} onChange={(e) => setClave(e.target.value)} autoComplete="current-password" />
             )}
-            {metodo === 'codigo' && codigoEnviadoA && (
+            {metodo === 'codigo' && codigoPedido && (
               <>
-                <Alert severity="info" variant="outlined">Enviamos un código de 6 dígitos a {codigoEnviadoA}. Vence en 10 minutos.</Alert>
+                <Alert severity="info" variant="outlined">{codigoPedido} Vence en 10 minutos.</Alert>
                 <TextField
                   label="Código" value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))} autoFocus
                   slotProps={{ htmlInput: { inputMode: 'numeric', autoComplete: 'one-time-code', style: { letterSpacing: '0.4em', fontVariantNumeric: 'tabular-nums' } } }}
@@ -179,8 +131,11 @@ export default function Login() {
               <Alert severity="info">Tu cuenta es de residente. Entra desde la app EntreCasas en tu teléfono: ahí ves tus gastos comunes, invitas visitas y reservas espacios.</Alert>
             )}
 
-            <Button type="submit" variant="contained" size="large">
-              {metodo === 'codigo' && !codigoEnviadoA ? 'Enviarme un código' : 'Entrar'}
+            <Button
+              type="submit" variant="contained" size="large" loading={enviando}
+              disabled={!rut.trim() || (metodo === 'clave' && !clave) || (metodo === 'codigo' && !!codigoPedido && codigo.length !== 6)}
+            >
+              {metodo === 'codigo' && !codigoPedido ? 'Enviarme un código' : 'Entrar'}
             </Button>
           </Box>
 
@@ -188,8 +143,6 @@ export default function Login() {
             <MuiLink component={RouterLink} to="/recuperar-password" variant="body2">¿Olvidaste tu clave?</MuiLink>
             <MuiLink component={RouterLink} to="/solicitar-acceso" variant="body2">Solicitar acceso a mi vivienda</MuiLink>
           </Box>
-
-          {MODO_PRUEBA && <CuentasPrueba onElegir={elegirCuenta} />}
         </Box>
       </Box>
     </Box>

@@ -1,8 +1,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useApp } from '@/context/App';
-import { espaciosActivos } from '@/data/demo';
+import { useSesion } from '@/context/Sesion';
 import { F, sombra, useTema } from '@/constants/tema';
 
 type Icono = keyof typeof Ionicons.glyphMap;
@@ -14,13 +13,15 @@ const icono = (lleno: Icono, linea: Icono) => {
 };
 
 // Pestañas: Inicio, Finanzas, Muro, Reservas, Mercado y Perfil. Las que dependen de un
-// módulo se ocultan si la comunidad no lo tiene activo (por ejemplo, una villa sin espacios).
+// módulo se ocultan si la comunidad no lo tiene activo (`comunidad.modulos` del perfil).
 export default function Pestanas() {
   const t = useTema();
-  const { cuenta, tiene, comunidad, pendientesMercado } = useApp();
-  if (!cuenta) return <Redirect href="/login" />;
+  const { perfil, cargando, tiene } = useSesion();
+  if (cargando) return null;
+  if (!perfil) return <Redirect href="/login" />;
 
-  const conReservas = tiene('reservas') && espaciosActivos(comunidad).length > 0;
+  // Los espacios reservables se conocen al conectar Reservas (fase 5); por ahora basta el módulo
+  const conReservas = tiene('reservas');
   return (
     <Tabs
       screenOptions={{
@@ -36,7 +37,7 @@ export default function Pestanas() {
       <Tabs.Screen name="finanzas" options={{ title: 'Finanzas', tabBarIcon: icono('wallet', 'wallet-outline'), href: tiene('cobros') ? undefined : null }} />
       <Tabs.Screen name="muro" options={{ title: 'Muro', tabBarIcon: icono('megaphone', 'megaphone-outline'), href: tiene('muro') || tiene('votaciones') ? undefined : null }} />
       <Tabs.Screen name="reservas" options={{ title: 'Reservas', tabBarIcon: icono('calendar', 'calendar-outline'), href: conReservas ? undefined : null }} />
-      <Tabs.Screen name="mercado" options={{ title: 'Mercado', tabBarIcon: icono('storefront', 'storefront-outline'), href: tiene('marketplace') ? undefined : null, tabBarBadge: pendientesMercado || undefined }} />
+      <Tabs.Screen name="mercado" options={{ title: 'Mercado', tabBarIcon: icono('storefront', 'storefront-outline'), href: tiene('marketplace') ? undefined : null }} />
       <Tabs.Screen name="perfil" options={{ title: 'Perfil', tabBarIcon: icono('person-circle', 'person-circle-outline') }} />
     </Tabs>
   );

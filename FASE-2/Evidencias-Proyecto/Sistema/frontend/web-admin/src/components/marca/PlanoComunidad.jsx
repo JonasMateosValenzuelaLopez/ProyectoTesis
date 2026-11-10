@@ -7,7 +7,7 @@ const textoEstado = (e) => (ESTADOS_PAGO[e] ?? ESTADOS_OCUPACION[e])?.texto;
 
 // El condominio dibujado según su tipo: torre por pisos, casas a lo largo de un
 // pasaje o manzanas separadas por calles. Cada unidad se pinta según su estado de pago.
-// Las hileras y manzanas salen de `unidades.calle_pasaje`; el piso, del número del depto.
+// Las hileras y manzanas salen de `callePasaje`; el piso, de `piso` (o del número del depto).
 
 const estiloUnidad = (estado) => {
   switch (estado) {
@@ -37,7 +37,7 @@ const estiloUnidad = (estado) => {
 };
 
 function Unidad({ unidad, tipo, estado, onSelect, mini = false, sx }) {
-  const etiqueta = `${tipo === 'Edificio' ? 'Departamento' : 'Casa'} ${unidad.numero_identificador}: ${textoEstado(estado) ?? 'Sin cobro'}`;
+  const etiqueta = `${tipo === 'Edificio' ? 'Departamento' : 'Casa'} ${unidad.numeroIdentificador}: ${textoEstado(estado) ?? 'Sin cobro'}`;
   return (
     <Tooltip title={etiqueta} disableInteractive>
       <ButtonBase
@@ -60,7 +60,7 @@ function Unidad({ unidad, tipo, estado, onSelect, mini = false, sx }) {
           ...sx,
         }}
       >
-        {unidad.numero_identificador}
+        {unidad.numeroIdentificador}
       </ButtonBase>
     </Tooltip>
   );
@@ -98,14 +98,14 @@ function Espacio({ nombre }) {
 }
 
 function PlanoCondominio({ comunidad, estados, onSelect }) {
-  // Una hilera por cada `calle_pasaje`; el pasaje va entre la primera y la segunda
+  // Una hilera por cada `callePasaje`; el pasaje va entre la primera y la segunda
   const sectores = [...new Set(comunidad.unidades.map(grupoDe))];
   const hileras = sectores.map((s) => comunidad.unidades.filter((u) => grupoDe(u) === s));
   const espacios = espaciosActivos(comunidad);
   const columnas = Math.max(...hileras.map((h) => h.length)) + (espacios.length ? 1 : 0);
   const fila = (unidades, conEspacios) => (
     <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))`, gap: { xs: 0.5, sm: 0.75 } }}>
-      {unidades.map((u) => <Unidad key={u.id_unidad} unidad={u} tipo={comunidad.tipo} estado={estados[u.id_unidad]} onSelect={onSelect} />)}
+      {unidades.map((u) => <Unidad key={u.idUnidad} unidad={u} tipo={comunidad.tipo} estado={estados[u.idUnidad]} onSelect={onSelect} />)}
       {conEspacios && espacios.map((e) => <Espacio key={e.id_espacio} nombre={e.nombre} />)}
     </Box>
   );
@@ -130,7 +130,7 @@ function PlanoEdificio({ comunidad, estados, onSelect }) {
         <Box key={piso} sx={{ display: 'grid', gridTemplateColumns: `48px repeat(${porPiso}, minmax(0, 1fr))`, gap: 0.5, alignItems: 'center' }}>
           <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.66rem' }}>Piso {piso}</Typography>
           {comunidad.unidades.filter((u) => pisoDe(u) === piso).map((u) => (
-            <Unidad key={u.id_unidad} unidad={u} tipo={comunidad.tipo} estado={estados[u.id_unidad]} onSelect={onSelect} sx={{ minHeight: 32, fontSize: '0.8rem' }} />
+            <Unidad key={u.idUnidad} unidad={u} tipo={comunidad.tipo} estado={estados[u.idUnidad]} onSelect={onSelect} sx={{ minHeight: 32, fontSize: '0.8rem' }} />
           ))}
         </Box>
       ))}
@@ -146,7 +146,7 @@ function PlanoVilla({ comunidad, estados, onSelect }) {
         <Box key={m} sx={{ display: 'grid', gap: 0.75 }}>
           <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(12, minmax(0, 1fr))', md: 'repeat(24, minmax(0, 1fr))' }, gap: 0.5 }}>
             {comunidad.unidades.filter((u) => grupoDe(u) === m).map((u) => (
-              <Unidad key={u.id_unidad} unidad={u} tipo={comunidad.tipo} estado={estados[u.id_unidad]} onSelect={onSelect} mini />
+              <Unidad key={u.idUnidad} unidad={u} tipo={comunidad.tipo} estado={estados[u.idUnidad]} onSelect={onSelect} mini />
             ))}
           </Box>
           {i < manzanas.length - 1 && <Separador texto="Calle" />}

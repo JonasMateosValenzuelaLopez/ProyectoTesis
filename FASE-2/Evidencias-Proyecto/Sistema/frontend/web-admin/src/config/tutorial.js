@@ -1,4 +1,5 @@
-import { SECCIONES, cargosEfectivos } from './navegacion';
+import { SECCIONES } from './navegacion';
+import { PLATAFORMA, RolUsuario as R, rolesEfectivos } from './roles';
 import { SECCIONES_PLATAFORMA } from './plataforma';
 import { tieneModulo } from './modulos';
 
@@ -31,12 +32,12 @@ const PASOS = {
 
 // Orden de los pasos de cada cargo
 const POR_CARGO = {
-  administrador: ['pendientes', 'residentes', 'moderar', 'reservas', 'guia', 'modulos'],
-  presidente: ['aprobar', 'bitacora', 'votaciones'],
-  tesorero: ['cobro', 'validar', 'morosidad', 'exenciones', 'reportes'],
-  secretario: ['comunicado', 'votaciones', 'actas', 'directorio', 'guia'],
-  conserje: ['qr', 'sinCodigo', 'espacios'],
-  plataforma: ['crear', 'suspender'],
+  [R.ADMINISTRADOR]: ['pendientes', 'residentes', 'moderar', 'reservas', 'guia', 'modulos'],
+  [R.PRESIDENTE]: ['aprobar', 'bitacora', 'votaciones'],
+  [R.TESORERO]: ['cobro', 'validar', 'morosidad', 'exenciones', 'reportes'],
+  [R.SECRETARIO]: ['comunicado', 'votaciones', 'actas', 'directorio', 'guia'],
+  [R.CONSERJE]: ['qr', 'sinCodigo', 'espacios'],
+  [PLATAFORMA]: ['crear', 'suspender'],
 };
 
 const MENU = [...SECCIONES, ...SECCIONES_PLATAFORMA]
@@ -45,7 +46,7 @@ const MENU = [...SECCIONES, ...SECCIONES_PLATAFORMA]
 // Pasos para un cargo en una comunidad: los de sus cargos efectivos (la Presidenta de una villa sin
 // administración también ve los de administración), sin repetir y solo con los módulos encendidos.
 export function pasosTutorial(cargo, comunidad) {
-  const cargos = cargo === 'plataforma' ? ['plataforma'] : cargosEfectivos(cargo, comunidad);
+  const cargos = cargo === PLATAFORMA ? [PLATAFORMA] : rolesEfectivos(cargo, comunidad);
   const claves = [...new Set(cargos.flatMap((c) => POR_CARGO[c] ?? []))];
   return claves
     .map((clave) => ({ clave, ...PASOS[clave], donde: MENU.find((m) => m.ruta === PASOS[clave].ruta)?.donde }))

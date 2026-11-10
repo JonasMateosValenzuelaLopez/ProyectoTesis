@@ -1,5 +1,8 @@
-import { Alert, Box, Button, Chip, Typography } from '@mui/material';
+import { useState } from 'react';
+import { Alert, Box, Button, Chip, TextField, Typography } from '@mui/material';
 import { useSesion } from '../../context/SesionContext';
+import { useAdmin } from '../../context/AdminContext';
+import { MAX_UMBRAL_VISADO } from '../../utils/comunidad';
 import { useFinanzas } from '../../context/FinanzasContext';
 import { useMuro } from '../../context/MuroContext';
 import { residentes } from '../../data/finanzasMock';
@@ -24,6 +27,44 @@ const Decision = ({ onAprobar, onRechazar, aprobar = 'Aprobar', rechazar = 'Rech
   </>
 );
 
+// Monto desde el que un gasto necesita el visado del Presidente. Solo el Presidente lo cambia
+// (PUT comunidad/umbral-visado), con un entero entre 1 y 9.999.999.999.
+function UmbralVisado({ umbral }) {
+  const { cargo } = useSesion();
+  const { acciones } = useAdmin();
+  const [editando, setEditando] = useState(false);
+  const [monto, setMonto] = useState('');
+  const valor = Number(monto);
+  const error = !monto ? 'Escribe un monto' : valor < 1 || valor > MAX_UMBRAL_VISADO ? `Debe ser entre $1 y ${clp(MAX_UMBRAL_VISADO)}` : '';
+  const guardar = (e) => {
+    e.preventDefault();
+    if (!error && acciones.cambiarUmbralVisado(valor)) setEditando(false);
+  };
+  if (cargo !== 'presidente') return null;
+  return (
+    <Tarjeta titulo="Umbral de visado" extra="Solo la Presidencia lo cambia">
+      {!editando ? (
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Typography sx={{ flex: 1, minWidth: 240 }}>
+            Los gastos de <b>{clp(umbral)}</b> o más esperan tu visto bueno antes de pagarse. Los de menos los registra la tesorería directamente.
+          </Typography>
+          <Button variant="outlined" onClick={() => { setMonto(String(umbral)); setEditando(true); }}>Cambiar monto</Button>
+        </Box>
+      ) : (
+        <Box component="form" onSubmit={guardar} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <TextField
+            autoFocus label="Visar desde" value={monto} onChange={(e) => setMonto(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, ''))}
+            error={!!monto && !!error} helperText={monto && !error ? clp(valor) : error || ' '}
+            slotProps={{ htmlInput: { inputMode: 'numeric', maxLength: String(MAX_UMBRAL_VISADO).length } }} sx={{ minWidth: 220 }}
+          />
+          <Button type="submit" variant="contained" disabled={!!error} sx={{ mt: 1 }}>Guardar</Button>
+          <Button onClick={() => setEditando(false)} sx={{ mt: 1 }}>Cancelar</Button>
+        </Box>
+      )}
+    </Tarjeta>
+  );
+}
+
 // Todo lo que necesita la firma del Presidente, agrupado por tipo.
 export default function PorAprobar() {
   const { comunidad } = useSesion();
@@ -40,6 +81,7 @@ export default function PorAprobar() {
       />
 
       <Box sx={{ display: 'grid', gap: 2.5 }}>
+        <UmbralVisado umbral={umbralVisado} />
         <Tarjeta titulo="Gastos extraordinarios" extra={`Requieren visado desde ${clp(umbralVisado)}`}>
           {egresosPorVisar.length === 0 ? <Typography color="text.secondary">Sin gastos por visar.</Typography> : egresosPorVisar.map((e, i) => (
             <Fila key={e.id_egreso} primera={i === 0} acciones={<Decision aprobar="Visar" onAprobar={() => acciones.resolverEgreso(e.id_egreso, true)} onRechazar={() => acciones.resolverEgreso(e.id_egreso, false)} />}>

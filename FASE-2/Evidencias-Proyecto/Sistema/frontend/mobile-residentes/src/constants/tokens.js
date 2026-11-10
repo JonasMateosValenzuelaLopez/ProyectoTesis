@@ -114,14 +114,14 @@ export const panelStatus = {
 // Estados (pagos, accesos). Son semánticos: nunca se usan como decoración. Iguales en ambas apps.
 export const status = panelStatus;
 
-// Sello de cada cargo: familia (directiva, personal, residente) e inicial.
+// Sello de cada cargo, por `idRol` (RolUsuario del backend): familia (directiva, personal, residente) e inicial.
 export const roles = {
-  administrador: { label: 'Administrador/a', initial: 'A', family: 'staff' },
-  conserje: { label: 'Conserjería', initial: 'C', family: 'staff' },
-  presidente: { label: 'Presidente/a', initial: 'P', family: 'directiva' },
-  tesorero: { label: 'Tesorero/a', initial: 'T', family: 'directiva' },
-  secretario: { label: 'Secretario/a', initial: 'S', family: 'directiva' },
-  residente: { label: 'Residente', initial: 'R', family: 'residente' },
+  1: { label: 'Administrador/a', initial: 'A', family: 'staff' },
+  5: { label: 'Conserjería', initial: 'C', family: 'staff' },
+  4: { label: 'Presidente/a', initial: 'P', family: 'directiva' },
+  2: { label: 'Tesorero/a', initial: 'T', family: 'directiva' },
+  3: { label: 'Secretario/a', initial: 'S', family: 'directiva' },
+  6: { label: 'Residente', initial: 'R', family: 'residente' },
 };
 
 export const fonts = {

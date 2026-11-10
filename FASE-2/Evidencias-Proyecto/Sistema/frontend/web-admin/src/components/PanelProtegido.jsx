@@ -1,32 +1,27 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
+import { Box, CircularProgress } from '@mui/material';
 import { useSesion } from '../context/SesionContext';
-import { FinanzasProvider } from '../context/FinanzasContext';
-import { AdminProvider } from '../context/AdminContext';
-import { MuroProvider } from '../context/MuroContext';
-import { DirectivaProvider } from '../context/DirectivaContext';
-import { ConserjeriaProvider } from '../context/ConserjeriaContext';
 import DashboardLayout from './DashboardLayout';
-import { esPlataforma } from '../config/roles';
 
-// Sin sesión no hay panel. Los datos de cada área se cargan solo dentro del panel,
-// y se reinician al cerrar sesión (como pasará al volver a pedirlos a la API).
-export default function PanelProtegido() {
-  const { usuario, comunidad, porComunidad } = useSesion();
-  if (esPlataforma(usuario) && !comunidad) return <Navigate to="/plataforma" replace />;
-  // Con cargos en varias comunidades, primero elige con cuál trabajar
-  if (usuario && !comunidad && porComunidad.length > 1) return <Navigate to="/elegir-comunidad" replace />;
-  if (!usuario || !comunidad) return <Navigate to="/login" replace />;
+// Mientras se recupera una sesión (pestaña recargada)
+export function Cargando() {
   return (
-    <FinanzasProvider>
-      <AdminProvider>
-        <MuroProvider>
-          <DirectivaProvider>
-            <ConserjeriaProvider>
-              <DashboardLayout />
-            </ConserjeriaProvider>
-          </DirectivaProvider>
-        </MuroProvider>
-      </AdminProvider>
-    </FinanzasProvider>
+    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', bgcolor: 'background.default' }}>
+      <CircularProgress aria-label="Cargando" />
+    </Box>
   );
+}
+
+// Sin sesión no hay panel. Cada área carga sus datos de la API dentro del panel.
+// Al volver a entrar, se regresa a la página donde estaba (`state.desde`).
+export default function PanelProtegido() {
+  const location = useLocation();
+  const { usuario, comunidad, porComunidad, esPlataforma, cargando } = useSesion();
+  if (cargando) return <Cargando />;
+  if (!usuario) return <Navigate to="/login" replace state={{ desde: location.pathname }} />;
+  if (esPlataforma && !comunidad) return <Navigate to="/plataforma" replace />;
+  // Con cargos en varias comunidades, primero elige con cuál trabajar
+  if (!comunidad && porComunidad.length > 1) return <Navigate to="/elegir-comunidad" replace />;
+  if (!comunidad) return <Navigate to="/login" replace />;
+  return <DashboardLayout />;
 }

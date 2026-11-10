@@ -4,8 +4,8 @@ import { HelpOutlineOutlined as AyudaIcon } from '@mui/icons-material';
 import { useSesion } from '../../context/SesionContext';
 import TutorialPanel from './TutorialPanel';
 
-// Botón «?» de la barra. El tutorial se abre solo si la membresía actual no lo ha visto
-// (`membresias.fecha_tutorial_visto`); al cerrarlo, también al saltarlo, queda visto.
+// Botón «?» de la barra. El tutorial se abre solo si la persona no lo ha visto (`tutorialPanelVisto`);
+// al cerrarlo, también al saltarlo, queda visto con POST auth/tutorial-visto.
 export default function BotonTutorial({ cargo }) {
   const { usuario, comunidad, tutorialPendiente, marcarTutorialVisto } = useSesion();
   const [manual, setManual] = useState(false);
@@ -17,7 +17,7 @@ export default function BotonTutorial({ cargo }) {
         </IconButton>
       </Tooltip>
       <TutorialPanel
-        key={`${cargo}-${comunidad?.id_red ?? 'plataforma'}`}
+        key={`${cargo}-${comunidad?.idRed ?? 'plataforma'}`}
         open={manual || tutorialPendiente} primeraVez={tutorialPendiente}
         onClose={() => { setManual(false); if (tutorialPendiente) marcarTutorialVisto(); }}
         usuario={usuario} cargo={cargo} comunidad={comunidad}
