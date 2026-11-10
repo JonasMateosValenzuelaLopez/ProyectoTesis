@@ -3,6 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { createTransport, Transporter } from 'nodemailer';
 import { enmascararCorreo } from '../common/utils/correo';
 
+export const TIMEOUT_CONEXION_SMTP_MS = 10_000;
+export const TIMEOUT_SOCKET_SMTP_MS = 20_000;
+
 export interface CorreoSaliente {
   para: string;
   asunto: string;
@@ -33,6 +36,9 @@ export class MailService implements OnModuleInit {
           host,
           port: Number(configService.get<string>('SMTP_PORT', '587')),
           secure: configService.get<string>('SMTP_SECURE') === 'true',
+          connectionTimeout: TIMEOUT_CONEXION_SMTP_MS,
+          greetingTimeout: TIMEOUT_CONEXION_SMTP_MS,
+          socketTimeout: TIMEOUT_SOCKET_SMTP_MS,
           auth: {
             user: configService.get<string>('SMTP_USER'),
             pass: configService.get<string>('SMTP_PASS'),
