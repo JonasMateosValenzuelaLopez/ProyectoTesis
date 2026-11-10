@@ -106,6 +106,11 @@ export class MisDatosService {
     idUsuario: number,
     dto: SolicitarCambioCorreoDto,
   ): Promise<PedidoCambioCorreo> {
+    await this.verificarPasswordActual(
+      idUsuario,
+      dto.passwordActual,
+      'cambiar su correo',
+    );
     const codigo = String(randomInt(0, 1_000_000)).padStart(6, '0');
     const expira = new Date(Date.now() + VIGENCIA_CODIGO_OTP_MS);
     const { nombre, ocupado } = await this.dataSource.transaction(
@@ -288,30 +293,11 @@ export class MisDatosService {
     idUsuario: number,
     dto: CambiarPasswordDto,
   ): Promise<SesionRenovada> {
-    const usuario = await this.usuariosRepository
-      .createQueryBuilder('usuario')
-      .addSelect('usuario.passwordHash')
-      .where('usuario.idUsuario = :idUsuario', { idUsuario })
-      .getOne();
-    if (!usuario) {
-      throw new NotFoundException('Usuario no encontrado');
-    }
-    const passwordAnterior = usuario.passwordHash;
-    if (!passwordAnterior) {
-      throw new BadRequestException({
-        message: MENSAJE_CUENTA_SIN_PASSWORD,
-        campos: { passwordActual: MENSAJE_CUENTA_SIN_PASSWORD },
-      });
-    }
-    if (!(await bcrypt.compare(dto.passwordActual, passwordAnterior))) {
-      this.logger.warn(
-        `El usuario ${idUsuario} intentó cambiar su contraseña con la contraseña actual incorrecta`,
-      );
-      throw new BadRequestException({
-        message: MENSAJE_PASSWORD_ACTUAL_INCORRECTA,
-        campos: { passwordActual: MENSAJE_PASSWORD_ACTUAL_INCORRECTA },
-      });
-    }
+    const { usuario, passwordAnterior } = await this.verificarPasswordActual(
+      idUsuario,
+      dto.passwordActual,
+      'cambiar su contraseña',
+    );
     if (await bcrypt.compare(dto.passwordNueva, passwordAnterior)) {
       throw new BadRequestException({
         message: MENSAJE_PASSWORD_REPETIDA,
@@ -355,6 +341,38 @@ export class MisDatosService {
       { usado: true, correoNuevo: null },
     );
     return affected ?? 0;
+  }
+
+  private async verificarPasswordActual(
+    idUsuario: number,
+    passwordActual: string,
+    accion: string,
+  ) {
+    const usuario = await this.usuariosRepository
+      .createQueryBuilder('usuario')
+      .addSelect('usuario.passwordHash')
+      .where('usuario.idUsuario = :idUsuario', { idUsuario })
+      .getOne();
+    if (!usuario) {
+      throw new NotFoundException('Usuario no encontrado');
+    }
+    const passwordAnterior = usuario.passwordHash;
+    if (!passwordAnterior) {
+      throw new BadRequestException({
+        message: MENSAJE_CUENTA_SIN_PASSWORD,
+        campos: { passwordActual: MENSAJE_CUENTA_SIN_PASSWORD },
+      });
+    }
+    if (!(await bcrypt.compare(passwordActual, passwordAnterior))) {
+      this.logger.warn(
+        `El usuario ${idUsuario} intentó ${accion} con la contraseña actual incorrecta`,
+      );
+      throw new BadRequestException({
+        message: MENSAJE_PASSWORD_ACTUAL_INCORRECTA,
+        campos: { passwordActual: MENSAJE_PASSWORD_ACTUAL_INCORRECTA },
+      });
+    }
+    return { usuario, passwordAnterior };
   }
 
   private enviarEnSegundoPlano(idUsuario: number, correo: CorreoSaliente) {

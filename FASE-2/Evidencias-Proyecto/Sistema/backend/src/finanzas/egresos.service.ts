@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -15,6 +16,9 @@ import { nombresPorId } from '../usuarios/nombres-por-id';
 import { RegistrarEgresoDto } from './dto/egresos-exenciones.dto';
 import { CategoriaGasto } from './entities/categoria-gasto.entity';
 import { Egreso, EstadoVisado } from './entities/egreso.entity';
+
+export const MENSAJE_VISADO_PROPIO =
+  'No puedes visar un egreso que registraste tú. Debe aprobarlo otra persona de la directiva.';
 
 @Injectable()
 export class EgresosService {
@@ -107,6 +111,9 @@ export class EgresosService {
         throw new ConflictException(
           'Este egreso no está esperando el visado de la Presidencia',
         );
+      }
+      if (dto.aprobado && egreso.creadoPor === idUsuario) {
+        throw new ForbiddenException(MENSAJE_VISADO_PROPIO);
       }
       await manager.update(
         Egreso,

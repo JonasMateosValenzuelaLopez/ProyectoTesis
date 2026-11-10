@@ -62,6 +62,7 @@ describe('DTO de Mis datos', () => {
     it('debe recortar y pasar a minúsculas', async () => {
       const { dto, mensajes } = await validar(SolicitarCambioCorreoDto, {
         correo: '  Ana.Rojas@Correo.CL ',
+        passwordActual: 'clave-actual',
       });
 
       expect(mensajes).toEqual([]);
@@ -71,7 +72,10 @@ describe('DTO de Mis datos', () => {
     it('debe aceptar un correo de exactamente 100 caracteres', async () => {
       const correo = `a@${'b'.repeat(60)}.${'c'.repeat(34)}.cl`;
 
-      const { mensajes } = await validar(SolicitarCambioCorreoDto, { correo });
+      const { mensajes } = await validar(SolicitarCambioCorreoDto, {
+        correo,
+        passwordActual: 'clave-actual',
+      });
 
       expect(correo).toHaveLength(100);
       expect(mensajes).toEqual([]);
@@ -84,6 +88,15 @@ describe('DTO de Mis datos', () => {
       [
         { correo: `a@${'b'.repeat(60)}.${'c'.repeat(35)}.cl` },
         'El correo no puede superar 100 caracteres',
+      ],
+      [{ correo: 'ana@correo.cl' }, 'Escribe tu contraseña actual'],
+      [
+        { correo: 'ana@correo.cl', passwordActual: '' },
+        'Escribe tu contraseña actual',
+      ],
+      [
+        { correo: 'ana@correo.cl', passwordActual: 'a'.repeat(73) },
+        'La contraseña actual no es correcta',
       ],
     ])('con %j debe responder «%s»', async (datos, mensaje) => {
       const { mensajes } = await validar(SolicitarCambioCorreoDto, datos);

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -12,7 +13,7 @@ import { ContextoRed } from '../common/interfaces/jwt-payload.interface';
 import { RedVecinal } from '../redes-vecinales/entities/red-vecinal.entity';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { RegistrarEgresoDto } from './dto/egresos-exenciones.dto';
-import { EgresosService } from './egresos.service';
+import { EgresosService, MENSAJE_VISADO_PROPIO } from './egresos.service';
 import { CategoriaGasto } from './entities/categoria-gasto.entity';
 import { Egreso, EstadoVisado } from './entities/egreso.entity';
 
@@ -205,6 +206,23 @@ describe('EgresosService', () => {
 
       await expect(target.visar(red, 9, 5, { aprobado: true })).rejects.toThrow(
         new NotFoundException('Egreso no encontrado'),
+      );
+    });
+
+    it('debe impedir que quien registró el egreso lo apruebe', async () => {
+      await expect(target.visar(red, 7, 5, { aprobado: true })).rejects.toThrow(
+        new ForbiddenException(MENSAJE_VISADO_PROPIO),
+      );
+      expect(mockManager.update).not.toHaveBeenCalled();
+    });
+
+    it('debe permitir que quien registró el egreso lo rechace', async () => {
+      await target.visar(red, 7, 5, { aprobado: false });
+
+      expect(mockManager.update).toHaveBeenCalledWith(
+        Egreso,
+        { idEgreso: 5, idRed: 3 },
+        expect.objectContaining({ estadoVisado: EstadoVisado.RECHAZADO }),
       );
     });
   });
