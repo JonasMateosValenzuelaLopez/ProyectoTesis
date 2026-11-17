@@ -315,7 +315,7 @@ CREATE TABLE IF NOT EXISTS `espacios_comunes` (
   PRIMARY KEY (`id_espacio`),
   UNIQUE KEY `uq_espacio_red_nombre` (`id_red`,`nombre`),
   KEY `id_red` (`id_red`),
-  CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `fk_espacio_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `chk_espacio_nombre` CHECK (trim(`nombre`) <> ''),
   CONSTRAINT `chk_espacio_capacidad` CHECK (`capacidad` is null or `capacidad` > 0)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
@@ -534,7 +534,7 @@ CREATE TABLE IF NOT EXISTS `muro_publicaciones` (
   KEY `aprobado_por` (`aprobado_por`),
   KEY `moderado_por` (`moderado_por`),
   KEY `id_unidad` (`id_unidad`),
-  CONSTRAINT `1` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `fk_muro_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
   CONSTRAINT `fk_muro_aprobado_por` FOREIGN KEY (`aprobado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_muro_moderado_por` FOREIGN KEY (`moderado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_muro_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
@@ -722,8 +722,8 @@ CREATE TABLE IF NOT EXISTS `reservas` (
   KEY `entregado_por` (`entregado_por`),
   KEY `recibido_por` (`recibido_por`),
   KEY `id_unidad` (`id_unidad`),
-  CONSTRAINT `1` FOREIGN KEY (`id_espacio`) REFERENCES `espacios_comunes` (`id_espacio`) ON DELETE CASCADE,
-  CONSTRAINT `2` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reserva_espacio` FOREIGN KEY (`id_espacio`) REFERENCES `espacios_comunes` (`id_espacio`) ON DELETE CASCADE,
+  CONSTRAINT `fk_reserva_usuario` FOREIGN KEY (`id_usuario`) REFERENCES `usuarios` (`id_usuario`) ON DELETE CASCADE,
   CONSTRAINT `fk_reserva_entregado_por` FOREIGN KEY (`entregado_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_reserva_recibido_por` FOREIGN KEY (`recibido_por`) REFERENCES `usuarios` (`id_usuario`) ON DELETE SET NULL,
   CONSTRAINT `fk_reserva_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
@@ -863,7 +863,7 @@ CREATE TABLE IF NOT EXISTS `unidades` (
   PRIMARY KEY (`id_unidad`),
   UNIQUE KEY `uq_unidad_red_torre_numero` (`id_red`,`torre_clave`,`numero_identificador`),
   KEY `id_red` (`id_red`),
-  CONSTRAINT `1` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
+  CONSTRAINT `fk_unidad_red` FOREIGN KEY (`id_red`) REFERENCES `redes_vecinales` (`id_red`) ON DELETE CASCADE,
   CONSTRAINT `chk_unidad_torre` CHECK (`tipo` = 'Departamento' = (`torre` is not null))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
