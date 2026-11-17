@@ -15,8 +15,8 @@ La plataforma no procesa pagos: el Tesorero o el Administrador crean los cobros 
 - Frontend web: React 19, Material UI (MUI), React Router, Vite.
 - Frontend móvil: React Native, Expo, Expo Router, TypeScript.
 - Backend: NestJS 12 (Node.js, TypeScript), TypeORM, JWT con Passport, bcrypt, Nodemailer, Jest.
-- Base de datos: MariaDB, administrada con Laragon y HeidiSQL.
-- Infraestructura y herramientas: Git y GitHub (control de versiones). Planificado: Docker (contenerización, al finalizar el proyecto) y Vercel/Render (despliegue en la nube).
+- Base de datos: MariaDB, administrada con Laragon y HeidiSQL, o en un contenedor de Docker.
+- Infraestructura y herramientas: Git y GitHub (control de versiones), Docker y Docker Compose (contenerización de la base de datos, la API, el panel web y la app móvil). Planificado: Vercel/Render (despliegue en la nube).
 
 ## Estructura del repositorio
 ```text
@@ -37,13 +37,26 @@ FASE-2/Evidencias-Proyecto/Sistema/
     - Finanzas: cobros, pagos, avisos, morosidad, egresos con visado, exenciones y reportes.
     - Convivencia: Muro Vecinal con comunicados, aprobación y moderación, y reservas de espacios comunes con entrega y recepción en conserjería.
     - Directiva: votaciones y encuestas con un voto por vivienda emitido por el titular, y libro de actas.
+    - Marketplace: avisos, solicitudes de contacto y moderación.
+    - Accesos: invitaciones QR, garita de conserjería y autorizaciones.
     - Transversal: bitácora de auditoría y un formato único de errores.
-- Backend pendiente: marketplace, invitaciones QR y conserjería, y los datos de la comunidad (cuenta de transferencia y umbral de visado).
-- Base de datos: esquema completo de 39 tablas y 93 llaves foráneas.
-- Pruebas: 1176 pruebas unitarias aprobadas, con 89 % de cobertura de sentencias.
-- Panel web y aplicación móvil: las vistas están construidas, pero **todavía no se conectan al backend**. Funcionan con datos de prueba y las cuentas de demostración se muestran en la pantalla de inicio de sesión.
+- Base de datos: esquema completo de 40 tablas y 96 llaves foráneas.
+- Pruebas: 1863 pruebas unitarias con 91 % de cobertura de sentencias, y pruebas de integración, seguridad y rendimiento contra MariaDB real, todas aprobadas.
+- Panel web y aplicación móvil: conectados a la API. Quedan por conectar en el panel las pantallas Personas (Plataforma) y Módulos (Administración), cuyos endpoints ya existen.
+- Docker: `docker compose up --build` levanta la base de datos, la API, el panel web y el servidor de Expo.
+- Pendiente para la Fase 3: despliegue en la nube.
 
-## Ejecución local
+## Ejecución con Docker
+Requiere Docker Desktop. Desde `FASE-2/Evidencias-Proyecto/Sistema`:
+
+1. Copiar `backend/.env.example` como `backend/.env` y completar `JWT_SECRET`.
+2. Copiar `frontend/mobile-residentes/.env.example` como `frontend/mobile-residentes/.env` y poner en `EXPO_PUBLIC_API_URL` la IP del equipo que alcanza el celular.
+3. Copiar `.env.example` como `.env` y poner esa misma IP en `EXPO_HOST`.
+4. Ejecutar `docker compose up --build`.
+
+La API queda en http://localhost:3000, el panel en http://localhost:5173, Expo en el puerto 8081 y MariaDB en el puerto 3307 del equipo. La base se crea con `bd/entrecasas_db.sql` la primera vez; para recrearla se usa `docker compose down -v`. El detalle está en el [Manual técnico](FASE-2/Evidencias-Proyecto/Documentación/11-manual-tecnico.md).
+
+## Ejecución local sin Docker
 1. Requisitos previos.
     - Node.js 22.13 o superior (o 24.3 o superior) y npm.
     - Laragon con MariaDB 10.10 o superior. El MariaDB 10.4 de XAMPP no sirve.
@@ -80,6 +93,7 @@ FASE-2/Evidencias-Proyecto/Sistema/
 ```bash
 npm test             # pruebas unitarias
 npm run test:cov     # cobertura
+npm run test:e2e     # integración, seguridad y rendimiento (crea la base entrecasas_test)
 npm run lint         # análisis estático
 npm run build        # compilación
 ```
@@ -102,9 +116,9 @@ El proyecto comenzó el 22 de agosto de 2026 y se entrega el 11 de noviembre de 
 | Sprint 0 | 22 ago. al 5 sep. | Definición del proyecto, objetivos, stack tecnológico, arquitectura y repositorio.                         | Terminado  |
 | Sprint 1 | 6 sep. al 17 oct. | Requerimientos, flujos UI/UX y diseño del modelo de datos, a ritmo reducido por la práctica profesional.   | Terminado  |
 | Sprint 2 | 18 al 31 oct.    | Identidad y seguridad: esquema de la base de datos, autenticación, solicitudes de acceso, bitácora y vistas web y móvil. | Terminado  |
-| Sprint 3 | 1 al 4 nov.      | Comunidad e integración: comunidades, unidades y residentes, y conexión de las vistas con la API.           | Backend terminado; falta conectar las vistas |
-| Sprint 4 | 5 al 8 nov.      | Finanzas y convivencia: cobros, morosidad, Muro Vecinal y Marketplace.                                      | En curso   |
-| Sprint 5 | 9 al 11 nov.     | Reservas y accesos con código QR, Docker, despliegue y pruebas finales.                                     | Pendiente  |
+| Sprint 3 | 1 al 4 nov.      | Comunidad e integración: comunidades, unidades y residentes, y conexión de las vistas con la API.           | Terminado  |
+| Sprint 4 | 5 al 8 nov.      | Finanzas y convivencia: cobros, morosidad, Muro Vecinal y Marketplace.                                      | Terminado  |
+| Sprint 5 | 9 al 11 nov.     | Reservas y accesos con código QR, Docker, despliegue y pruebas finales.                                     | Terminado, salvo el despliegue en la nube (Fase 3) |
 
 Los documentos de la metodología están en la carpeta `FASE-2/Evidencias-Proyecto/Documentación/`: [Product Vision](FASE-2/Evidencias-Proyecto/Documentación/01-product-vision.md), [Product Backlog](FASE-2/Evidencias-Proyecto/Documentación/02-product-backlog.md), [Sprint Backlog](FASE-2/Evidencias-Proyecto/Documentación/03-sprint-backlog.md), [Definition of Done](FASE-2/Evidencias-Proyecto/Documentación/04-definition-of-done.md) y [Retrospectivas](FASE-2/Evidencias-Proyecto/Documentación/05-retrospectivas.md).
 
