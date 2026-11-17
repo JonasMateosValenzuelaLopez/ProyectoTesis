@@ -3,8 +3,9 @@
 ## 1. Requisitos
 | Componente | Versión |
 |---|---|
-| Node.js | 22.13 o superior, o 24.3 o superior |
-| MariaDB | 10.10 o superior (Laragon la incluye) |
+| Docker Desktop | Con Docker Compose v2 (para levantar todo con Docker) |
+| Node.js | 22.13 o superior, o 24.3 o superior (sin Docker) |
+| MariaDB | 10.10 o superior, por ejemplo la de Laragon (sin Docker) |
 | Expo Go | Compatible con Expo SDK 58 |
 
 ## 2. Instalación
@@ -13,7 +14,9 @@ git clone https://github.com/JonasMateosValenzuelaLopez/ProyectoTesis.git
 cd ProyectoTesis/FASE-2/Evidencias-Proyecto/Sistema
 ```
 
-**Base de datos.** MariaDB debe trabajar en UTC, porque las fechas con hora se guardan en UTC y los `DEFAULT current_timestamp()` usan la zona de la sesión. En Laragon se agrega `default-time-zone='+00:00'` bajo `[mysqld]` en `my.ini` (menú MySQL → my.ini) y se reinicia MariaDB. Al arrancar, la API comprueba la zona de la sesión y se detiene si no es UTC. Con MariaDB encendido, ejecutar `bd/entrecasas_db.sql` en HeidiSQL (Archivo → Ejecutar archivo SQL, UTF-8). El script borra y recrea `entrecasas_db`, y deja las 39 tablas con los roles y módulos.
+El sistema se puede levantar completo con Docker (sección 5) o instalando cada parte en el equipo, como se describe a continuación.
+
+**Base de datos.** MariaDB debe trabajar en UTC, porque las fechas con hora se guardan en UTC y los `DEFAULT current_timestamp()` usan la zona de la sesión. En Laragon se agrega `default-time-zone='+00:00'` bajo `[mysqld]` en `my.ini` (menú MySQL → my.ini) y se reinicia MariaDB. Al arrancar, la API comprueba la zona de la sesión y se detiene si no es UTC. Con MariaDB encendido, ejecutar `bd/entrecasas_db.sql` en HeidiSQL (Archivo → Ejecutar archivo SQL, UTF-8). El script borra y recrea `entrecasas_db`, y deja las 40 tablas con los roles y módulos.
 
 **Backend.**
 ```bash
@@ -77,16 +80,34 @@ Estos pasos aún no se han ejecutado.
 4. Publicar `frontend/web-admin` en Vercel con `npm run build`.
 5. Poner el dominio del panel en `CORS_ORIGINS` y `FRONTEND_URL`.
 
-## 5. Docker (pendiente)
-El repositorio incluye `backend/Dockerfile` y `docker-compose.yml`, pero aún no se usan. Se implementan al cierre del proyecto con estos ajustes:
+## 5. Docker
+`Sistema/docker-compose.yml` levanta los cuatro servicios del sistema:
 
-1. Cambiar la imagen a `node:24-alpine`.
-2. Agregar `JWT_SECRET` y `FRONTEND_URL` al compose.
-3. Montar `bd/entrecasas_db.sql` en `/docker-entrypoint-initdb.d`.
-4. Agregar un `healthcheck` a MariaDB.
-5. Iniciar MariaDB en UTC con `command: --default-time-zone=+00:00`.
+| Servicio | Imagen | Puerto en el equipo | Descripción |
+|---|---|---|---|
+| `db-entrecasas` | `mariadb:11.4` | 3307 | Base de datos; se crea con `bd/entrecasas_db.sql` |
+| `api-entrecasas` | `backend/Dockerfile` (`node:24-alpine`) | 3000 | API NestJS en modo desarrollo |
+| `web-admin` | `frontend/web-admin/Dockerfile` (`node:24-alpine`) | 5173 | Panel web con Vite |
+| `mobile-residentes` | `frontend/mobile-residentes/Dockerfile` (`node:24-slim`) | 8081 | Servidor de Expo para la app móvil |
 
-Una vez ajustado, el sistema se levantará con `docker compose up --build`.
+**Preparación.** Desde `Sistema`, crear tres archivos `.env` a partir de sus ejemplos:
+
+1. `backend/.env` desde `backend/.env.example`, completando `JWT_SECRET`. Las variables `DB_*` no hace falta cambiarlas: el compose las reemplaza para conectarse al contenedor de MariaDB.
+2. `frontend/mobile-residentes/.env` desde su `.env.example`, con `EXPO_PUBLIC_API_URL=http://<IP del equipo>:3000`.
+3. `.env` desde `.env.example`, con `EXPO_HOST=<IP del equipo>`, para que Expo Go encuentre el servidor desde el celular.
+
+La IP del equipo es la que alcanza el celular, por ejemplo la de Tailscale. Sin `EXPO_HOST` el compose se detiene con un aviso.
+
+**Ejecución.**
+```bash
+docker compose up --build
+```
+
+El compose espera a que MariaDB responda (`healthcheck`) antes de iniciar la API. El código de cada parte se monta como volumen, así que los cambios se recargan sin reconstruir la imagen. Para ver el código QR de Expo se usa `docker compose logs -f mobile-residentes` o `docker attach` sobre ese contenedor.
+
+**Base de datos.** El script `bd/entrecasas_db.sql` solo se ejecuta cuando el volumen `mariadb_data` está vacío, es decir, la primera vez. Para recrear la base después de cambiar el script se usa `docker compose down -v` y luego `docker compose up`, lo que borra todos los datos. El contenedor de MariaDB trabaja en UTC por defecto, que es lo que exige la API. Desde el equipo se puede conectar HeidiSQL a `127.0.0.1:3307` con el usuario `root` y la contraseña `root`.
+
+**Pruebas contra el contenedor.** Las pruebas de integración se ejecutan desde el equipo, no dentro del contenedor. Para usar la MariaDB de Docker basta con poner `DB_PORT=3307` y `DB_PASSWORD=root` en `backend/.env`; el compose sigue usando sus propios valores.
 
 ## 6. Problemas frecuentes
 | Problema | Causa | Solución |
@@ -97,3 +118,5 @@ Una vez ajustado, el sistema se levantará con `docker compose up --build`.
 | No llegan correos | `SMTP_HOST` vacío | En desarrollo se imprimen en la consola |
 | `Must use import to load ES Module` | Se ejecutó Jest directamente | Usar `npm test` |
 | Respuesta 429 | Límite de peticiones alcanzado | Esperar el tiempo indicado |
+| Con Docker, la base no refleja los cambios de `bd/entrecasas_db.sql` | El script solo corre con el volumen vacío | `docker compose down -v` y volver a levantar |
+| Con Docker, Expo Go no se conecta | `EXPO_HOST` o `EXPO_PUBLIC_API_URL` no usan la IP que alcanza el celular | Corregir la IP en `Sistema/.env` y en `frontend/mobile-residentes/.env` |

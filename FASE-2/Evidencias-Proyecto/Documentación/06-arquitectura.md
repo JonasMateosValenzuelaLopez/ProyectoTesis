@@ -21,7 +21,7 @@ EntreCasas usa una arquitectura en capas, con un backend modular único que expo
 | `unidades` | Lista con ocupantes, creación en lote y corrección de número | Implementado |
 | `residentes` | Padrón, invitaciones, cargos, desactivación y reactivación | Implementado |
 | `usuarios` | Cuentas, membresías y residencias compartidas por los demás módulos | Implementado |
-| `comunidad` | Guía de bienvenida y contactos de la comunidad | Implementado |
+| `comunidad` | Datos de la comunidad (cuenta de transferencias y umbral de visado), guía de bienvenida, contactos y módulos de la Administración | Implementado |
 | `hogar` | Fichas de Mi hogar y su mantención | Implementado |
 | `finanzas` | Categorías, cobros, pagos, avisos, morosidad, egresos, exenciones y reportes | Implementado |
 | `muro` | Publicaciones de vecinos, comunicados y normas con aprobación, reportes y moderación | Implementado |
@@ -30,9 +30,10 @@ EntreCasas usa una arquitectura en capas, con un backend modular único que expo
 | `roles` | Valida al iniciar que los cargos coincidan con la base de datos | Implementado |
 | `common` | Guards, filtro de errores, pipes, validadores y utilidades | Implementado |
 | `reservas` | Espacios comunes con sus horarios, reservas, cancelaciones y entrega y recepción en conserjería | Implementado |
-| `redes-vecinales` | Datos de la comunidad: cuenta de transferencia y umbral de visado | Plantilla por implementar |
+| `redes-vecinales` | Entidades de comunidad y módulos, y el cambio de módulos compartido por Plataforma y la Administración | Implementado |
 | `votaciones` | Votaciones y encuestas con un voto por vivienda, y libro de actas | Implementado |
-| Marketplace, invitaciones QR | App móvil y conserjería | Por implementar |
+| `marketplace` | Avisos, solicitudes de contacto, edición, cierre y moderación | Implementado |
+| `accesos` | Invitaciones QR, garita de conserjería, autorizaciones y conservación de datos de visitantes (Ley 21.719) | Implementado |
 
 ## Decisiones
 - **Multi-comunidad:** cada petición indica su comunidad con el header `X-Red-Id`. El JWT solo lleva el usuario, y los cargos se consultan en cada petición para que los cambios apliquen al instante.
@@ -44,4 +45,4 @@ EntreCasas usa una arquitectura en capas, con un backend modular único que expo
 - **Listas paginadas por cursor:** las listas largas, como la bitácora y el muro, reciben `antesDe` y `limite` y devuelven `siguiente`.
 
 ## Estado de la integración
-La API y la base de datos ya están conectadas. El panel web y la app móvil aún usan datos de prueba; su conexión a la API está pendiente.
+La API, la base de datos, el panel web y la app móvil están conectados. Quedan por conectar en el panel las pantallas Personas (Plataforma) y Módulos (Administración), cuyos endpoints ya existen. El sistema completo (base de datos, API, panel web y servidor de Expo) se levanta con Docker Compose; el despliegue en la nube se completa en la Fase 3.

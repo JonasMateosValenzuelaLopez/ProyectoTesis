@@ -37,16 +37,16 @@ Los Sprints 0 a 2 se reconstruyeron desde el historial de git, la Guía 2.4 y lo
 | Tarea | Responsable | Estado |
 |---|---|---|
 | Mejorar las transiciones y la UI/UX del panel y la app | Jonas | Terminada |
-| Crear la primera cuenta de Plataforma para poder entrar | Camila | Pendiente |
+| Crear la primera cuenta de Plataforma para poder entrar | Camila | Terminada |
 | Implementar el panel de Plataforma: comunidades, módulos, tipo, alta y bitácora | Camila | Terminada |
 | Implementar unidades y residentes | Camila | Terminada |
 | Implementar asignación de cargos | Camila | Terminada |
 | Implementar Mi hogar, la guía de bienvenida y los contactos de la comunidad | Camila | Terminada |
 | Implementar la bitácora de la comunidad para la Presidencia | Camila | Terminada |
 | Definir el formato de errores de la API | Equipo | Terminada |
-| Crear el cliente HTTP con token, `X-Red-Id` y manejo de errores | Jonas | Pendiente |
-| Conectar el login web y móvil | Jonas | Pendiente |
-| Conectar las vistas de comunidad | Jonas | Pendiente |
+| Crear el cliente HTTP con token, `X-Red-Id` y manejo de errores | Jonas | Terminada |
+| Conectar el login web y móvil | Jonas | Terminada |
+| Conectar las vistas de comunidad | Jonas | Terminada |
 
 ## Sprint 4: Finanzas y convivencia (5 al 8 nov.)
 **Objetivo:** operar cobros y comunicación con datos reales.
@@ -57,8 +57,8 @@ Los Sprints 0 a 2 se reconstruyeron desde el historial de git, la Guía 2.4 y lo
 | Implementar categorías, cobros, pagos, avisos y morosidad | Camila | Terminada |
 | Implementar egresos con visado, exenciones y reportes | Camila | Terminada |
 | Implementar el muro, los comunicados con aprobación y la moderación | Camila | Terminada |
-| Implementar el marketplace | Camila | Pendiente |
-| Conectar las vistas correspondientes | Jonas | Pendiente |
+| Implementar el marketplace | Camila | Terminada |
+| Conectar las vistas correspondientes | Jonas | Terminada |
 
 ## Sprint 5: Accesos y cierre (9 al 11 nov.)
 **Objetivo:** completar accesos y dejar el sistema listo para la entrega.
@@ -68,7 +68,8 @@ Los Sprints 0 a 2 se reconstruyeron desde el historial de git, la Guía 2.4 y lo
 |---|---|---|
 | Implementar espacios comunes y reservas, con entrega y recepción en conserjería | Camila | Terminada |
 | Implementar votaciones, encuestas y actas, con titular por vivienda | Camila | Terminada |
-| Implementar invitaciones QR y conserjería | Camila | Pendiente |
-| Conectar las vistas correspondientes | Jonas | Pendiente |
-| Ajustar Docker y levantar el sistema | Equipo | Pendiente |
-| Desplegar y ejecutar las pruebas finales | Equipo | Pendiente |
+| Implementar invitaciones QR y conserjería | Camila | Terminada |
+| Conectar las vistas correspondientes | Jonas | Terminada |
+| Ajustar Docker y levantar el sistema | Equipo | Terminada |
+| Ejecutar las pruebas de integración, seguridad y rendimiento | Equipo | Terminada |
+| Desplegar en la nube | Equipo | Pendiente (Fase 3) |
