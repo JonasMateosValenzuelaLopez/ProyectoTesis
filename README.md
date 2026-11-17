@@ -2,9 +2,11 @@
 
 Tu comunidad en tu bolsillo.
 
-# Link de descarga app vecinal: https://expo.dev/accounts/entrecasas/projects/entrecasas-residentes/builds/792a4c26-92a6-437d-8d2d-f872e46315c9https://expo.dev/accounts/entrecasas/projects/entrecasas-residentes/builds/792a4c26-92a6-437d-8d2d-f872e46315c9
+## Acceso
 
-# Url panel web: https://entrecasas-admin.pages.dev/login
+- Panel web administrativo: https://entrecasas-admin.pages.dev/login
+- App de residentes para Android (APK): [enlace de descarga](https://expo.dev/accounts/entrecasas/projects/entrecasas-residentes/builds/792a4c26-92a6-437d-8d2d-f872e46315c9)
+- API: https://3-148-78-103.sslip.io
 
 ## Descripción
 
@@ -13,7 +15,7 @@ Tu comunidad en tu bolsillo.
 El ecosistema articula la gestión operativa, financiera y social mediante dos interfaces principales:
 
 1. Panel web administrativo: diseñado para el comité de administración y la conserjería, orientado a la gestión de comunidades, unidades y residentes, el cobro de gastos comunes, el control de morosidad y el monitoreo de accesos.
-2. Aplicación móvil para residentes: diseñada para el uso diario de los vecinos, permite ver los comunicados del Muro Vecinal, participar en el Marketplace comunitario, gestionar el perfil y reservar espacios comunes.
+2. Aplicación móvil para residentes: diseñada para el uso diario de los vecinos, permite ver los comunicados del Muro Vecinal, revisar sus cobros y avisar transferencias, reservar espacios comunes, invitar visitas con código QR, votar, leer las actas, participar en el Marketplace comunitario y gestionar su perfil.
 
 La plataforma no procesa pagos: el Tesorero o el Administrador crean los cobros y marcan manualmente quién pagó, y el residente solo puede avisar que ya transfirió.
 
@@ -21,17 +23,20 @@ La plataforma no procesa pagos: el Tesorero o el Administrador crean los cobros 
 
 - Frontend web: React 19, Material UI (MUI), React Router, Vite.
 - Frontend móvil: React Native, Expo, Expo Router, TypeScript.
-- Backend: NestJS 12 (Node.js, TypeScript), TypeORM, JWT con Passport, bcrypt, Nodemailer, Jest.
+- Backend: NestJS 12 (Node.js, TypeScript), TypeORM, JWT con Passport, bcryptjs, Nodemailer, Jest.
 - Base de datos: MariaDB, administrada con Laragon y HeidiSQL, o en un contenedor de Docker.
-- Infraestructura y herramientas: Git y GitHub (control de versiones), Docker y Docker Compose (contenerización de la base de datos, la API, el panel web y la app móvil). Planificado: Vercel/Render (despliegue en la nube).
+- Infraestructura y herramientas: Git y GitHub (control de versiones), Docker y Docker Compose (contenerización de la base de datos, la API, el panel web y la app móvil), Caddy (HTTPS de la API en producción), Cloudflare Pages (publicación del panel web) y EAS Build (generación del APK).
 
 ## Estructura del repositorio
 
 ```text
 FASE 1/, FASE-2/, FASE-3/         Evidencias académicas de cada fase
+FASE-2/Evidencias-Proyecto/Documentación/   Documentación técnica y de la metodología
 FASE-2/Evidencias-Proyecto/Sistema/
 ├── backend/                      API NestJS
 ├── bd/entrecasas_db.sql          Script que crea la base de datos
+├── docker-compose.yml            Sistema completo para desarrollo
+├── docker-compose.prod.yml       API y base de datos en producción, con Caddy
 └── frontend/
     ├── web-admin/                Panel web administrativo
     └── mobile-residentes/        Aplicación móvil para residentes
@@ -51,9 +56,9 @@ FASE-2/Evidencias-Proyecto/Sistema/
   - Transversal: bitácora de auditoría y un formato único de errores.
 - Base de datos: esquema completo de 40 tablas y 96 llaves foráneas.
 - Pruebas: 1863 pruebas unitarias con 91 % de cobertura de sentencias, y pruebas de integración, seguridad y rendimiento contra MariaDB real, todas aprobadas.
-- Panel web y aplicación móvil: conectados a la API. Quedan por conectar en el panel las pantallas Personas (Plataforma) y Módulos (Administración), cuyos endpoints ya existen.
+- Panel web y aplicación móvil: conectados a la API en todas sus pantallas.
 - Docker: `docker compose up --build` levanta la base de datos, la API, el panel web y el servidor de Expo.
-- Pendiente para la Fase 3: despliegue en la nube.
+- Despliegue en la nube: la API y MariaDB corren en un servidor con Docker Compose y Caddy, el panel web está publicado en Cloudflare Pages y la app se instala en Android con un APK generado con EAS Build. El detalle está en el [Manual técnico](FASE-2/Evidencias-Proyecto/Documentación/11-manual-tecnico.md).
 
 ## Ejecución con Docker
 
@@ -97,8 +102,10 @@ La API queda en http://localhost:3000, el panel en http://localhost:5173, Expo e
    ```bash
    cd frontend/mobile-residentes
    npm install
+   cp .env.example .env
    npx expo start -c
    ```
+   En `.env`, `EXPO_PUBLIC_API_URL` debe tener la IP del equipo que ejecuta la API, porque en el celular `localhost` no sirve.
 
 ### Otros comandos del backend
 
@@ -132,7 +139,7 @@ El proyecto comenzó el 22 de agosto de 2026 y se entrega el 11 de noviembre de 
 | Sprint 2 | 18 al 31 oct.     | Identidad y seguridad: esquema de la base de datos, autenticación, solicitudes de acceso, bitácora y vistas web y móvil. | Terminado                                          |
 | Sprint 3 | 1 al 4 nov.       | Comunidad e integración: comunidades, unidades y residentes, y conexión de las vistas con la API.                        | Terminado                                          |
 | Sprint 4 | 5 al 8 nov.       | Finanzas y convivencia: cobros, morosidad, Muro Vecinal y Marketplace.                                                   | Terminado                                          |
-| Sprint 5 | 9 al 11 nov.      | Reservas y accesos con código QR, Docker, despliegue y pruebas finales.                                                  | Terminado, salvo el despliegue en la nube (Fase 3) |
+| Sprint 5 | 9 al 11 nov.      | Reservas y accesos con código QR, Docker, despliegue y pruebas finales.                                                  | Terminado; el despliegue en la nube se completó el 17 nov. |
 
 Los documentos de la metodología están en la carpeta `FASE-2/Evidencias-Proyecto/Documentación/`: [Product Vision](FASE-2/Evidencias-Proyecto/Documentación/01-product-vision.md), [Product Backlog](FASE-2/Evidencias-Proyecto/Documentación/02-product-backlog.md), [Sprint Backlog](FASE-2/Evidencias-Proyecto/Documentación/03-sprint-backlog.md), [Definition of Done](FASE-2/Evidencias-Proyecto/Documentación/04-definition-of-done.md) y [Retrospectivas](FASE-2/Evidencias-Proyecto/Documentación/05-retrospectivas.md).
 
