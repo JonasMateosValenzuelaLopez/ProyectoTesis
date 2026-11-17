@@ -72,4 +72,4 @@ Los Sprints 0 a 2 se reconstruyeron desde el historial de git, la Guía 2.4 y lo
 | Conectar las vistas correspondientes | Jonas | Terminada |
 | Ajustar Docker y levantar el sistema | Equipo | Terminada |
 | Ejecutar las pruebas de integración, seguridad y rendimiento | Equipo | Terminada |
-| Desplegar en la nube | Equipo | Pendiente (Fase 3) |
+| Desplegar en la nube: API con Docker Compose y Caddy, panel en Cloudflare Pages y APK con EAS Build | Equipo | Terminada (17 nov.) |

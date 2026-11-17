@@ -45,4 +45,4 @@ EntreCasas usa una arquitectura en capas, con un backend modular único que expo
 - **Listas paginadas por cursor:** las listas largas, como la bitácora y el muro, reciben `antesDe` y `limite` y devuelven `siguiente`.
 
 ## Estado de la integración
-La API, la base de datos, el panel web y la app móvil están conectados. Quedan por conectar en el panel las pantallas Personas (Plataforma) y Módulos (Administración), cuyos endpoints ya existen. El sistema completo (base de datos, API, panel web y servidor de Expo) se levanta con Docker Compose; el despliegue en la nube se completa en la Fase 3.
+La API, la base de datos, el panel web y la app móvil están conectados y desplegados. La API y MariaDB corren en un servidor en la nube con Docker Compose, detrás de Caddy, que entrega HTTPS; el panel web está publicado en Cloudflare Pages, y la app de residentes se instala en Android como un APK generado con EAS Build. Para desarrollo, el sistema completo (base de datos, API, panel web y servidor de Expo) se levanta con Docker Compose. El detalle está en el [Manual técnico](11-manual-tecnico.md).

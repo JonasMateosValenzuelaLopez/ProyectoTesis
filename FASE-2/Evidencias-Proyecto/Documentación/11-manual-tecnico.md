@@ -71,14 +71,44 @@ npx expo start -c
 | `SOLICITUD_INVALIDA` | Otros 4xx | La petición no se puede procesar |
 | `ERROR_INTERNO` | 5xx | Error del servidor; `idSolicitud` permite encontrarlo en el log |
 
-## 4. Despliegue (planificado)
-Estos pasos aún no se han ejecutado.
+## 4. Despliegue
+La plataforma está desplegada en tres partes:
 
-1. Crear una base MariaDB administrada, con proveedor por definir, configurada con `time_zone = '+00:00'`, y ejecutar `bd/entrecasas_db.sql`.
-2. Publicar la API en Render con `npm run build` y `npm run start:prod`.
-3. Configurar `NODE_ENV=production`, las variables anteriores, SMTP y `TRUST_PROXY=1`.
-4. Publicar `frontend/web-admin` en Vercel con `npm run build`.
-5. Poner el dominio del panel en `CORS_ORIGINS` y `FRONTEND_URL`.
+| Parte | Dónde | Dirección |
+|---|---|---|
+| API y base de datos | Servidor en la nube con Docker Compose y Caddy | https://3-148-78-103.sslip.io |
+| Panel web | Cloudflare Pages | https://entrecasas-admin.pages.dev |
+| App de residentes | APK de Android generado con EAS Build | [Enlace de descarga](https://expo.dev/accounts/entrecasas/projects/entrecasas-residentes/builds/792a4c26-92a6-437d-8d2d-f872e46315c9) |
+
+### 4.1 API y base de datos
+`Sistema/docker-compose.prod.yml` levanta tres servicios:
+
+| Servicio | Imagen | Descripción |
+|---|---|---|
+| `db-entrecasas` | `mariadb:11.4` | Base de datos con el usuario `entrecasas`; se crea con `bd/entrecasas_db.sql` la primera vez. No expone puertos fuera del servidor |
+| `api-entrecasas` | `backend/Dockerfile.prod` (`node:24-alpine`, en dos etapas) | API compilada, con `NODE_ENV=production` y `TRUST_PROXY=1` |
+| `caddy` | `caddy:2.10-alpine` | Proxy inverso en los puertos 80 y 443; obtiene y renueva el certificado HTTPS de `API_DOMAIN` |
+
+Pasos en el servidor, desde `Sistema`:
+
+1. Crear `backend/.env` desde `backend/.env.example`, con `JWT_SECRET`, las variables SMTP y el dominio del panel en `FRONTEND_URL` y `CORS_ORIGINS`.
+2. Crear `.env` desde `.env.example`, con `API_DOMAIN` (el dominio de la API) y `DB_PASSWORD`. Sin ellas, el compose se detiene con un aviso.
+3. Abrir los puertos 80 y 443 del servidor.
+4. Ejecutar `docker compose -f docker-compose.prod.yml up -d --build`.
+
+El dominio actual usa sslip.io, un servicio que resuelve un nombre como `3-148-78-103.sslip.io` a la IP del servidor, así Caddy puede emitir el certificado sin comprar un dominio.
+
+### 4.2 Panel web
+`frontend/web-admin` se publica en Cloudflare Pages con `npm run build`, que genera la carpeta `dist`. La variable `VITE_API_URL` debe apuntar a la API desplegada, porque se fija al compilar.
+
+### 4.3 App de residentes
+`frontend/mobile-residentes/eas.json` define el perfil `preview`, que genera un APK de distribución interna con `EXPO_PUBLIC_API_URL` apuntando a la API desplegada:
+
+```bash
+npx eas build -p android --profile preview
+```
+
+Al terminar, EAS entrega el enlace de descarga del APK. La app aún no está publicada en Google Play ni en App Store.
 
 ## 5. Docker
 `Sistema/docker-compose.yml` levanta los cuatro servicios del sistema:

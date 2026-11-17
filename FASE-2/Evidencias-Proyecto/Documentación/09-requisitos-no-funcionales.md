@@ -5,7 +5,7 @@
 ## Rendimiento
 | ID | Requisito | Estado |
 |---|---|---|
-| RNF-01 | El 95 % de las respuestas de la API toma menos de 2 segundos con 50 usuarios concurrentes | Objetivo |
+| RNF-01 | El 95 % de las respuestas de la API toma menos de 2 segundos con 50 usuarios concurrentes | Implementado: p95 de 601 ms en las pruebas de rendimiento (CP-R01) |
 | RNF-02 | El panel web carga en menos de 3 segundos en una conexión de 10 Mbps | Objetivo |
 
 ## Seguridad
@@ -18,7 +18,7 @@
 | RNF-07 | Toda entrada se valida con DTO y las consultas usan parámetros | Implementado |
 | RNF-08 | Cada consulta se filtra por la comunidad del contexto | Implementado en los módulos actuales |
 | RNF-09 | Las respuestas no revelan si una cuenta existe | Implementado |
-| RNF-10 | El sistema se expone solo por HTTPS en producción | Objetivo |
+| RNF-10 | El sistema se expone solo por HTTPS en producción | Implementado: Caddy en la API y Cloudflare Pages en el panel |
 
 ## Disponibilidad
 | ID | Requisito | Estado |
@@ -36,6 +36,6 @@
 ## Mantenibilidad y trazabilidad
 | ID | Requisito | Estado |
 |---|---|---|
-| RNF-16 | Cobertura de pruebas unitarias del backend de al menos 70 % de sentencias | Implementado: 89,17 % |
+| RNF-16 | Cobertura de pruebas unitarias del backend de al menos 70 % de sentencias | Implementado: 91,42 % |
 | RNF-17 | Toda acción que cambie datos queda en la bitácora | Implementado en los módulos actuales |
 | RNF-18 | Las tablas registran fechas de creación, actualización y eliminación | Implementado |

@@ -1,6 +1,6 @@
 # Product Backlog
 
-Estado al 16 de noviembre de 2026. "Terminada" significa que la API está implementada y conectada al panel web o a la app móvil.
+Estado al 17 de noviembre de 2026. "Terminada" significa que la API está implementada y conectada al panel web o a la app móvil.
 
 | ID | Historia de usuario | Prioridad | Sprint | Criterios de aceptación | Estado |
 |---|---|---|---|---|---|
@@ -30,4 +30,4 @@ Estado al 16 de noviembre de 2026. "Terminada" significa que la API está implem
 | HU-24 | Como residente quiero invitar visitas con QR para agilizar su ingreso | Media | 5 | El código identifica una invitación vigente | Terminada |
 | HU-25 | Como Conserje quiero validar visitas para controlar el acceso | Media | 5 | El ingreso queda en el registro de accesos | Terminada |
 | HU-26 | Como equipo quiero contenerizar el sistema para instalarlo de forma consistente | Media | 5 | La BD, la API, el panel web y la app móvil se levantan con Docker Compose | Terminada |
-| HU-27 | Como equipo quiero desplegar el sistema para usarlo en la nube | Media | 5 | Panel y API accesibles por una URL pública | Pendiente (Fase 3) |
+| HU-27 | Como equipo quiero desplegar el sistema para usarlo en la nube | Media | 5 | Panel y API accesibles por una URL pública | Terminada |

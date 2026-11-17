@@ -7,7 +7,7 @@ Verificar que la API de EntreCasas cumple sus reglas de negocio, que protege los
 | Incluido | Excluido |
 |---|---|
 | API REST (NestJS) y su integración con MariaDB | Pruebas automatizadas de interfaz del panel web y de la app móvil (se prueban de forma manual, ver tipo «Sistema») |
-| Autenticación, autorización por cargo y por comunidad, validación de entradas | Pruebas de carga sobre la infraestructura de producción (aún no desplegada) |
+| Autenticación, autorización por cargo y por comunidad, validación de entradas | Pruebas de carga sobre la infraestructura de producción (ya desplegada; las pruebas de rendimiento se ejecutaron en local) |
 | Rendimiento de la API con 50 usuarios concurrentes (RNF-01) | Envío real de correos (en pruebas el SMTP está apagado y los correos quedan en el registro) |
 
 ## 3. Tipos de prueba
@@ -143,7 +143,7 @@ RNF-01 se cumple en los escenarios de uso (CP-R01, CP-R02 y CP-R04).
 | Crear una comunidad con su responsable y activar módulos | Equipo EntreCasas | Por ejecutar |
 | Solicitar acceso desde la app y aprobarlo en el panel | Persona sin cuenta y Administración | Por ejecutar |
 | Iniciar sesión en el panel y en la app con contraseña | Todos | Por ejecutar |
-| Bloquear, desbloquear y reenviar el acceso a una persona | Equipo EntreCasas | Por ejecutar (requiere la pantalla Personas del panel) |
+| Bloquear, desbloquear y reenviar el acceso a una persona | Equipo EntreCasas | Por ejecutar |
 | Crear un cobro, avisar la transferencia y marcar el pago | Tesorería y Residente | Por ejecutar |
 | Reservar, entregar y recibir un espacio común | Residente y Conserjería | Por ejecutar |
 | Invitar una visita con QR y validarla en la garita | Residente y Conserjería | Por ejecutar |
