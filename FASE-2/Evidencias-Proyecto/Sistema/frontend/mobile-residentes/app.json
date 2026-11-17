@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "cl.entrecasas.residentes",
       "adaptiveIcon": {
         "backgroundColor": "#2643C4",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -38,6 +39,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "00609a8c-f107-4c1d-807b-1384e6fb0af4"
+      }
     }
   }
 }
