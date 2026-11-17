@@ -1,0 +1,56 @@
+services:
+  api-entrecasas:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    env_file:
+      - ./backend/.env
+    environment:
+      - NODE_ENV=production
+      - TRUST_PROXY=1
+      - DB_HOST=db-entrecasas
+      - DB_PORT=3306
+      - DB_USER=entrecasas
+      - DB_PASSWORD=${DB_PASSWORD:?Falta DB_PASSWORD en Sistema/.env}
+      - DB_NAME=entrecasas_db
+    depends_on:
+      db-entrecasas:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db-entrecasas:
+    image: mariadb:11.4
+    environment:
+      - MARIADB_RANDOM_ROOT_PASSWORD=1
+      - MARIADB_DATABASE=entrecasas_db
+      - MARIADB_USER=entrecasas
+      - MARIADB_PASSWORD=${DB_PASSWORD:?Falta DB_PASSWORD en Sistema/.env}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./bd/entrecasas_db.sql:/docker-entrypoint-initdb.d/01-entrecasas_db.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2.10-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - API_DOMAIN=${API_DOMAIN:?Falta API_DOMAIN en Sistema/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-entrecasas
+    restart: unless-stopped
+
+volumes:
+  mariadb_data:
+  caddy_data:
+  caddy_config:

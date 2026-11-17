@@ -1,33 +1,69 @@
-version: '3.8'
-
 services:
   api-entrecasas:
     build:
       context: ./backend
-      dockerfile: Dockerfile
     ports:
       - "3000:3000"
-    volumes:
-      - ./backend:/usr/src/app
-      - /usr/src/app/node_modules
+    env_file:
+      - ./backend/.env
     environment:
       - DB_HOST=db-entrecasas
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=root
       - DB_NAME=entrecasas_db
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
     depends_on:
-      - db-entrecasas
+      db-entrecasas:
+        condition: service_healthy
 
   db-entrecasas:
-    image: mariadb:10.11
+    image: mariadb:11.4
     ports:
-      - "3307:3306" # Expone la DB en el 3307 de tu PC para no chocar con Laragon
+      - "3307:3306"
     environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=entrecasas_db
+      - MARIADB_ROOT_PASSWORD=root
     volumes:
       - mariadb_data:/var/lib/mysql
+      - ./bd/entrecasas_db.sql:/docker-entrypoint-initdb.d/01-entrecasas_db.sql:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web-admin:
+    build:
+      context: ./frontend/web-admin
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    volumes:
+      - ./frontend/web-admin:/usr/src/app
+      - /usr/src/app/node_modules
+    depends_on:
+      - api-entrecasas
+
+  mobile-residentes:
+    build:
+      context: ./frontend/mobile-residentes
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./frontend/mobile-residentes/.env
+    environment:
+      - REACT_NATIVE_PACKAGER_HOSTNAME=${EXPO_HOST:?Falta EXPO_HOST en Sistema/.env}
+    volumes:
+      - ./frontend/mobile-residentes:/usr/src/app
+      - /usr/src/app/node_modules
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+    depends_on:
+      - api-entrecasas
 
 volumes:
   mariadb_data:
